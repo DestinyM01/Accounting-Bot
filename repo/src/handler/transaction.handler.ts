@@ -174,8 +174,8 @@ export class TransactionHandler {
       }
       this.logger.log(`user:${ctx.from.id} textCommand executed`);
     }
-
-    delete ctx.session.type;
+    // Do NOT delete ctx.session.type here — user can keep adding
+    // transactions of the same type until they press Back.
   }
 
   @Action(/cat_(.+)_(.+)/)
@@ -192,6 +192,12 @@ export class TransactionHandler {
     } else {
       await ctx.answerCbQuery();
     }
+  }
+
+  @Action('set_recurring')
+  async setRecurring(@Ctx() ctx: IContext & WizardContext) {
+    this.logger.log(`user:${ctx.from.id} entering set_recurring scene`);
+    await ctx.scene.enter('set_recurring');
   }
 
   @Action('backT')

@@ -1,19 +1,24 @@
 import { Markup } from 'telegraf';
 import { BUTTONS } from '../constants';
 
-export function actionButtonsStart(language: string = 'ua', isPremium: boolean = false) {
+export function actionButtonsStart(language: string = 'en', isPremium: boolean = false) {
+  const lang = language || 'en';
   const baseButtons = [
     [
-      Markup.button.callback(BUTTONS[language].TRANSACTIONS, 'transactions'),
-      Markup.button.callback(BUTTONS[language].STATISTICS, 'statistics'),
+      Markup.button.callback(BUTTONS[lang].TRANSACTIONS, 'transactions'),
+      Markup.button.callback(BUTTONS[lang].STATISTICS, 'statistics'),
     ],
     [
-      Markup.button.callback(BUTTONS[language].SETTING, 'settings'),
-      Markup.button.callback(BUTTONS[language].INFO, 'info'),
+      Markup.button.callback(BUTTONS[lang].BUDGETS, 'budgets'),
+      Markup.button.callback(BUTTONS[lang].EXPORT, 'export'),
+    ],
+    [
+      Markup.button.callback(BUTTONS[lang].SETTING, 'settings'),
+      Markup.button.callback(BUTTONS[lang].INFO, 'info'),
     ],
   ];
   if (isPremium) {
-    baseButtons.push([Markup.button.callback(`${BUTTONS[language].PREMIUM_BUTTON}`, 'premiumMenu')]);
+    baseButtons.push([Markup.button.callback(`${BUTTONS[lang].PREMIUM_BUTTON}`, 'premiumMenu')]);
   }
   return Markup.inlineKeyboard(baseButtons);
 }

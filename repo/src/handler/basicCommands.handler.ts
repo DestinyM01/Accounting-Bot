@@ -49,7 +49,7 @@ export class BasicCommandsHandler {
       await this.balanceService.setStartPayload(ctx.from.id, startPayload.text);
     } catch (error) {
       this.logger.error('Error in startCommand:', error);
-      await ctx.reply(ERROR_MESSAGE[ctx.session.language || 'ua']);
+      await ctx.reply(ERROR_MESSAGE[ctx.session.language || 'en']);
     }
   }
   @Action(/^(USD|DOP|EUR|PLN|UAH)$/)
@@ -89,7 +89,7 @@ export class BasicCommandsHandler {
   async helpCommand(ctx: IContext) {
     const markup = backHelpButton(ctx.session.language);
     try {
-      await ctx.editMessageText(HELP_MESSAGE[ctx.session.language || 'ua'], {
+      await ctx.editMessageText(HELP_MESSAGE[ctx.session.language || 'en'], {
         reply_markup: markup.reply_markup,
         disable_web_page_preview: true,
         parse_mode: 'HTML',
@@ -97,7 +97,7 @@ export class BasicCommandsHandler {
       this.logger.log(`user:${ctx.from.id} helpCommand executed`);
     } catch (error) {
       this.logger.error(`user:${ctx.from.id} Error in helpCommand:`, error);
-      await ctx.reply(ERROR_MESSAGE[ctx.session.language || 'ua']);
+      await ctx.reply(ERROR_MESSAGE[ctx.session.language || 'en']);
       ctx.editedMessage;
     }
   }
@@ -125,25 +125,25 @@ export class BasicCommandsHandler {
       this.logger.log(`user:${ctx.from.id} languageCommand executed`);
     } catch (error) {
       this.logger.error(`user:${ctx.from.id} Error in languageCommand:`, error);
-      await ctx.reply(ERROR_MESSAGE[ctx.session.language || 'ua']);
+      await ctx.reply(ERROR_MESSAGE[ctx.session.language || 'en']);
     }
   }
   @Action('reset')
   async resetCommand(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} resetCommand executed`);
-    await ctx.editMessageText(RESETS_ALL[ctx.session.language || 'ua'].ARE_YOU_SURE, resetButton(ctx.session.language));
+    await ctx.editMessageText(RESETS_ALL[ctx.session.language || 'en'].ARE_YOU_SURE, resetButton(ctx.session.language));
   }
   @Action('yes')
   async yesCommand(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} yesCommand`);
-    await ctx.editMessageText(RESETS_ALL[ctx.session.language || 'ua'].CONFIRM_RESET);
+    await ctx.editMessageText(RESETS_ALL[ctx.session.language || 'en'].CONFIRM_RESET);
     ctx.session.type = 'delete';
   }
   @Action('no')
   async noCommand(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} noCommand`);
     await ctx.editMessageText(
-      RESETS_ALL[ctx.session.language || 'ua'].RESET_CANCELED,
+      RESETS_ALL[ctx.session.language || 'en'].RESET_CANCELED,
       actionButtonsStart(ctx.session.language, ctx.session.isPremium),
     );
     delete ctx.session.type;
@@ -157,11 +157,11 @@ export class BasicCommandsHandler {
     await ctx.deleteMessage();
     await this.balanceService.deleteAllBalancesOfUser(ctx.from.id);
     await this.transactionService.deleteAllTransactionsOfUser(ctx.from.id);
-    await ctx.reply(RESETS_ALL[ctx.session.language || 'ua'].RESET_SUCCESSFUL);
+    await ctx.reply(RESETS_ALL[ctx.session.language || 'en'].RESET_SUCCESSFUL);
     await this.balanceService.createBalance(ctx.from.id);
     const sendMessage = await ctx.replyWithHTML(
-      START_MESSAGE[ctx.session.language || 'ua']['WELCOME_MESSAGE'],
-      actionButtonsStart(ctx.session.language || 'ua', ctx.session.isPremium),
+      START_MESSAGE[ctx.session.language || 'en']['WELCOME_MESSAGE'],
+      actionButtonsStart(ctx.session.language || 'en', ctx.session.isPremium),
     );
     ctx.session.lastBotMessage = sendMessage.message_id;
 
@@ -172,7 +172,7 @@ export class BasicCommandsHandler {
   async getProjectSupport(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} getProjectSupport `);
     await ctx.telegram.sendMessage(process.env.BOSID, `user:${ctx.from.id} getProjectSupport`);
-    await ctx.editMessageText(SUPPORT_MESSAGE[ctx.session.language || 'ua'], {
+    await ctx.editMessageText(SUPPORT_MESSAGE[ctx.session.language || 'en'], {
       reply_markup: backStartButton(ctx.session.language).reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML',
@@ -196,8 +196,8 @@ export class BasicCommandsHandler {
     ctx.session.isPremium = await this.premiumService.getIsPremium(ctx.from.id);
     await resetSession(ctx);
     await ctx.editMessageText(
-      MAIN_MENU[ctx.session.language || 'ua'],
-      actionButtonsStart(ctx.session.language || 'ua', ctx.session.isPremium),
+      MAIN_MENU[ctx.session.language || 'en'],
+      actionButtonsStart(ctx.session.language || 'en', ctx.session.isPremium),
     );
   }
 }

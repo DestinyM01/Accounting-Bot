@@ -65,6 +65,9 @@ export const BUTTONS = {
     INFO: `Інформація ℹ️`,
     FIN: `Фінаносва грамотність`,
     SET_BALANCE: `Встановити Баланс💸`,
+    BUDGETS: `💰 Бюджети`,
+    EXPORT: `📥 Експорт CSV`,
+    RECURRING: `🔄 Повторювані`,
   },
   en: {
     SETTING: 'Settings⚙️',
@@ -132,6 +135,9 @@ export const BUTTONS = {
     INFO: `Information ℹ️`,
     FIN: `Financial literacy`,
     SET_BALANCE: `Set Balance💸`,
+    BUDGETS: `💰 Budgets`,
+    EXPORT: `📥 Export CSV`,
+    RECURRING: `🔄 Recurring`,
   },
   pl: {
     SETTING: 'Ustawienia⚙️',
@@ -199,5 +205,8 @@ export const BUTTONS = {
     INFO: `Informacje ℹ️`,
     FIN: `Umiejętność finansowa`,
     SET_BALANCE: `Ustaw balans💸`,
+    BUDGETS: `💰 Budżety`,
+    EXPORT: `📥 Eksport CSV`,
+    RECURRING: `🔄 Cykliczne`,
   },
 };
