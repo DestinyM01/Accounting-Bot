@@ -49,7 +49,7 @@ export class CurrencyService {
   }
 
   async getCurrencyData(): Promise<{ currencyCode: string; currencyName: string; buyRate: string; sellRate: string }[]> {
-    const DISPLAY = ['USD', 'EUR', 'GBP', 'PLN', 'UAH', 'BTC', 'ETH', 'CHF', 'JPY', 'CNY'];
+    const DISPLAY = ['DOP', 'EUR', 'GBP', 'USD', 'CHF', 'JPY', 'CNY', 'CAD', 'AUD'];
     const rates = await this.fetchRates('USD');
     return DISPLAY.filter((c) => c !== 'USD' && rates[c]).map((code) => ({
       currencyCode: code,

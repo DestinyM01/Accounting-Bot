@@ -24,5 +24,10 @@ jobs:
 
       - name: Verify container is running
         run: |
-          sleep 5
-          docker compose ps app | grep "running" || (docker compose logs --tail=30 app && exit 1)
+          sleep 10
+          STATUS=$(docker inspect --format='{{.State.Status}}' accounting-bot-app-1 2>/dev/null || echo "not_found")
+          echo "Container status: $STATUS"
+          if [ "$STATUS" != "running" ]; then
+            docker compose logs --tail=40 app
+            exit 1
+          fi

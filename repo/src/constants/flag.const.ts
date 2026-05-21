@@ -1,4 +1,5 @@
 export const currencyFlagMapping: Record<string, string> = {
+  DOP: '🇩🇴',
   USD: '🇺🇸',
   EUR: '🇪🇺',
   GBP: '🇬🇧',

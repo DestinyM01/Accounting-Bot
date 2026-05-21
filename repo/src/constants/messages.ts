@@ -157,7 +157,9 @@ export const RESETS_ALL = {
 export const CURRNCY = {
   USD: '$',
   UAH: 'грн.',
-  PLN: `zł.`,
+  PLN: 'zł.',
+  EUR: '€',
+  DOP: 'RD$',
 };
 
 export const INVITATION_ACCEPTED_MESSAGE = (inputId: number, language: string) => {
