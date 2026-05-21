@@ -42,7 +42,7 @@ export class BasicCommandsHandler {
       await this.balanceService.createBalance(ctx.from.id);
       await this.premiumService.deductPremiumFromUser(ctx.from.id);
       ctx.session.isPremium = await this.premiumService.getIsPremium(ctx.from.id);
-      const sentMessage = await ctx.reply('Оберіть мову / Choose language', languageSet());
+      const sentMessage = await ctx.reply('Choose language 🌐', languageSet());
       ctx.session.lastBotMessage = sentMessage.message_id;
       this.logger.log(`user:${ctx.from.id} startCommand executed successfully`);
       this.logger.log(`user:${JSON.stringify(startPayload.text)}`);
@@ -52,36 +52,14 @@ export class BasicCommandsHandler {
       await ctx.reply(ERROR_MESSAGE[ctx.session.language || 'ua']);
     }
   }
-  @Action('USD')
-  async usdCommand(ctx: IContext) {
-    ctx.session.currency = 'USD';
+  @Action(/^(USD|DOP|EUR|PLN|UAH)$/)
+  async setCurrencyCommand(ctx: IContext) {
+    const callbackQuery: CustomCallbackQuery = ctx.callbackQuery as CustomCallbackQuery;
+    const currency = callbackQuery.data;
+    ctx.session.currency = currency;
+    this.logger.log(`user:${ctx.from.id} setCurrency:${currency}`);
     const markup = actionButtonsStart(ctx.session.language, ctx.session.isPremium);
-    await ctx.editMessageText(START_MESSAGE[ctx.session.language || 'ua']['WELCOME_MESSAGE'], {
-      reply_markup: markup.reply_markup,
-      disable_web_page_preview: true,
-      parse_mode: 'HTML',
-    });
-    this.logger.log(`user:${ctx.from.id} usdCommand `);
-  }
-
-  @Action('PLN')
-  async plnCommand(ctx: IContext) {
-    ctx.session.currency = 'PLN';
-    const markup = actionButtonsStart(ctx.session.language, ctx.session.isPremium);
-    await ctx.editMessageText(START_MESSAGE[ctx.session.language || 'ua']['WELCOME_MESSAGE'], {
-      reply_markup: markup.reply_markup,
-      disable_web_page_preview: true,
-      parse_mode: 'HTML',
-    });
-    this.logger.log(`user:${ctx.from.id} usdCommand `);
-  }
-
-  @Action('UAH')
-  async uahCommand(ctx: IContext) {
-    this.logger.log(`user:${ctx.from.id} uahCommand `);
-    ctx.session.currency = 'UAH';
-    const markup = actionButtonsStart(ctx.session.language, ctx.session.isPremium);
-    await ctx.editMessageText(START_MESSAGE[ctx.session.language || 'ua']['WELCOME_MESSAGE'], {
+    await ctx.editMessageText(START_MESSAGE[ctx.session.language || 'en']['WELCOME_MESSAGE'], {
       reply_markup: markup.reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML',
@@ -96,7 +74,7 @@ export class BasicCommandsHandler {
       const parts = callbackData.split(':');
       const markup = currencySet();
       ctx.session.language = parts[1];
-      await ctx.editMessageText('Оберіть валюту / Choose currency', {
+      await ctx.editMessageText('Choose your currency 💰', {
         reply_markup: markup.reply_markup,
         disable_web_page_preview: true,
         parse_mode: 'HTML',
@@ -141,7 +119,7 @@ export class BasicCommandsHandler {
         ctx.from.id,
         ctx.session.lastBotMessage,
         null,
-        'Оберіть мову / Choose language',
+        'Choose language 🌐',
         languageSet(),
       );
       this.logger.log(`user:${ctx.from.id} languageCommand executed`);
@@ -207,7 +185,7 @@ export class BasicCommandsHandler {
     await ctx.deleteMessage();
     await resetSession(ctx);
     ctx.session.isPremium = await this.premiumService.getIsPremium(ctx.from.id);
-    const sentMessage = await ctx.reply('Оберіть мову / Choose language', languageSet());
+    const sentMessage = await ctx.reply('Choose language 🌐', languageSet());
     ctx.session.lastBotMessage = sentMessage.message_id;
   }
 
