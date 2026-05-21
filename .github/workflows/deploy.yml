@@ -13,6 +13,9 @@ jobs:
         working-directory: /opt/accbot/Accounting-Bot
 
     steps:
+      - name: Mark repo as safe for git
+        run: git config --global --add safe.directory /opt/accbot/Accounting-Bot
+
       - name: Pull latest code
         run: git pull origin main
 
