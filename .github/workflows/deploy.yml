@@ -1,0 +1,22 @@
+name: Deploy to Proxmox
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    timeout-minutes: 15
+
+    steps:
+      - name: Pull latest code
+        run: git pull origin main
+
+      - name: Rebuild and restart bot
+        run: docker compose up -d --build app
+
+      - name: Verify container is running
+        run: |
+          sleep 5
+          docker compose ps app | grep "running" || (docker compose logs --tail=30 app && exit 1)

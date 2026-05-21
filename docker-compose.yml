@@ -1,0 +1,33 @@
+version: '3.9'
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: accbot
+    networks:
+      - bot_net
+
+  app:
+    build:
+      context: ./repo
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    env_file:
+      - .env
+    environment:
+      MONGO_URI: mongodb://mongo:27017/accbot
+    networks:
+      - bot_net
+
+volumes:
+  mongo_data:
+
+networks:
+  bot_net:
+    driver: bridge
