@@ -23,7 +23,7 @@ export function actionButtonsStart(language: string = 'en', isPremium: boolean =
   return Markup.inlineKeyboard(baseButtons);
 }
 
-export function infoButton(language: string = 'ua') {
+export function infoButton(language: string = 'en') {
   return Markup.inlineKeyboard([
     [
       Markup.button.callback(BUTTONS[language].FIN, 'financial-literacy'),
@@ -33,15 +33,15 @@ export function infoButton(language: string = 'ua') {
   ]);
 }
 
-export function backStartButton(language: string = 'ua') {
+export function backStartButton(language: string = 'en') {
   return Markup.inlineKeyboard([Markup.button.callback(BUTTONS[language].BACK, 'back')]);
 }
 
-export function backToStartButton(language: string = 'ua') {
+export function backToStartButton(language: string = 'en') {
   return Markup.inlineKeyboard([Markup.button.callback(BUTTONS[language].BACK, 'backToStart')]);
 }
 
-export function backHelpButton(language: string = 'ua') {
+export function backHelpButton(language: string = 'en') {
   return Markup.inlineKeyboard(
     [
       Markup.button.callback(BUTTONS[language].SUPPORT, 'project_support'),

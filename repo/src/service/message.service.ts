@@ -47,8 +47,8 @@ export class MessageService {
     const { firstDate, lastDate } = await this.getFirstTransactionTimestamp(transactions);
 
     if (firstTransaction) {
-      message = `${COUNT_WITH[ctx.session.language || 'ua']} ${firstDate}📆\n${
-        COUNT_BY[ctx.session.language || 'ua']
+      message = `${COUNT_WITH[ctx.session.language || 'en']} ${firstDate}📆\n${
+        COUNT_BY[ctx.session.language || 'en']
       } ${lastDate}📆\n`;
     }
 
@@ -56,10 +56,10 @@ export class MessageService {
       if (timestamp.$lte !== undefined) {
         const startDate = await toNormalDate(timestamp.$gte);
         const endDate = await toNormalDate(timestamp.$lte);
-        message = `${DATA_PERIOD(startDate, endDate, language || 'ua')}`;
+        message = `${DATA_PERIOD(startDate, endDate, language || 'en')}`;
       } else {
         const startDate = await toNormalDate(timestamp.$gte);
-        message = `${DATA_FOR[language || 'ua']} ${startDate}📆\n`;
+        message = `${DATA_FOR[language || 'en']} ${startDate}📆\n`;
       }
     }
 

@@ -38,13 +38,13 @@ export class CompareHandler {
     if (ctx.session.compare.length >= 2) {
       await ctx.editMessageText(
         `${COMPARE_DELL[ctx.session.language]}`,
-        actionButtonsStatistics(ctx.session.language || 'ua'),
+        actionButtonsStatistics(ctx.session.language || 'en'),
       );
     } else {
       ctx.session.compare.push(customCallbackQuery.message.text + '\n');
       await ctx.editMessageText(
         `${getPremiumMessage(ctx.session.language, ctx.session.compare.length)} `,
-        actionButtonsStatistics(ctx.session.language || 'ua'),
+        actionButtonsStatistics(ctx.session.language || 'en'),
       );
     }
   }
@@ -52,7 +52,7 @@ export class CompareHandler {
   async get_compare(ctx: IContext) {
     await ctx.editMessageText('💭');
     this.logger.log(`user: ${ctx.from.id} get_compare`);
-    const lang = ctx.session.language || 'ua';
+    const lang = ctx.session.language || 'en';
     const userId = ctx.from.id;
 
     const [recentTxs, balanceDoc] = await Promise.all([
@@ -82,14 +82,14 @@ export class CompareHandler {
     this.logger.log(`user: ${ctx.from.id} see_compare`);
     const message = ctx.session.compare;
     if (message[0] === undefined) {
-      await ctx.editMessageText(`${NOT_COMPARE[ctx.session.language || 'ua']}`, {
+      await ctx.editMessageText(`${NOT_COMPARE[ctx.session.language || 'en']}`, {
         parse_mode: 'HTML',
         reply_markup: actionButtonsBeckP(ctx.session.language).reply_markup,
       });
     } else {
       await ctx.editMessageText(`${message[0]}\n${message[1]}`, {
         parse_mode: 'HTML',
-        reply_markup: actionButtonsBeckPAndRemove(ctx.session.language || 'ua').reply_markup,
+        reply_markup: actionButtonsBeckPAndRemove(ctx.session.language || 'en').reply_markup,
       });
     }
   }
@@ -97,7 +97,7 @@ export class CompareHandler {
   @Action('gpt')
   async gpt(ctx: IContext) {
     this.logger.log(`user: ${ctx.from.id} gpt`);
-    await ctx.editMessageText(`${GPT_MENU[ctx.session.language || 'ua']}`, {
+    await ctx.editMessageText(`${GPT_MENU[ctx.session.language || 'en']}`, {
       parse_mode: 'HTML',
       reply_markup: actionButtonsGptMenu(ctx.session.language).reply_markup,
     });
@@ -105,7 +105,7 @@ export class CompareHandler {
   @Action('backP')
   async backP(ctx: IContext) {
     this.logger.log(`user: ${ctx.from.id} gpt`);
-    await ctx.editMessageText(`${BAY_PREMIUM_MENU[ctx.session.language || 'ua']}`, {
+    await ctx.editMessageText(`${BAY_PREMIUM_MENU[ctx.session.language || 'en']}`, {
       reply_markup: actionButtonsPremiumMenu(ctx.session.language).reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML',
@@ -115,7 +115,7 @@ export class CompareHandler {
   async compare_remove(ctx: IContext) {
     this.logger.log(`user: ${ctx.from.id} compare_remove`);
     ctx.session.compare = [];
-    await ctx.editMessageText(`${DELETE_COMPARE_DATA[ctx.session.language || 'ua']}`, {
+    await ctx.editMessageText(`${DELETE_COMPARE_DATA[ctx.session.language || 'en']}`, {
       reply_markup: actionButtonsPremiumMenu(ctx.session.language).reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML',

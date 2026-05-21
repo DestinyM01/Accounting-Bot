@@ -31,8 +31,8 @@ export class StatisticsHandler {
   @Action('statistics')
   async statisticsCommand(ctx: IContext) {
     await ctx.editMessageText(
-      WANT_STATISTICS_MESSAGE[ctx.session.language || 'ua'],
-      actionButtonsStatistics(ctx.session.language || 'ua'),
+      WANT_STATISTICS_MESSAGE[ctx.session.language || 'en'],
+      actionButtonsStatistics(ctx.session.language || 'en'),
     );
     this.logger.log(`user:${ctx.from.id} statistics command executed`);
   }
@@ -55,11 +55,11 @@ export class StatisticsHandler {
     this.logger.log(`user:${ctx.from.id} by_category`);
     const uniqueTransactionNames = await this.statisticsService.getUniqueTransactionNames(ctx);
     if (uniqueTransactionNames === null) {
-      await ctx.editMessageText(PERIOD_NULL[ctx.session.language], backStatisticButton(ctx.session.language || 'ua'));
+      await ctx.editMessageText(PERIOD_NULL[ctx.session.language], backStatisticButton(ctx.session.language || 'en'));
       return;
     }
     const transactionNameButtons = actionButtonsTransactionNames(uniqueTransactionNames, ctx.session.language);
-    await ctx.editMessageText(SELECT_CATEGORY_MESSAGE[ctx.session.language || 'ua'], transactionNameButtons);
+    await ctx.editMessageText(SELECT_CATEGORY_MESSAGE[ctx.session.language || 'en'], transactionNameButtons);
   }
 
   @Action(/TransactionName:(.+)/)
@@ -100,7 +100,7 @@ export class StatisticsHandler {
     this.logger.log(`user:${ctx.from.id} year menu command executed`);
     const uniqueYears = await this.statisticsService.getUniqueYears(ctx.from.id, ctx.session.group);
     const yearButtons = actionButtonsYears(uniqueYears, ctx.session.language);
-    await ctx.editMessageText(SELECT_YEAR_MESSAGE[ctx.session.language || 'ua'], yearButtons);
+    await ctx.editMessageText(SELECT_YEAR_MESSAGE[ctx.session.language || 'en'], yearButtons);
   }
 
   @Action(/Year:(.+)/)
@@ -125,7 +125,7 @@ export class StatisticsHandler {
       ctx.session.group,
     );
     await ctx.editMessageText(
-      SELECT_MONTH_MESSAGE[ctx.session.language || 'ua'],
+      SELECT_MONTH_MESSAGE[ctx.session.language || 'en'],
       actionButtonsMonths(ctx.session.language, ctx.session.selectedYear, availableMonths),
     );
   }
@@ -198,7 +198,7 @@ export class StatisticsHandler {
       ctx.session.selectedYear = selectedYear;
       ctx.session.selectedMonth = selectedMonth;
       await ctx.editMessageText(
-        SELECT_DAY_MESSAGE[ctx.session.language || 'ua'],
+        SELECT_DAY_MESSAGE[ctx.session.language || 'en'],
         actionButtonsDays(ctx.session.language, selectedYear, selectedMonth, availableDays),
       );
     } else {
@@ -231,7 +231,7 @@ export class StatisticsHandler {
       const parts = callbackData.split(':');
       const page = Number(parts[1]);
       const transactionNameButtons = actionButtonsTransactionNames(uniqueTransactionNames, ctx.session.language, page);
-      await ctx.editMessageText(SELECT_CATEGORY_MESSAGE[ctx.session.language || 'ua'], transactionNameButtons);
+      await ctx.editMessageText(SELECT_CATEGORY_MESSAGE[ctx.session.language || 'en'], transactionNameButtons);
     }
   }
 
@@ -243,12 +243,12 @@ export class StatisticsHandler {
     if (callbackQuery.message.photo) {
       await ctx.deleteMessage();
       await ctx.reply(
-        WANT_STATISTICS_MESSAGE[ctx.session.language || 'ua'],
+        WANT_STATISTICS_MESSAGE[ctx.session.language || 'en'],
         actionButtonsStatistics(ctx.session.language),
       );
     } else {
       await ctx.editMessageText(
-        WANT_STATISTICS_MESSAGE[ctx.session.language || 'ua'],
+        WANT_STATISTICS_MESSAGE[ctx.session.language || 'en'],
         actionButtonsStatistics(ctx.session.language),
       );
     }

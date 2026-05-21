@@ -20,7 +20,7 @@ export class BalanceHandler {
       const userId = ctx.from.id;
       const balance = await this.balanceService.getBalance(userId, ctx.session.group);
       const markup = backStatisticButton(ctx.session.language);
-      const balanceMessage = getBalanceMessage(balance, ctx.session.language || 'ua', ctx.session.currency || 'UAH');
+      const balanceMessage = getBalanceMessage(balance, ctx.session.language || 'en', ctx.session.currency || 'DOP');
       await ctx.editMessageText(balanceMessage, {
         parse_mode: 'HTML',
         reply_markup: markup.reply_markup,
@@ -34,7 +34,7 @@ export class BalanceHandler {
         return;
       }
       this.logger.error(`user:${ctx.from.id}Error in listCommand:`, error);
-      await ctx.editMessageText(ERROR_MESSAGE[ctx.session.language || 'ua'], backStartButton());
+      await ctx.editMessageText(ERROR_MESSAGE[ctx.session.language || 'en'], backStartButton());
     }
   }
   @Action('change_balance')

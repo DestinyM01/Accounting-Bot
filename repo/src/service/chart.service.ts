@@ -41,10 +41,10 @@ export class ChartService {
       if (timestamp.$lte !== undefined) {
         const startDate = await toNormalDate(timestamp.$gte);
         const endDate = await toNormalDate(timestamp.$lte);
-        chartTitle = `${DATA_PERIOD(startDate, endDate, language || 'ua')}`;
+        chartTitle = `${DATA_PERIOD(startDate, endDate, language || 'en')}`;
       } else {
         const startDate = await toNormalDate(timestamp.$gte);
-        chartTitle = `${DATA_FOR[language || 'ua']} ${startDate}\n`;
+        chartTitle = `${DATA_FOR[language || 'en']} ${startDate}\n`;
       }
     }
 
@@ -122,7 +122,7 @@ export class ChartService {
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#000';
       ctx.font = 'bold 16px Arial';
-      ctx.fillText(`${transactionName}(${amount}.грн) ${Math.round(percentageChart * 100)}%`, 0, 0);
+      ctx.fillText(`${transactionName} (${amount}) ${Math.round(percentageChart * 100)}%`, 0, 0);
       ctx.translate(-textX, -textY);
 
       startAngle = endAngle;

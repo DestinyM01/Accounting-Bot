@@ -1,7 +1,7 @@
 import { Markup } from 'telegraf';
 import { BUTTONS, FINANCE_LITERACY_BUTTON_TEXT } from '../constants';
 
-export function financialLiteracyButtons(language: string = 'ua') {
+export function financialLiteracyButtons(language: string = 'en') {
   return Markup.inlineKeyboard(
     [
       Markup.button.callback(FINANCE_LITERACY_BUTTON_TEXT[language], 'compound-interest'),

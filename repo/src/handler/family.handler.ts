@@ -20,25 +20,25 @@ export class FamilyHandler {
   async groupCommand(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} Executing groupCommand`);
     await ctx.editMessageText(
-      FAMILY_TEXT[ctx.session.language || 'ua'].FAMILY_MENU,
-      familyButton(ctx.session.language || 'ua'),
+      FAMILY_TEXT[ctx.session.language || 'en'].FAMILY_MENU,
+      familyButton(ctx.session.language || 'en'),
     );
   }
 
   @Action('get_id')
   async getId(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} Executing getId`);
-    const message = FAMILY_TEXT[ctx.session.language || 'ua'].YOUR_ID;
-    await ctx.editMessageText(`${message} ${ctx.from.id}`, backFamilyButton(ctx.session.language || 'ua'));
+    const message = FAMILY_TEXT[ctx.session.language || 'en'].YOUR_ID;
+    await ctx.editMessageText(`${message} ${ctx.from.id}`, backFamilyButton(ctx.session.language || 'en'));
   }
   @Action('get_group')
   async getGroup(ctx: IContext) {
     if (!ctx.session.group || ctx.session.group.length <= 0) {
-      await ctx.editMessageText(`${FAMILY_TEXT[ctx.session.language || 'ua'].GROUP_EMPTY}`, backFamilyButton());
+      await ctx.editMessageText(`${FAMILY_TEXT[ctx.session.language || 'en'].GROUP_EMPTY}`, backFamilyButton());
     } else {
       this.logger.log(`user:${ctx.from.id} Executing getId`);
       await ctx.editMessageText(
-        `${FAMILY_TEXT[ctx.session.language || 'ua'].GET_FAMILY} ${ctx.session.group}`,
+        `${FAMILY_TEXT[ctx.session.language || 'en'].GET_FAMILY} ${ctx.session.group}`,
         backFamilyButton(),
       );
     }
@@ -54,8 +54,8 @@ export class FamilyHandler {
       ctx.session.group.push(ctx.from.id);
     }
     await ctx.editMessageText(
-      FAMILY_TEXT[ctx.session.language || 'ua'].ENTER_USER_ID,
-      backFamilyButton(ctx.session.language || 'ua'),
+      FAMILY_TEXT[ctx.session.language || 'en'].ENTER_USER_ID,
+      backFamilyButton(ctx.session.language || 'en'),
     );
 
     ctx.session.awaitingUserIdInput = true;
@@ -74,8 +74,8 @@ export class FamilyHandler {
       await ctx.deleteMessage(ctx.message.message_id);
       await ctx.deleteMessage(ctx.message.message_id - 1);
       await ctx.replyWithHTML(
-        FAMILY_TEXT[ctx.session.language || 'ua'].INVALID_INPUT,
-        backFamilyButton(ctx.session.language || 'ua'),
+        FAMILY_TEXT[ctx.session.language || 'en'].INVALID_INPUT,
+        backFamilyButton(ctx.session.language || 'en'),
       );
       ctx.session.awaitingUserIdInput = false;
       return;
@@ -88,8 +88,8 @@ export class FamilyHandler {
       await ctx.deleteMessage(ctx.message.message_id - 1);
       await this.sendInvite(ctx, recipientId, initiatorId);
       await ctx.replyWithHTML(
-        `${FAMILY_TEXT[ctx.session.language || 'ua'].INVITE_SENT} ${recipientId}.`,
-        familyButton(ctx.session.language || 'ua'),
+        `${FAMILY_TEXT[ctx.session.language || 'en'].INVITE_SENT} ${recipientId}.`,
+        familyButton(ctx.session.language || 'en'),
       );
       ctx.session.awaitingUserIdInput = false;
       return;
@@ -97,8 +97,8 @@ export class FamilyHandler {
       await ctx.deleteMessage(ctx.message.message_id);
       await ctx.deleteMessage(ctx.message.message_id - 1);
       await ctx.replyWithHTML(
-        `${FAMILY_TEXT[ctx.session.language || 'ua'].ID_ALREADY_EXISTS} ${recipientId}.`,
-        familyButton(ctx.session.language || 'ua'),
+        `${FAMILY_TEXT[ctx.session.language || 'en'].ID_ALREADY_EXISTS} ${recipientId}.`,
+        familyButton(ctx.session.language || 'en'),
       );
       ctx.session.awaitingUserIdInput = false;
     }
@@ -129,7 +129,7 @@ export class FamilyHandler {
     const recipientId = ctx.from.id;
     const callbackQuery: CustomCallbackQuery = ctx.callbackQuery as CustomCallbackQuery;
     const initiatorId = parseInt(callbackQuery.message.text.split(':')[1], 10);
-    const message = INVITATION_ACCEPTED_MESSAGE(initiatorId, ctx.session.language || 'ua');
+    const message = INVITATION_ACCEPTED_MESSAGE(initiatorId, ctx.session.language || 'en');
 
     if (!ctx.session.group) {
       ctx.session.group = [];
@@ -148,7 +148,7 @@ export class FamilyHandler {
     const sendMessage = await ctx.telegram.sendMessage(
       recipientId,
       message,
-      familyButton(ctx.session.language || 'ua'),
+      familyButton(ctx.session.language || 'en'),
     );
     ctx.session.lastBotMessage = sendMessage.message_id;
   }
@@ -166,7 +166,7 @@ export class FamilyHandler {
     const sendMessage = await ctx.telegram.sendMessage(
       initiatorId,
       FAMILY_TEXT[ctx.session.language].GROUP_CREATED,
-      familyButton(ctx.session.language || 'ua'),
+      familyButton(ctx.session.language || 'en'),
     );
     ctx.session.lastBotMessage = sendMessage.message_id;
     this.logger.log('GROUP_CREATED');
@@ -185,8 +185,8 @@ export class FamilyHandler {
     await ctx.telegram.sendMessage(initiatorId, FAMILY_TEXT[ctx.session.language].DECLINE, backStartButton());
     const sendMessage = await ctx.telegram.sendMessage(
       recipientId,
-      FAMILY_TEXT[ctx.session.language || 'ua'].INVITATION_DECLINED,
-      familyButton(ctx.session.language || 'ua'),
+      FAMILY_TEXT[ctx.session.language || 'en'].INVITATION_DECLINED,
+      familyButton(ctx.session.language || 'en'),
     );
     ctx.session.lastBotMessage = sendMessage.message_id;
   }
@@ -198,13 +198,13 @@ export class FamilyHandler {
     if (ctx.session.group && ctx.session.group.length > 0) {
       ctx.session.group = [];
       await ctx.editMessageText(
-        FAMILY_TEXT[ctx.session.language || 'ua'].GROUP_DELETED,
-        backFamilyButton(ctx.session.language || 'ua'),
+        FAMILY_TEXT[ctx.session.language || 'en'].GROUP_DELETED,
+        backFamilyButton(ctx.session.language || 'en'),
       );
     } else {
       await ctx.editMessageText(
-        FAMILY_TEXT[ctx.session.language || 'ua'].GROUP_EMPTY,
-        backFamilyButton(ctx.session.language || 'ua'),
+        FAMILY_TEXT[ctx.session.language || 'en'].GROUP_EMPTY,
+        backFamilyButton(ctx.session.language || 'en'),
       );
     }
   }
@@ -213,8 +213,8 @@ export class FamilyHandler {
     this.logger.log(`user:${ctx.from.id} backF`);
     await resetSession(ctx);
     await ctx.editMessageText(
-      FAMILY_TEXT[ctx.session.language || 'ua'].FAMILY_MENU,
-      familyButton(ctx.session.language || 'ua'),
+      FAMILY_TEXT[ctx.session.language || 'en'].FAMILY_MENU,
+      familyButton(ctx.session.language || 'en'),
     );
   }
 }

@@ -1,6 +1,6 @@
 import { Markup } from 'telegraf';
 
-export function actionButtonsAdmin(language: string = 'ua') {
+export function actionButtonsAdmin(language: string = 'en') {
   const baseButtons = [
     [Markup.button.callback('Отримати статистуки по боту', 'adminStat')],
     [Markup.button.callback('Відправити новини', 'sendNews')],
@@ -8,7 +8,7 @@ export function actionButtonsAdmin(language: string = 'ua') {
   ];
   return Markup.inlineKeyboard(baseButtons);
 }
-export function actionButtonsAdminStat(language: string = 'ua') {
+export function actionButtonsAdminStat(language: string = 'en') {
   const baseButtons = [
     [Markup.button.callback('головна статистика бота', 'getAdminStat')],
     [

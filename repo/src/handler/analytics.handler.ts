@@ -19,7 +19,7 @@ export class AnalyticsHandler {
     this.logger.log(`user:${ctx.from.id} bot_analytics`);
     await ctx.editMessageText(
       'Оберіть аналітику за потрібний вам період:',
-      actionButtonsAnalytics(ctx.session.language || 'ua'),
+      actionButtonsAnalytics(ctx.session.language || 'en'),
     );
   }
   @Action('for_today')

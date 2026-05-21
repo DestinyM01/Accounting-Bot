@@ -21,7 +21,7 @@ export class AdvancedStatisticsHandler {
   async updateAdvancedStatistics(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} updateAdvancedStatistics`);
     await ctx.editMessageText(
-      `${ADVANCE_STATISTICS[ctx.session.language || 'ua']}`,
+      `${ADVANCE_STATISTICS[ctx.session.language || 'en']}`,
       actionButtonsAdvancedStatistics(ctx.session.language),
     );
   }
@@ -32,7 +32,7 @@ export class AdvancedStatisticsHandler {
       ctx.from.id,
     );
     await ctx.editMessageText(
-      `${SELECT_TRANSACTION_MESSAGE[ctx.session.language || 'ua']}`,
+      `${SELECT_TRANSACTION_MESSAGE[ctx.session.language || 'en']}`,
       actionButtonsTransactionNames(top10awaitTransactionsName),
     );
   }
@@ -49,7 +49,7 @@ export class AdvancedStatisticsHandler {
     await ctx.deleteMessage();
     await ctx.replyWithPhoto(
       { source: imageBuffer },
-      { caption: `${SELECT_PERIOD[ctx.session.language || 'ua']}`, reply_markup: backStatisticButton().reply_markup },
+      { caption: `${SELECT_PERIOD[ctx.session.language || 'en']}`, reply_markup: backStatisticButton().reply_markup },
     );
   }
 }

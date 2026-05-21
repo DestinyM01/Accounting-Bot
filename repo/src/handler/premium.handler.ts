@@ -38,7 +38,7 @@ export class PremiumHandler {
   async getPremium(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} getPremium`);
     const premiumDays = await this.premiumService.getRemainingPremiumDays(ctx.from.id);
-    await ctx.editMessageText(`${premiumDays} ${PREMIUM_MESSAGE[ctx.session.language || 'ua']}`, {
+    await ctx.editMessageText(`${premiumDays} ${PREMIUM_MESSAGE[ctx.session.language || 'en']}`, {
       reply_markup: backStartButton(ctx.session.language).reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML',
@@ -47,7 +47,7 @@ export class PremiumHandler {
   @Action('premium')
   async premium(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} premium`);
-    await ctx.editMessageText(`${BAY_PREMIUM_MENU[ctx.session.language || 'ua']}`, {
+    await ctx.editMessageText(`${BAY_PREMIUM_MENU[ctx.session.language || 'en']}`, {
       reply_markup: actionButtonsPremium(ctx.session.language, ctx.session.isPremium).reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML',
@@ -85,7 +85,7 @@ export class PremiumHandler {
   @Action('premiumMenu')
   async premiumMenu(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} getPremiumMenu`);
-    await ctx.editMessageText(`${BAY_PREMIUM_MENU[ctx.session.language || 'ua']}`, {
+    await ctx.editMessageText(`${BAY_PREMIUM_MENU[ctx.session.language || 'en']}`, {
       reply_markup: actionButtonsPremiumMenu(ctx.session.language).reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML',
@@ -159,8 +159,8 @@ export class PremiumHandler {
     this.logger.log(`user:${ctx.from.id} backF`);
     await resetSession(ctx);
     await ctx.editMessageText(
-      `${BAY_PREMIUM_MENU[ctx.session.language || 'ua']}`,
-      actionButtonsPremiumMenu(ctx.session.language || 'ua'),
+      `${BAY_PREMIUM_MENU[ctx.session.language || 'en']}`,
+      actionButtonsPremiumMenu(ctx.session.language || 'en'),
     );
   }
 }

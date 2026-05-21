@@ -1,7 +1,7 @@
 import { Markup } from 'telegraf';
 import { BUTTONS } from '../constants';
 
-export function actionButtonsSettings(language: string = 'ua', bossId: number) {
+export function actionButtonsSettings(language: string = 'en', bossId: number) {
   const baseButtons = [
     [
       Markup.button.callback(BUTTONS[language].FAMILY, 'family'),
@@ -41,7 +41,7 @@ export function currencySet() {
     { columns: 1 },
   );
 }
-export function resetButton(language: string = 'ua') {
+export function resetButton(language: string = 'en') {
   return Markup.inlineKeyboard(
     [Markup.button.callback(BUTTONS[language].YES, 'yes'), Markup.button.callback(BUTTONS[language].NO, 'no')],
     {

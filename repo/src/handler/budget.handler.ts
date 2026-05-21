@@ -50,13 +50,13 @@ export class BudgetHandler {
 
   @Action('budgets')
   async budgetMenu(ctx: IContext) {
-    const lang = ctx.session.language || 'ua';
+    const lang = ctx.session.language || 'en';
     await ctx.editMessageText(BUDGET_MENU[lang], budgetListButtons(lang));
   }
 
   @Action('budget_set')
   async budgetSet(ctx: IContext) {
-    const lang = ctx.session.language || 'ua';
+    const lang = ctx.session.language || 'en';
     await ctx.editMessageText(BUDGET_SELECT_CATEGORY[lang], budgetCategorySelectButtons(lang));
   }
 
@@ -64,7 +64,7 @@ export class BudgetHandler {
   async budgetCategorySelected(ctx: IContext) {
     const callbackData = (ctx.callbackQuery as CustomCallbackQuery).data;
     const category = callbackData.replace('budget_cat_', '') as Category;
-    const lang = ctx.session.language || 'ua';
+    const lang = ctx.session.language || 'en';
     ctx.session.budgetCategory = category;
     ctx.session.type = 'balance';
     await ctx.editMessageText(`${BUDGET_ENTER_AMOUNT[lang]} (${category})`);
@@ -78,7 +78,7 @@ export class BudgetHandler {
     const amount = parseFloat(text);
     if (isNaN(amount) || amount <= 0) return;
 
-    const lang = ctx.session.language || 'ua';
+    const lang = ctx.session.language || 'en';
     const category = ctx.session.budgetCategory as Category;
     await this.budgetService.setBudget(ctx.from.id, category, amount);
     delete ctx.session.budgetCategory;
@@ -89,7 +89,7 @@ export class BudgetHandler {
 
   @Action('budget_list')
   async budgetList(ctx: IContext) {
-    const lang = ctx.session.language || 'ua';
+    const lang = ctx.session.language || 'en';
     const budgets = await this.budgetService.getBudgets(ctx.from.id);
     if (budgets.length === 0) {
       await ctx.editMessageText(NO_BUDGETS[lang], budgetListButtons(lang));

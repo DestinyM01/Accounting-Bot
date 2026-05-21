@@ -14,6 +14,6 @@ export function actionButtonsTransaction(language: string = 'en') {
     { columns: 2 },
   );
 }
-export function backTranButton(language: string = 'ua') {
+export function backTranButton(language: string = 'en') {
   return Markup.inlineKeyboard([Markup.button.callback(BUTTONS[language].BACK, 'backT')], { columns: 1 });
 }

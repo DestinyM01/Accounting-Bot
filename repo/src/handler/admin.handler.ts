@@ -25,7 +25,7 @@ export class AdminHandler {
   @Action('settings')
   async getSettings(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} getSettings`);
-    await ctx.editMessageText(SELECT_SETTING_MESSAGE[ctx.session.language || 'ua'], {
+    await ctx.editMessageText(SELECT_SETTING_MESSAGE[ctx.session.language || 'en'], {
       reply_markup: actionButtonsSettings(ctx.session.language, ctx.from.id).reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML',
@@ -80,7 +80,7 @@ export class AdminHandler {
   @Action('adminStat')
   async adminStatCommand(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} adminStatCommand menu command executed`);
-    await ctx.editMessageText(`Адмін сататистика всього бота`, actionButtonsAdminStat(ctx.session.language || 'ua'));
+    await ctx.editMessageText(`Адмін сататистика всього бота`, actionButtonsAdminStat(ctx.session.language || 'en'));
   }
 
   @Action('transactAdminStat')
@@ -137,8 +137,8 @@ export class AdminHandler {
     this.logger.log(`user:${ctx.from.id} backA`);
     await resetSession(ctx);
     await ctx.editMessageText(
-      MAIN_MENU[ctx.session.language || 'ua'],
-      actionButtonsAdmin(ctx.session.language || 'ua'),
+      MAIN_MENU[ctx.session.language || 'en'],
+      actionButtonsAdmin(ctx.session.language || 'en'),
     );
   }
   @Action('backSettings')
@@ -146,8 +146,8 @@ export class AdminHandler {
     this.logger.log(`user:${ctx.from.id} backSettings`);
     await resetSession(ctx);
     await ctx.editMessageText(
-      MAIN_MENU[ctx.session.language || 'ua'],
-      actionButtonsSettings(ctx.session.language || 'ua', ctx.from.id),
+      MAIN_MENU[ctx.session.language || 'en'],
+      actionButtonsSettings(ctx.session.language || 'en', ctx.from.id),
     );
   }
 }

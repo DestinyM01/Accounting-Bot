@@ -1,7 +1,7 @@
 import { Markup } from 'telegraf';
 import { BUTTONS } from '../constants';
 
-export function actionButtonsAdvancedStatistics(language: string = 'ua') {
+export function actionButtonsAdvancedStatistics(language: string = 'en') {
   return Markup.inlineKeyboard([
     [Markup.button.callback(`${BUTTONS[language].TOP10}`, 'top10'), Markup.button.callback(``, 'вапр')],
     [Markup.button.callback(``, 'апвр'), Markup.button.callback(``, 'on_week'), Markup.button.callback(``, 'on_month')],

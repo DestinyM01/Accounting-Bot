@@ -36,7 +36,7 @@ export class TransactionHandler {
     delete ctx.session.type;
     this.logger.log(`user:${ctx.from.id} transactions command executed`);
     await ctx.editMessageText(
-      SELECT_TRANSACTION_MESSAGE[ctx.session.language || 'ua'],
+      SELECT_TRANSACTION_MESSAGE[ctx.session.language || 'en'],
       actionButtonsTransaction(ctx.session.language),
     );
   }
@@ -44,8 +44,8 @@ export class TransactionHandler {
   async incomeCommand(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} incomeCommand executed`);
     ctx.session.type = 'income';
-    await ctx.editMessageText(ENTER_INCOME_MESSAGE[ctx.session.language || 'ua'], {
-      reply_markup: backTranButton(ctx.session.language || 'ua').reply_markup,
+    await ctx.editMessageText(ENTER_INCOME_MESSAGE[ctx.session.language || 'en'], {
+      reply_markup: backTranButton(ctx.session.language || 'en').reply_markup,
       parse_mode: 'HTML',
     });
   }
@@ -54,8 +54,8 @@ export class TransactionHandler {
   async expenseCommand(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} command executed`);
     ctx.session.type = 'expense';
-    await ctx.editMessageText(ENTER_EXPENSE_MESSAGE[ctx.session.language || 'ua'], {
-      reply_markup: backTranButton(ctx.session.language || 'ua').reply_markup,
+    await ctx.editMessageText(ENTER_EXPENSE_MESSAGE[ctx.session.language || 'en'], {
+      reply_markup: backTranButton(ctx.session.language || 'en').reply_markup,
       parse_mode: 'HTML',
     });
   }
@@ -80,8 +80,8 @@ export class TransactionHandler {
           const transactionIdToDelete = callbackData.replace('delete_', '');
           await this.transactionService.deleteTransactionById(ctx, transactionIdToDelete);
           await ctx.editMessageText(
-            TRANSACTION_DELETED_MESSAGE[ctx.session.language || 'ua'],
-            backTranButton(ctx.session.language || 'ua'),
+            TRANSACTION_DELETED_MESSAGE[ctx.session.language || 'en'],
+            backTranButton(ctx.session.language || 'en'),
           );
           delete ctx.session.type;
         }
@@ -142,8 +142,8 @@ export class TransactionHandler {
     }
     if (errorMessageSent) {
       await ctx.replyWithHTML(
-        INVALID_DATA_MESSAGE[ctx.session.language || 'ua'],
-        backTranButton(ctx.session.language || 'ua'),
+        INVALID_DATA_MESSAGE[ctx.session.language || 'en'],
+        backTranButton(ctx.session.language || 'en'),
       );
     } else {
       const transactionQueue = {} as ITransactionQuery;
@@ -155,21 +155,21 @@ export class TransactionHandler {
       const imageBuffer = Buffer.from(chart, 'base64');
 
       const balance = await this.balanceService.getBalance(userId, ctx.session.group);
-      const balanceMessage = getBalanceMessage(balance, ctx.session.language || 'ua', ctx.session.currency || 'UAH');
+      const balanceMessage = getBalanceMessage(balance, ctx.session.language || 'en', ctx.session.currency || 'DOP');
       await ctx.replyWithPhoto(
         { source: imageBuffer },
         {
-          caption: `${CREATE_TRANSACTION_MESSAGE[ctx.session.language || 'ua']}\n${transactionMessage}
+          caption: `${CREATE_TRANSACTION_MESSAGE[ctx.session.language || 'en']}\n${transactionMessage}
       ${BALANCE_MESSAGE[ctx.session.language]}\n${balanceMessage}`,
-          reply_markup: backTranButton(ctx.session.language || 'ua').reply_markup,
+          reply_markup: backTranButton(ctx.session.language || 'en').reply_markup,
           parse_mode: 'HTML',
         },
       );
 
       if (ctx.session.pendingCategoryTransactionId) {
         await ctx.reply(
-          SELECT_CATEGORY_MESSAGE[ctx.session.language || 'ua'],
-          categoryButtons(ctx.session.pendingCategoryTransactionId, ctx.session.language || 'ua'),
+          SELECT_CATEGORY_MESSAGE[ctx.session.language || 'en'],
+          categoryButtons(ctx.session.pendingCategoryTransactionId, ctx.session.language || 'en'),
         );
       }
       this.logger.log(`user:${ctx.from.id} textCommand executed`);
@@ -209,20 +209,20 @@ export class TransactionHandler {
       if (callbackQuery.message.photo) {
         await ctx.deleteMessage();
         await ctx.reply(
-          SELECT_TRANSACTION_MESSAGE[ctx.session.language || 'ua'],
-          actionButtonsTransaction(ctx.session.language || 'ua'),
+          SELECT_TRANSACTION_MESSAGE[ctx.session.language || 'en'],
+          actionButtonsTransaction(ctx.session.language || 'en'),
         );
       } else {
         await ctx.editMessageText(
-          SELECT_TRANSACTION_MESSAGE[ctx.session.language || 'ua'],
-          actionButtonsTransaction(ctx.session.language || 'ua'),
+          SELECT_TRANSACTION_MESSAGE[ctx.session.language || 'en'],
+          actionButtonsTransaction(ctx.session.language || 'en'),
         );
       }
     } catch (error) {
       this.logger.error(`Error in backT: ${error.message}`);
       await ctx.reply(
-        SELECT_TRANSACTION_MESSAGE[ctx.session.language || 'ua'],
-        actionButtonsTransaction(ctx.session.language || 'ua'),
+        SELECT_TRANSACTION_MESSAGE[ctx.session.language || 'en'],
+        actionButtonsTransaction(ctx.session.language || 'en'),
       );
     }
   }

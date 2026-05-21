@@ -1,7 +1,7 @@
 import { Markup } from 'telegraf';
 import { BUTTONS } from '../constants';
 
-export function familyButton(language: string = 'ua') {
+export function familyButton(language: string = 'en') {
   return Markup.inlineKeyboard(
     [
       Markup.button.callback(BUTTONS[language].GET_ID, 'get_id'),
@@ -17,10 +17,10 @@ export function familyButton(language: string = 'ua') {
   );
 }
 
-export function acceptButton(language: string = 'ua', recipientId: number) {
+export function acceptButton(language: string = 'en', recipientId: number) {
   return Markup.inlineKeyboard([Markup.button.callback(BUTTONS[language].ACCEPT, `accept_user:${recipientId}`)]);
 }
 
-export function backFamilyButton(language: string = 'ua') {
+export function backFamilyButton(language: string = 'en') {
   return Markup.inlineKeyboard([Markup.button.callback(BUTTONS[language].BACK, 'backF')]);
 }

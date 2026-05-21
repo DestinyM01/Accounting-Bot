@@ -83,7 +83,7 @@ export class TransactionService {
       const transactions = await this.transactionModel.find({ userId }).sort({ timestamp: -1 }).limit(count).exec();
 
       if (transactions.length === 0) {
-        await ctx.editMessageText(DELETE_LAST_MESSAGE2[language], backTranButton(ctx.session.language || 'ua'));
+        await ctx.editMessageText(DELETE_LAST_MESSAGE2[language], backTranButton(ctx.session.language || 'en'));
         return;
       }
 

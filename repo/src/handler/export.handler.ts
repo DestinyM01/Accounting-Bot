@@ -30,13 +30,13 @@ export class ExportHandler {
 
   @Action('export')
   async exportMenu(ctx: IContext) {
-    const lang = ctx.session.language || 'ua';
+    const lang = ctx.session.language || 'en';
     await ctx.editMessageText(EXPORT_MENU[lang], exportMenuButtons(lang));
   }
 
   @Action('export_csv')
   async exportCsv(ctx: IContext) {
-    const lang = ctx.session.language || 'ua';
+    const lang = ctx.session.language || 'en';
     await ctx.answerCbQuery();
     try {
       const csvBuffer = await this.exportService.exportUserTransactionsCsv(ctx.from.id, ctx.session.group);

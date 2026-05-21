@@ -2,7 +2,7 @@ import { Markup } from 'telegraf';
 import { BUTTONS, currencyFlagMapping } from '../constants';
 import { IContext, ICryptoAsset } from '../type/interface';
 
-export function actionButtonsPremium(language: string = 'ua', isPremium: boolean = false) {
+export function actionButtonsPremium(language: string = 'en', isPremium: boolean = false) {
   const baseButtons = [[Markup.button.callback(`${BUTTONS[language].SET_PREMIUM}`, 'setPremium')]];
   if (isPremium) {
     baseButtons[0].push(Markup.button.callback(`${BUTTONS[language].DAY_PREMIUM}`, 'getPremium'));
@@ -10,13 +10,13 @@ export function actionButtonsPremium(language: string = 'ua', isPremium: boolean
   baseButtons.push([Markup.button.callback(BUTTONS[language].BACK, 'back')]);
   return Markup.inlineKeyboard(baseButtons);
 }
-export function actionSetPremium(language: string = 'ua', isPremium: boolean = false) {
+export function actionSetPremium(language: string = 'en', isPremium: boolean = false) {
   const baseButtons = [[Markup.button.callback(`${BUTTONS[language].TRIAL_PREMIUM}`, 'trialPremium')]];
   baseButtons.push([Markup.button.callback(BUTTONS[language].BACK, 'back')]);
   return Markup.inlineKeyboard(baseButtons);
 }
 
-export function actionButtonsPremiumMenu(language: string = 'ua') {
+export function actionButtonsPremiumMenu(language: string = 'en') {
   const baseButtons = [
     // [Markup.button.callback(`${BUTTONS[language].CURRENCY}`, 'exchange_rate')],
     [Markup.button.callback(`${BUTTONS[language].CRYPTO}`, 'crypto_currency_course')],
@@ -27,7 +27,7 @@ export function actionButtonsPremiumMenu(language: string = 'ua') {
   return Markup.inlineKeyboard(baseButtons);
 }
 
-export function generateCurrencyButtons(currencyData: any[], language: string = 'ua') {
+export function generateCurrencyButtons(currencyData: any[], language: string = 'en') {
   const buttons = currencyData.map((currency) => {
     const flag = currencyFlagMapping[currency.currencyCode] || '';
     return Markup.button.callback(
@@ -40,7 +40,7 @@ export function generateCurrencyButtons(currencyData: any[], language: string = 
 
   return Markup.inlineKeyboard(buttons, { columns: 3 });
 }
-export function generateCryptoButtons(cryptoAssetData: ICryptoAsset[], language: string = 'ua') {
+export function generateCryptoButtons(cryptoAssetData: ICryptoAsset[], language: string = 'en') {
   const buttons = cryptoAssetData.map((crypto) => {
     return Markup.button.callback(
       `${crypto.symbol}`,
@@ -52,13 +52,13 @@ export function generateCryptoButtons(cryptoAssetData: ICryptoAsset[], language:
 
   return Markup.inlineKeyboard(buttons, { columns: 3 });
 }
-export function actionButtonsBackPremium(language: string = 'ua') {
+export function actionButtonsBackPremium(language: string = 'en') {
   const baseButtons = [[Markup.button.callback(BUTTONS[language].BACK, 'backP')]];
 
   return Markup.inlineKeyboard(baseButtons);
 }
 
-export function actionButtonsCompare(language: string = 'ua', isPremium: boolean = false, ctx: IContext) {
+export function actionButtonsCompare(language: string = 'en', isPremium: boolean = false, ctx: IContext) {
   const baseButtons = [[Markup.button.callback(BUTTONS[language].BACK, 'backS')]];
 
   if (isPremium) {
@@ -77,7 +77,7 @@ export function actionButtonsCompare(language: string = 'ua', isPremium: boolean
   return Markup.inlineKeyboard(baseButtons);
 }
 
-export function actionButtonsGptMenu(language: string = 'ua') {
+export function actionButtonsGptMenu(language: string = 'en') {
   const baseButtons = [
     [Markup.button.callback(`${BUTTONS[language].GET_COMPARED}`, 'get_compare')],
     [Markup.button.callback(`${BUTTONS[language].SEE_COMPARED}`, 'see_compare')],
@@ -86,12 +86,12 @@ export function actionButtonsGptMenu(language: string = 'ua') {
 
   return Markup.inlineKeyboard(baseButtons);
 }
-export function actionButtonsBeckP(language: string = 'ua') {
+export function actionButtonsBeckP(language: string = 'en') {
   const baseButtons = [[Markup.button.callback(BUTTONS[language].BACK, 'backP')]];
 
   return Markup.inlineKeyboard(baseButtons);
 }
-export function actionButtonsBeckPAndRemove(language: string = 'ua') {
+export function actionButtonsBeckPAndRemove(language: string = 'en') {
   const baseButtons = [
     [Markup.button.callback(`${BUTTONS[language].DELL_COMPARED}`, 'compare_remove')],
     [Markup.button.callback(`${BUTTONS[language].BACK}`, 'backP')],

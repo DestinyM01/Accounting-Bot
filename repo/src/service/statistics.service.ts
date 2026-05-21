@@ -35,7 +35,7 @@ export class StatisticsService {
         this.logger.log(`No transactions of type ${transactionType} found`);
         await ctx.editMessageText(
           `${PERIOD_NULL[ctx.session.language]} (${transactionType})⛔️`,
-          backStatisticButton(ctx.session.language || 'ua'),
+          backStatisticButton(ctx.session.language || 'en'),
         );
       }
     } catch (error) {
@@ -258,7 +258,7 @@ export class StatisticsService {
         const formattedTransactions = await Promise.all(
           transactions.map(async (transaction) => await this.messageService.formatTransaction(transaction)),
         );
-        const mark = backStatisticButton(ctx.session.language || 'ua');
+        const mark = backStatisticButton(ctx.session.language || 'en');
         const detailedStatistics = formattedTransactions.join('\n');
 
         await ctx.editMessageText(detailedStatistics, { parse_mode: 'HTML', reply_markup: mark.reply_markup });
