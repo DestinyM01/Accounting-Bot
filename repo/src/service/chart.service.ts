@@ -295,7 +295,7 @@ export class ChartService {
       for (let i = 0; i <= ySteps; i++) {
         const value = minTotal + (maxTotal - minTotal) * (i / ySteps);
         const y = height - padding - (height - 2 * padding) * (i / ySteps);
-        ctx.fillText(value.toLocaleString('uk-UA'), padding - 10, y + 4);
+        ctx.fillText(Math.round(value).toLocaleString('en-US'), padding - 10, y + 4);
       }
 
       // Draw X-axis labels with appropriate date formatting
@@ -305,7 +305,9 @@ export class ChartService {
 
       groupedDates.forEach((dateStr, i) => {
         if (i % step === 0) {
-          const x = padding + (width - 2 * padding) * (i / (groupedDates.length - 1));
+          const x = groupedDates.length === 1
+            ? padding + chartWidth / 2
+            : padding + chartWidth * (i / (groupedDates.length - 1));
           const date = new Date(dateStr);
           const label = this.formatDate(date, timeScale.format);
 
@@ -329,31 +331,35 @@ export class ChartService {
       }
 
       // Draw data lines
+      const getX = (i: number) =>
+        groupedDates.length === 1
+          ? padding + chartWidth / 2
+          : padding + chartWidth * (i / (groupedDates.length - 1));
+
+      const getY = (value: number) => {
+        const range = maxTotal - minTotal;
+        if (range === 0) return padding + chartHeight / 2;
+        return padding + chartHeight - chartHeight * ((value - minTotal) / range);
+      };
+
       const drawLine = (data: number[], color: string) => {
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.beginPath();
 
         data.forEach((value, i) => {
-          const x = padding + chartWidth * (i / (groupedDates.length - 1));
-          const y = padding + chartHeight - chartHeight * ((value - minTotal) / (maxTotal - minTotal));
-
-          if (i === 0) {
-            ctx.moveTo(x, y);
-          } else {
-            ctx.lineTo(x, y);
-          }
+          const x = getX(i);
+          const y = getY(value);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
         });
 
         ctx.stroke();
 
         // Draw points
         data.forEach((value, i) => {
-          const x = padding + chartWidth * (i / (groupedDates.length - 1));
-          const y = padding + chartHeight - chartHeight * ((value - minTotal) / (maxTotal - minTotal));
-
           ctx.beginPath();
-          ctx.arc(x, y, 4, 0, Math.PI * 2);
+          ctx.arc(getX(i), getY(value), 5, 0, Math.PI * 2);
           ctx.fillStyle = color;
           ctx.fill();
         });
