@@ -4,8 +4,11 @@ import { IContext } from '../type/interface';
 import { ConfigService } from '@nestjs/config';
 
 export function createSessionMiddleware(configService: ConfigService): Middleware<IContext> {
-  const mongodbUrl = configService.getOrThrow('MONGODB_URL');
-  const mongodbName = configService.getOrThrow('MONGODB_NAME');
+  const monoUri = configService.get<string>('MONGO_URI');
+  const mongodbUrl = monoUri ?? configService.getOrThrow('MONGODB_URL');
+  const mongodbName = monoUri
+    ? (monoUri.split('/').pop() || 'accbot')
+    : configService.getOrThrow('MONGODB_NAME');
 
   const mongoStore = Mongo({
     url: mongodbUrl,
