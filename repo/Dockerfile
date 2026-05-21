@@ -1,8 +1,10 @@
-FROM node:20 AS builder
+# ── Stage 1: build ──────────────────────────────────────────────────────────
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
+# Build-time deps (compiler, headers) — stays in this layer only
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libcairo2-dev \
     libjpeg-dev \
     libpango1.0-dev \
@@ -11,41 +13,35 @@ RUN apt-get update && apt-get install -y \
     g++ \
     pkg-config \
     python3 \
-    && apt-get clean
+    && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-
-RUN npm install --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
 
 COPY . .
-
 RUN npm run build
 
-FROM node:20
+# Prune dev dependencies after build
+RUN npm prune --production --legacy-peer-deps
+
+# ── Stage 2: runtime ─────────────────────────────────────────────────────────
+FROM node:20-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    libcairo2-dev \
-    libjpeg-dev \
-    libpango1.0-dev \
-    libgif-dev \
-    build-essential \
-    g++ \
-    pkg-config \
-    python3 \
-    && apt-get clean
+# Runtime-only shared libraries — no compiler, no headers
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libcairo2 \
+    libjpeg62-turbo \
+    libpango1.0-0 \
+    libgif7 \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/package*.json ./
-
-RUN npm install --only=production --legacy-peer-deps \
-    && npm install canvas --build-from-source \
-    && npm rebuild canvas --build-from-source
-
+# Copy compiled app and pruned node_modules from builder
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/tsconfig*.json ./
-COPY --from=builder /app/nest-cli.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
 
 EXPOSE 3000
 
-CMD [ "node", "dist/main" ]
+CMD ["node", "dist/main"]
