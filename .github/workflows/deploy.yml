@@ -8,6 +8,9 @@ jobs:
   deploy:
     runs-on: self-hosted
     timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: /opt/accbot/Accounting-Bot
 
     steps:
       - name: Pull latest code
