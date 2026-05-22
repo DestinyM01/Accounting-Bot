@@ -17,8 +17,8 @@ export class MessageService {
     const userName = transaction.userName;
 
     const amount = transaction.amount;
-    const timestamp = new Date(transaction.timestamp).toLocaleString('ru-RU', {
-      timeZone: 'Europe/Kiev',
+    const timestamp = new Date(transaction.timestamp).toLocaleString('en-US', {
+      timeZone: process.env.CRON_TIMEZONE || 'America/Santo_Domingo',
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -173,7 +173,7 @@ export class MessageService {
     return `<code>${paddedName}${userString}: ${percentage}% (${formattedSum}${setCurrency})</code>\n`;
   }
   private getLocalizedMessage(key: string, language: string) {
-    return TOTAL_MESSAGES[key][language] || TOTAL_MESSAGES[key]['ua'];
+    return TOTAL_MESSAGES[key][language] || TOTAL_MESSAGES[key]['en'];
   }
 
   private async getFirstTransactionTimestamp(

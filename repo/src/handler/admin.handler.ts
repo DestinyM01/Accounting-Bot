@@ -80,7 +80,7 @@ export class AdminHandler {
   @Action('adminStat')
   async adminStatCommand(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} adminStatCommand menu command executed`);
-    await ctx.editMessageText(`Адмін сататистика всього бота`, actionButtonsAdminStat(ctx.session.language || 'en'));
+    await ctx.editMessageText(`📊 Bot Admin Statistics`, actionButtonsAdminStat(ctx.session.language || 'en'));
   }
 
   @Action('transactAdminStat')

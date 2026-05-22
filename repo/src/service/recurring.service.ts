@@ -47,7 +47,7 @@ export class RecurringService {
     await this.recurringModel.findOneAndUpdate({ _id: recurringId, userId }, { active: false }).exec();
   }
 
-  @Cron('0 8 * * *', { timeZone: process.env.CRON_TIMEZONE || 'Europe/Kiev' })
+  @Cron('0 8 * * *', { timeZone: process.env.CRON_TIMEZONE || 'America/Santo_Domingo' })
   async processRecurring(): Promise<void> {
     const today = new Date().getDate();
     this.logger.log(`Processing recurring transactions for day ${today}`);

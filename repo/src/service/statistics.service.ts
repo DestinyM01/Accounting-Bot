@@ -263,7 +263,7 @@ export class StatisticsService {
 
         await ctx.editMessageText(detailedStatistics, { parse_mode: 'HTML', reply_markup: mark.reply_markup });
       } else {
-        await ctx.reply('Детальна статистика відсутня.');
+        await ctx.reply('No detailed statistics available.');
       }
     } catch (error) {
       this.logger.error('Error getting detailed transactions', error);

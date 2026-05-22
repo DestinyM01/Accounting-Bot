@@ -1,6 +1,6 @@
 import { Balance } from '../mongodb/shemas/balance.shemas';
 import { Injectable, Logger } from '@nestjs/common';
-import { IContext } from '../type/interface';
+import { IContext, Transaction } from '../type/interface';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Cron } from '@nestjs/schedule';
@@ -8,6 +8,7 @@ import { CRON_NOTIFICATION } from '../constants';
 import { Telegraf } from 'telegraf';
 import { InjectBot } from 'nestjs-telegraf';
 import { backToStartButton } from '../battons';
+import { TransactionType } from '../type/enum/transactionType.enam';
 
 @Injectable()
 export class CronNotificationsService {
@@ -17,9 +18,10 @@ export class CronNotificationsService {
     @InjectBot()
     private readonly bot: Telegraf<IContext>,
     @InjectModel('Balance') private readonly balanceModel: Model<Balance>,
+    @InjectModel('Transaction') private readonly transactionModel: Model<Transaction>,
   ) {}
 
-  @Cron(process.env.CRON_SCHEDULE || '47 15 * * *', { timeZone: process.env.CRON_TIMEZONE || 'Europe/Kiev' })
+  @Cron(process.env.CRON_SCHEDULE || '47 15 * * *', { timeZone: process.env.CRON_TIMEZONE || 'America/Santo_Domingo' })
   async notificationsAll() {
     const startTime = new Date();
     this.logger.log(`Cron task started at: ${startTime}`);
@@ -40,6 +42,78 @@ export class CronNotificationsService {
         `Cron task finished at: ${endTime}, elapsed time: ${elapsedTime} ms, sent ${this.notificationCount} notifications`,
       );
     }
+  }
+
+  // ─── Monthly summary — runs at 09:00 on the 1st of each month ───────────────
+  @Cron('0 9 1 * *', { timeZone: process.env.CRON_TIMEZONE || 'America/Santo_Domingo' })
+  async monthlySummary() {
+    const now = new Date();
+    // Calculate the previous month
+    const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth(); // Jan(0)→12, else current-1
+    const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const startOfPrevMonth = new Date(prevYear, prevMonth - 1, 1, 0, 0, 0, 0);
+    const endOfPrevMonth = new Date(prevYear, prevMonth, 0, 23, 59, 59, 999);
+
+    const MONTH_NAMES = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    const CATEGORY_EMOJI: Record<string, string> = {
+      food: '🍔', transport: '🚌', housing: '🏠', health: '💊',
+      entertainment: '🎬', salary: '💼', savings: '🏦', other: '📌',
+    };
+
+    this.logger.log(`Monthly summary cron: ${MONTH_NAMES[prevMonth - 1]} ${prevYear}`);
+    const activeUsers = await this.balanceModel.find({ isBaned: { $ne: true } }).exec();
+    let sent = 0;
+
+    for (const user of activeUsers) {
+      try {
+        const transactions = await this.transactionModel
+          .find({ userId: user.userId, timestamp: { $gte: startOfPrevMonth, $lte: endOfPrevMonth } })
+          .exec();
+        if (transactions.length === 0) continue;
+
+        const income = transactions
+          .filter((t) => t.transactionType === TransactionType.INCOME)
+          .reduce((s, t) => s + t.amount, 0);
+        const expenses = transactions
+          .filter((t) => t.transactionType === TransactionType.EXPENSE)
+          .reduce((s, t) => s + t.amount, 0);
+        const net = income - expenses;
+
+        const catTotals: Record<string, number> = {};
+        for (const t of transactions) {
+          if (t.transactionType === TransactionType.EXPENSE && t.category) {
+            catTotals[t.category] = (catTotals[t.category] || 0) + t.amount;
+          }
+        }
+        const topCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        const fmt = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+        let msg = `📊 <b>Monthly Summary — ${MONTH_NAMES[prevMonth - 1]} ${prevYear}</b>\n`;
+        msg += `━━━━━━━━━━━━━━━━━━\n`;
+        msg += `💵 Income: <b>${fmt(income)}</b>\n`;
+        msg += `💸 Expenses: <b>${fmt(expenses)}</b>\n`;
+        msg += `💰 Net: <b>${net >= 0 ? '+' : ''}${fmt(net)}</b>\n`;
+        if (topCats.length > 0) {
+          msg += `\n📑 <b>Top Expense Categories:</b>\n`;
+          for (const [cat, amount] of topCats) {
+            msg += `  ${CATEGORY_EMOJI[cat] ?? '📌'} ${cat}: ${fmt(amount)}\n`;
+          }
+        }
+        msg += `━━━━━━━━━━━━━━━━━━\n`;
+        msg += `📈 Keep tracking your finances!`;
+
+        await this.bot.telegram.sendMessage(user.userId, msg, { parse_mode: 'HTML' });
+        sent++;
+        await new Promise((r) => setTimeout(r, 300));
+      } catch (error) {
+        if (error.code === 403) await this.markUserAsBanned(user);
+        this.logger.error(`Error sending monthly summary to user ${user.userId}`, error);
+      }
+    }
+    this.logger.log(`Monthly summary sent to ${sent} users`);
   }
 
   private async getInactiveUsers(): Promise<Balance[]> {

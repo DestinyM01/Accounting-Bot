@@ -1,7 +1,8 @@
 import { Action, Ctx, On, Update } from 'nestjs-telegraf';
-import { ChartService, StatisticsService, TransactionService } from '../service';
+import { BudgetService, ChartService, StatisticsService, TransactionService } from '../service';
 import { Logger } from '@nestjs/common';
 import { BalanceService } from '../service';
+import { Category } from '../type/enum/category.enum';
 import { TransactionType } from '../type/enum/transactionType.enam';
 import {
   BALANCE_MESSAGE,
@@ -29,6 +30,7 @@ export class TransactionHandler {
     private readonly balanceService: BalanceService,
     private readonly statisticsService: StatisticsService,
     private readonly chartService: ChartService,
+    private readonly budgetService: BudgetService,
   ) {}
 
   @Action('transactions')
@@ -189,6 +191,37 @@ export class TransactionHandler {
       delete ctx.session.pendingCategoryTransactionId;
       await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
       await ctx.answerCbQuery('✅');
+
+      // Budget check — only for expense transactions
+      if (ctx.session.type === 'expense') {
+        try {
+          const budgetCheck = await this.budgetService.checkBudget(ctx.from.id, category as Category);
+          if (budgetCheck) {
+            const lang = ctx.session.language || 'en';
+            const pct = Math.round((budgetCheck.spent / budgetCheck.limit) * 100);
+            const fmt = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+            if (budgetCheck.over) {
+              const msg = {
+                en: `🚨 <b>Budget exceeded!</b>\n<b>${category}</b>: spent <b>${fmt(budgetCheck.spent)}</b> of limit <b>${fmt(budgetCheck.limit)}</b> (${pct}%)`,
+                ua: `🚨 <b>Бюджет перевищено!</b>\n<b>${category}</b>: витрачено <b>${fmt(budgetCheck.spent)}</b> з ліміту <b>${fmt(budgetCheck.limit)}</b> (${pct}%)`,
+                pl: `🚨 <b>Budżet przekroczony!</b>\n<b>${category}</b>: wydano <b>${fmt(budgetCheck.spent)}</b> z limitu <b>${fmt(budgetCheck.limit)}</b> (${pct}%)`,
+                es: `🚨 <b>¡Presupuesto excedido!</b>\n<b>${category}</b>: gastado <b>${fmt(budgetCheck.spent)}</b> de límite <b>${fmt(budgetCheck.limit)}</b> (${pct}%)`,
+              };
+              await ctx.reply(msg[lang] ?? msg.en, { parse_mode: 'HTML' });
+            } else if (pct >= 80) {
+              const msg = {
+                en: `⚠️ Budget warning: <b>${pct}%</b> used for <b>${category}</b> (${fmt(budgetCheck.spent)} / ${fmt(budgetCheck.limit)})`,
+                ua: `⚠️ Увага: <b>${pct}%</b> бюджету витрачено для <b>${category}</b> (${fmt(budgetCheck.spent)} / ${fmt(budgetCheck.limit)})`,
+                pl: `⚠️ Uwaga budżetowa: <b>${pct}%</b> wydane dla <b>${category}</b> (${fmt(budgetCheck.spent)} / ${fmt(budgetCheck.limit)})`,
+                es: `⚠️ Alerta de presupuesto: <b>${pct}%</b> usado para <b>${category}</b> (${fmt(budgetCheck.spent)} / ${fmt(budgetCheck.limit)})`,
+              };
+              await ctx.reply(msg[lang] ?? msg.en, { parse_mode: 'HTML' });
+            }
+          }
+        } catch (e) {
+          this.logger.error('Budget check failed:', e);
+        }
+      }
     } else {
       await ctx.answerCbQuery();
     }

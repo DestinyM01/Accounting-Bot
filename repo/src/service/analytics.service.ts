@@ -16,7 +16,7 @@ export class AnalyticsService {
     private readonly premiumService: PremiumService,
     private readonly advancedStatisticsService: AdvancedStatisticsService,
   ) {}
-  @Cron('59 23 * * *', { timeZone: 'Europe/Kiev' })
+  @Cron('59 23 * * *', { timeZone: process.env.CRON_TIMEZONE || 'America/Santo_Domingo' })
   async createAnalytics() {
     const allUserCount = await this.balanceService.countAllBalances();
     const activeUsersCount = await this.balanceService.countActiveUsersLast3Days();

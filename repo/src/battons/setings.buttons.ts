@@ -10,7 +10,7 @@ export function actionButtonsSettings(language: string = 'en', bossId: number) {
     [Markup.button.callback(BUTTONS[language].RESET, 'reset')],
     [
       Markup.button.callback(BUTTONS[language].GET_PREMIUM, 'premium'),
-      Markup.button.callback('аналитика бота', 'bot_analytics'),
+      Markup.button.callback('Bot Analytics📈', 'bot_analytics'),
     ],
     [
       Markup.button.callback(BUTTONS[language].SET_BALANCE, 'change_balance'),
@@ -18,7 +18,7 @@ export function actionButtonsSettings(language: string = 'en', bossId: number) {
     ],
   ];
   if (bossId === +process.env.BOSID) {
-    baseButtons[1].push(Markup.button.callback('Адмін😎 панель🔓', 'admin'));
+    baseButtons[1].push(Markup.button.callback('Admin Panel😎🔓', 'admin'));
   }
   return Markup.inlineKeyboard(baseButtons);
 }
@@ -26,6 +26,7 @@ export function languageSet() {
   return Markup.inlineKeyboard(
     [
       Markup.button.callback('English🇬🇧', 'setLanguage:en'),
+      Markup.button.callback('Español🇩🇴', 'setLanguage:es'),
     ],
     { columns: 1 },
   );
