@@ -1,4 +1,5 @@
 import { Balance } from '../mongodb/shemas/balance.shemas';
+import { Budget } from '../mongodb/shemas/budget.shemas';
 import { Injectable, Logger } from '@nestjs/common';
 import { IContext, Transaction } from '../type/interface';
 import { InjectModel } from '@nestjs/mongoose';
@@ -19,6 +20,7 @@ export class CronNotificationsService {
     private readonly bot: Telegraf<IContext>,
     @InjectModel('Balance') private readonly balanceModel: Model<Balance>,
     @InjectModel('Transaction') private readonly transactionModel: Model<Transaction>,
+    @InjectModel('Budget') private readonly budgetModel: Model<Budget>,
   ) {}
 
   @Cron(process.env.CRON_SCHEDULE || '47 15 * * *', { timeZone: process.env.CRON_TIMEZONE || 'America/Santo_Domingo' })
@@ -114,6 +116,70 @@ export class CronNotificationsService {
       }
     }
     this.logger.log(`Monthly summary sent to ${sent} users`);
+  }
+
+  // ─── Proactive budget alerts — runs daily at 20:00 ───────────────────────
+  @Cron('0 20 * * *', { timeZone: process.env.CRON_TIMEZONE || 'America/Santo_Domingo' })
+  async proactiveBudgetCheck() {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+
+    const allBudgets = await this.budgetModel.find({ month, year }).exec();
+    if (!allBudgets.length) return;
+
+    // Group budgets by userId
+    const byUser = new Map<number, typeof allBudgets>();
+    for (const b of allBudgets) {
+      if (!byUser.has(b.userId)) byUser.set(b.userId, []);
+      byUser.get(b.userId).push(b);
+    }
+
+    const fmt = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+    let alertsSent = 0;
+
+    for (const [userId, budgets] of byUser) {
+      const balanceDoc = await this.balanceModel.findOne({ userId }).exec();
+      if (balanceDoc?.isBaned) continue;
+
+      for (const budget of budgets) {
+        const txs = await this.transactionModel
+          .find({
+            userId,
+            category: budget.category,
+            transactionType: TransactionType.EXPENSE,
+            timestamp: { $gte: startOfMonth, $lte: endOfMonth },
+          })
+          .exec();
+
+        const spent = txs.reduce((s, t) => s + Math.abs(t.amount), 0);
+        const pct = Math.round((spent / budget.limitAmount) * 100);
+        let msg: string | null = null;
+
+        if (spent > budget.limitAmount) {
+          msg =
+            `🚨 <b>Budget Exceeded!</b>\n` +
+            `<b>${budget.category}</b>: spent <b>${fmt(spent)}</b> of <b>${fmt(budget.limitAmount)}</b> (${pct}%)`;
+        } else if (pct >= 80) {
+          msg =
+            `⚠️ <b>Budget Warning (${pct}%)</b>\n` +
+            `<b>${budget.category}</b>: ${fmt(spent)} / ${fmt(budget.limitAmount)} used this month`;
+        }
+
+        if (msg) {
+          try {
+            await this.bot.telegram.sendMessage(userId, msg, { parse_mode: 'HTML' });
+            alertsSent++;
+          } catch (err) {
+            if (err.code === 403 && balanceDoc) await this.markUserAsBanned(balanceDoc);
+            this.logger.error(`Error sending budget alert to user ${userId}`, err);
+          }
+        }
+      }
+    }
+    this.logger.log(`Proactive budget check complete — ${alertsSent} alerts sent`);
   }
 
   private async getInactiveUsers(): Promise<Balance[]> {

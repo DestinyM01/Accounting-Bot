@@ -18,6 +18,9 @@ import {
   actionButtonsTransactionNames,
   actionButtonsYears,
   backStatisticButton,
+  categoryChartMenuButtons,
+  categoryChartYearButtons,
+  categoryChartMonthButtons,
 } from '../battons';
 import { resetSession } from '../common/reset.session';
 import { WizardContext } from 'telegraf/typings/scenes';
@@ -238,35 +241,94 @@ export class StatisticsHandler {
     }
   }
 
+  // ── Category chart — period picker ──────────────────────────────────────
+
   @Action('category_chart')
   async categoryChartCommand(ctx: IContext) {
-    this.logger.log(`user:${ctx.from.id} category_chart command executed`);
+    this.logger.log(`user:${ctx.from.id} category_chart menu`);
+    const lang = ctx.session.language || 'en';
+    const prompt = {
+      en: '📊 <b>Category Chart</b>\nSelect a period:',
+      es: '📊 <b>Gráfico por Categoría</b>\nSelecciona un período:',
+    };
+    await ctx.editMessageText(prompt[lang] ?? prompt.en, {
+      parse_mode: 'HTML',
+      reply_markup: categoryChartMenuButtons(lang).reply_markup,
+    });
+  }
+
+  @Action('cat_chart_now')
+  async catChartNow(ctx: IContext) {
+    const now = new Date();
+    await this.sendCategoryChart(ctx, now.getFullYear(), now.getMonth() + 1);
+  }
+
+  @Action('cat_chart_prev')
+  async catChartPrev(ctx: IContext) {
+    const now = new Date();
+    const year = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const month = now.getMonth() === 0 ? 12 : now.getMonth();
+    await this.sendCategoryChart(ctx, year, month);
+  }
+
+  @Action('cat_chart_years')
+  async catChartYears(ctx: IContext) {
+    const lang = ctx.session.language || 'en';
+    const years = await this.statisticsService.getUniqueYears(ctx.from.id, ctx.session.group);
+    await ctx.editMessageText('📅 Select a year:', categoryChartYearButtons(years, lang));
+  }
+
+  @Action(/cat_chart_y:(\d+)/)
+  async catChartYear(ctx: IContext) {
+    const lang = ctx.session.language || 'en';
+    const data = (ctx.callbackQuery as CustomCallbackQuery).data;
+    const year = Number(data.split(':')[1]);
+    const months = await this.statisticsService.getUniqueMonths(year, ctx.from.id, ctx.session.group);
+    await ctx.editMessageText(`📅 Select a month for ${year}:`, categoryChartMonthButtons(year, months, lang));
+  }
+
+  @Action(/cat_chart_m:(\d+):(\d+)/)
+  async catChartMonth(ctx: IContext) {
+    const data = (ctx.callbackQuery as CustomCallbackQuery).data;
+    const parts = data.match(/cat_chart_m:(\d+):(\d+)/);
+    await this.sendCategoryChart(ctx, Number(parts[1]), Number(parts[2]));
+  }
+
+  private async sendCategoryChart(ctx: IContext, year: number, month: number) {
+    const lang = ctx.session.language || 'en';
     await ctx.answerCbQuery();
     try {
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      const categoryTotals = await this.statisticsService.getCategoryExpensesForPeriod(
-        ctx.from.id,
-        startOfMonth,
-        endOfMonth,
-        ctx.session.group,
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0, 23, 59, 59, 999);
+      const totals = await this.statisticsService.getCategoryExpensesForPeriod(
+        ctx.from.id, start, end, ctx.session.group,
       );
-      if (Object.keys(categoryTotals).length === 0) {
-        await ctx.reply('No categorised expenses found for this month.');
+      if (Object.keys(totals).length === 0) {
+        const noData = {
+          en: 'No categorised expenses found for this period.',
+          es: 'No se encontraron gastos categorizados para este período.',
+        };
+        await ctx.reply(noData[lang] ?? noData.en);
         return;
       }
-      const monthName = now.toLocaleString('en-US', { month: 'long' });
-      const title = `Expenses by Category — ${monthName} ${now.getFullYear()}`;
-      const chart = await this.chartService.generateCategoryPieChart(categoryTotals, title);
+      const MONTHS = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December',
+      ];
+      const title = `Expenses by Category — ${MONTHS[month - 1]} ${year}`;
+      const chart = await this.chartService.generateCategoryPieChart(totals, title);
       const imageBuffer = Buffer.from(chart, 'base64');
       await ctx.replyWithPhoto({ source: imageBuffer }, {
         caption: `📊 ${title}`,
-        reply_markup: backStatisticButton(ctx.session.language || 'en').reply_markup,
+        reply_markup: backStatisticButton(lang).reply_markup,
       });
     } catch (err) {
       this.logger.error('Error generating category chart', err);
-      await ctx.reply('Could not generate category chart. Make sure you have categorised expenses this month.');
+      const errMsg = {
+        en: 'Could not generate category chart.',
+        es: 'No se pudo generar el gráfico de categorías.',
+      };
+      await ctx.reply(errMsg[lang] ?? errMsg.en);
     }
   }
 

@@ -8,36 +8,42 @@ import { CustomCallbackQuery } from '../type/interface';
 
 const BUDGET_MENU = {
   en: '💰 Budget Manager\nTrack your spending limits by category.',
+  es: '💰 Gestor de Presupuesto\nRealiza un seguimiento de tus límites de gasto por categoría.',
   ua: '💰 Менеджер бюджету\nВідстежуйте ліміти витрат за категоріями.',
   pl: '💰 Menedżer budżetu\nŚledź limity wydatków według kategorii.',
 };
 
 const BUDGET_SELECT_CATEGORY = {
   en: 'Select a category to set a budget limit:',
+  es: 'Selecciona una categoría para establecer un límite de presupuesto:',
   ua: 'Оберіть категорію для встановлення ліміту:',
   pl: 'Wybierz kategorię, aby ustawić limit budżetu:',
 };
 
 const BUDGET_ENTER_AMOUNT = {
   en: 'Enter the monthly limit amount for this category:',
+  es: 'Ingresa el límite mensual para esta categoría:',
   ua: 'Введіть місячний ліміт для цієї категорії:',
   pl: 'Wprowadź miesięczny limit dla tej kategorii:',
 };
 
 const BUDGET_SAVED = {
   en: '✅ Budget limit saved!',
+  es: '✅ ¡Límite de presupuesto guardado!',
   ua: '✅ Ліміт бюджету збережено!',
   pl: '✅ Limit budżetu zapisany!',
 };
 
 const BUDGET_OVER = {
   en: '⚠️ You have exceeded the budget for',
+  es: '⚠️ Has excedido el presupuesto para',
   ua: '⚠️ Ви перевищили бюджет для',
   pl: '⚠️ Przekroczyłeś budżet dla',
 };
 
 const NO_BUDGETS = {
   en: 'No budgets set for this month.',
+  es: 'No hay presupuestos establecidos para este mes.',
   ua: 'Бюджети на цей місяць не встановлені.',
   pl: 'Brak budżetów na ten miesiąc.',
 };
@@ -51,13 +57,13 @@ export class BudgetHandler {
   @Action('budgets')
   async budgetMenu(ctx: IContext) {
     const lang = ctx.session.language || 'en';
-    await ctx.editMessageText(BUDGET_MENU[lang], budgetListButtons(lang));
+    await ctx.editMessageText(BUDGET_MENU[lang] ?? BUDGET_MENU.en, budgetListButtons(lang));
   }
 
   @Action('budget_set')
   async budgetSet(ctx: IContext) {
     const lang = ctx.session.language || 'en';
-    await ctx.editMessageText(BUDGET_SELECT_CATEGORY[lang], budgetCategorySelectButtons(lang));
+    await ctx.editMessageText(BUDGET_SELECT_CATEGORY[lang] ?? BUDGET_SELECT_CATEGORY.en, budgetCategorySelectButtons(lang));
   }
 
   @Action(/budget_cat_(.+)/)
@@ -67,7 +73,7 @@ export class BudgetHandler {
     const lang = ctx.session.language || 'en';
     ctx.session.budgetCategory = category;
     ctx.session.type = 'balance';
-    await ctx.editMessageText(`${BUDGET_ENTER_AMOUNT[lang]} (${category})`);
+    await ctx.editMessageText(`${BUDGET_ENTER_AMOUNT[lang] ?? BUDGET_ENTER_AMOUNT.en} (${category})`);
     await ctx.answerCbQuery();
   }
 
@@ -84,7 +90,7 @@ export class BudgetHandler {
     delete ctx.session.budgetCategory;
     delete ctx.session.type;
 
-    await ctx.reply(BUDGET_SAVED[lang], budgetListButtons(lang));
+    await ctx.reply(BUDGET_SAVED[lang] ?? BUDGET_SAVED.en, budgetListButtons(lang));
   }
 
   @Action('budget_list')
@@ -92,13 +98,13 @@ export class BudgetHandler {
     const lang = ctx.session.language || 'en';
     const budgets = await this.budgetService.getBudgets(ctx.from.id);
     if (budgets.length === 0) {
-      await ctx.editMessageText(NO_BUDGETS[lang], budgetListButtons(lang));
+      await ctx.editMessageText(NO_BUDGETS[lang] ?? NO_BUDGETS.en, budgetListButtons(lang));
       return;
     }
     const lines = await Promise.all(
       budgets.map(async (b) => {
         const check = await this.budgetService.checkBudget(ctx.from.id, b.category);
-        const over = check?.over ? ` ${BUDGET_OVER[lang]} ⚠️` : '';
+        const over = check?.over ? ` ${BUDGET_OVER[lang] ?? BUDGET_OVER.en} ⚠️` : '';
         const spent = check?.spent ?? 0;
         return `${b.category}: ${spent}/${b.limitAmount}${over}`;
       }),

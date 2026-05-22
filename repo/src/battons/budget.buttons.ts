@@ -1,18 +1,35 @@
 import { Category } from '../type/enum/category.enum';
 
-const CATEGORY_LABELS: Record<Category, { en: string; ua: string; pl: string }> = {
-  [Category.FOOD]: { en: '🍔 Food', ua: '🍔 Їжа', pl: '🍔 Jedzenie' },
-  [Category.TRANSPORT]: { en: '🚗 Transport', ua: '🚗 Транспорт', pl: '🚗 Transport' },
-  [Category.HOUSING]: { en: '🏠 Housing', ua: '🏠 Житло', pl: '🏠 Mieszkanie' },
-  [Category.HEALTH]: { en: '💊 Health', ua: '💊 Здоров\'я', pl: '💊 Zdrowie' },
-  [Category.ENTERTAINMENT]: { en: '🎮 Entertainment', ua: '🎮 Розваги', pl: '🎮 Rozrywka' },
-  [Category.SALARY]: { en: '💼 Salary', ua: '💼 Зарплата', pl: '💼 Wynagrodzenie' },
-  [Category.SAVINGS]: { en: '💰 Savings', ua: '💰 Заощадження', pl: '💰 Oszczędności' },
-  [Category.OTHER]: { en: '📦 Other', ua: '📦 Інше', pl: '📦 Inne' },
+const CATEGORY_LABELS: Record<Category, { en: string; es: string; ua: string; pl: string }> = {
+  [Category.FOOD]:          { en: '🍔 Food',          es: '🍔 Comida',       ua: '🍔 Їжа',           pl: '🍔 Jedzenie' },
+  [Category.TRANSPORT]:     { en: '🚗 Transport',     es: '🚗 Transporte',   ua: '🚗 Транспорт',     pl: '🚗 Transport' },
+  [Category.HOUSING]:       { en: '🏠 Housing',       es: '🏠 Vivienda',     ua: '🏠 Житло',         pl: '🏠 Mieszkanie' },
+  [Category.HEALTH]:        { en: '💊 Health',        es: '💊 Salud',        ua: '💊 Здоров\'я',     pl: '💊 Zdrowie' },
+  [Category.ENTERTAINMENT]: { en: '🎮 Entertainment', es: '🎮 Entretenimiento', ua: '🎮 Розваги',    pl: '🎮 Rozrywka' },
+  [Category.SALARY]:        { en: '💼 Salary',        es: '💼 Salario',      ua: '💼 Зарплата',      pl: '💼 Wynagrodzenie' },
+  [Category.SAVINGS]:       { en: '💰 Savings',       es: '💰 Ahorros',      ua: '💰 Заощадження',   pl: '💰 Oszczędności' },
+  [Category.OTHER]:         { en: '📦 Other',         es: '📦 Otro',         ua: '📦 Інше',           pl: '📦 Inne' },
 };
 
+const SUPPORTED = ['en', 'es', 'ua', 'pl'] as const;
+type SupportedLang = typeof SUPPORTED[number];
+
+function safeLang(language: string): SupportedLang {
+  return (SUPPORTED as readonly string[]).includes(language)
+    ? (language as SupportedLang)
+    : 'en';
+}
+
+function t(language: string, en: string, es: string, ua: string, pl: string) {
+  const l = safeLang(language);
+  if (l === 'es') return es;
+  if (l === 'ua') return ua;
+  if (l === 'pl') return pl;
+  return en;
+}
+
 export function budgetCategorySelectButtons(language: string) {
-  const lang = (language || 'ua') as 'en' | 'ua' | 'pl';
+  const lang = safeLang(language);
   const rows = Object.values(Category).map((cat) => [
     { text: CATEGORY_LABELS[cat][lang], callback_data: `budget_cat_${cat}` },
   ]);
@@ -20,18 +37,17 @@ export function budgetCategorySelectButtons(language: string) {
   for (let i = 0; i < rows.length; i += 2) {
     chunked.push([...rows[i], ...(rows[i + 1] ?? [])]);
   }
-  chunked.push([{ text: language === 'en' ? '⬅️ Back' : language === 'pl' ? '⬅️ Wróć' : '⬅️ Назад', callback_data: 'backToStart' }]);
+  chunked.push([{ text: t(language, '⬅️ Back', '⬅️ Volver', '⬅️ Назад', '⬅️ Wróć'), callback_data: 'backToStart' }]);
   return { reply_markup: { inline_keyboard: chunked } };
 }
 
 export function budgetListButtons(language: string) {
-  const backLabel = language === 'en' ? '⬅️ Back' : language === 'pl' ? '⬅️ Wróć' : '⬅️ Назад';
   return {
     reply_markup: {
       inline_keyboard: [
-        [{ text: language === 'en' ? '📋 My Budgets' : language === 'pl' ? '📋 Moje budżety' : '📋 Мої бюджети', callback_data: 'budget_list' }],
-        [{ text: language === 'en' ? '➕ Set Budget' : language === 'pl' ? '➕ Ustaw budżet' : '➕ Встановити бюджет', callback_data: 'budget_set' }],
-        [{ text: backLabel, callback_data: 'backToStart' }],
+        [{ text: t(language, '📋 My Budgets', '📋 Mis Presupuestos', '📋 Мої бюджети', '📋 Moje budżety'), callback_data: 'budget_list' }],
+        [{ text: t(language, '➕ Set Budget', '➕ Fijar Presupuesto', '➕ Встановити бюджет', '➕ Ustaw budżet'), callback_data: 'budget_set' }],
+        [{ text: t(language, '⬅️ Back', '⬅️ Volver', '⬅️ Назад', '⬅️ Wróć'), callback_data: 'backToStart' }],
       ],
     },
   };

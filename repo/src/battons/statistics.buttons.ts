@@ -104,6 +104,37 @@ export function actionButtonsYears(years: number[], language: string = 'en') {
   return Markup.inlineKeyboard(buttons, { columns: 1 });
 }
 
+// ── Category chart period pickers ─────────────────────────────────────────
+
+export function categoryChartMenuButtons(language: string = 'en') {
+  const lang = BUTTONS[language] ? language : 'en';
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('📊 This Month', 'cat_chart_now')],
+    [Markup.button.callback('📅 Last Month', 'cat_chart_prev')],
+    [Markup.button.callback('🗓️ Pick a Month', 'cat_chart_years')],
+    [Markup.button.callback(BUTTONS[lang].BACK, 'backS')],
+  ]);
+}
+
+export function categoryChartYearButtons(years: number[], language: string = 'en') {
+  const lang = BUTTONS[language] ? language : 'en';
+  const buttons = years.map((year) => [Markup.button.callback(`${year}`, `cat_chart_y:${year}`)]);
+  buttons.push([Markup.button.callback(BUTTONS[lang].BACK, 'backS')]);
+  return Markup.inlineKeyboard(buttons);
+}
+
+export function categoryChartMonthButtons(year: number, availableMonths: number[], language: string = 'en') {
+  const lang = BUTTONS[language] ? language : 'en';
+  const monthNames = [
+    BUTTONS[lang].JANUARY, BUTTONS[lang].FEBRUARY, BUTTONS[lang].MARCH, BUTTONS[lang].APRIL,
+    BUTTONS[lang].MAY, BUTTONS[lang].JUNE, BUTTONS[lang].JULY, BUTTONS[lang].AUGUST,
+    BUTTONS[lang].SEPTEMBER, BUTTONS[lang].OCTOBER, BUTTONS[lang].NOVEMBER, BUTTONS[lang].DECEMBER,
+  ];
+  const buttons = availableMonths.map((m) => Markup.button.callback(monthNames[m - 1], `cat_chart_m:${year}:${m}`));
+  buttons.push(Markup.button.callback(BUTTONS[lang].BACK, 'backS'));
+  return Markup.inlineKeyboard(buttons, { columns: 2 });
+}
+
 export function actionButtonsTransactionNames(
   transactionNames: string[],
   language: string = 'en',
