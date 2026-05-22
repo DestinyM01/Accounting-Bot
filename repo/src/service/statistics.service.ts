@@ -238,6 +238,26 @@ export class StatisticsService {
       throw error;
     }
   }
+  async getCategoryExpensesForPeriod(
+    userId: number,
+    startDate: Date,
+    endDate: Date,
+    groupIds?: number[],
+  ): Promise<Record<string, number>> {
+    const query = groupIds && groupIds.length > 0 ? { userId: { $in: [...groupIds, userId] } } : { userId };
+    const transactions = await this.transactionModel
+      .find({ ...query, timestamp: { $gte: startDate, $lte: endDate } })
+      .exec();
+
+    const totals: Record<string, number> = {};
+    for (const t of transactions) {
+      if (t.amount < 0 && t.category) {
+        totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
+      }
+    }
+    return totals;
+  }
+
   async getDetailedTransactions(ctx: IContext, year: number, month: number, date: number): Promise<void> {
     const userId = ctx.from.id;
     const groupIds = ctx.session.group;

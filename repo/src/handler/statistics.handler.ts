@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { Action, Ctx, Update } from 'nestjs-telegraf';
 import { TransactionType } from '../type/enum/transactionType.enam';
-import { StatisticsService } from '../service';
+import { ChartService, StatisticsService } from '../service';
 import {
   PERIOD_NULL,
   SELECT_CATEGORY_MESSAGE,
@@ -26,7 +26,10 @@ import { sendSplitMessage } from '../common';
 @Update()
 export class StatisticsHandler {
   private readonly logger: Logger = new Logger(StatisticsHandler.name);
-  constructor(private readonly statisticsService: StatisticsService) {}
+  constructor(
+    private readonly statisticsService: StatisticsService,
+    private readonly chartService: ChartService,
+  ) {}
 
   @Action('statistics')
   async statisticsCommand(ctx: IContext) {
@@ -232,6 +235,38 @@ export class StatisticsHandler {
       const page = Number(parts[1]);
       const transactionNameButtons = actionButtonsTransactionNames(uniqueTransactionNames, ctx.session.language, page);
       await ctx.editMessageText(SELECT_CATEGORY_MESSAGE[ctx.session.language || 'en'], transactionNameButtons);
+    }
+  }
+
+  @Action('category_chart')
+  async categoryChartCommand(ctx: IContext) {
+    this.logger.log(`user:${ctx.from.id} category_chart command executed`);
+    await ctx.answerCbQuery();
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      const categoryTotals = await this.statisticsService.getCategoryExpensesForPeriod(
+        ctx.from.id,
+        startOfMonth,
+        endOfMonth,
+        ctx.session.group,
+      );
+      if (Object.keys(categoryTotals).length === 0) {
+        await ctx.reply('No categorised expenses found for this month.');
+        return;
+      }
+      const monthName = now.toLocaleString('en-US', { month: 'long' });
+      const title = `Expenses by Category — ${monthName} ${now.getFullYear()}`;
+      const chart = await this.chartService.generateCategoryPieChart(categoryTotals, title);
+      const imageBuffer = Buffer.from(chart, 'base64');
+      await ctx.replyWithPhoto({ source: imageBuffer }, {
+        caption: `📊 ${title}`,
+        reply_markup: backStatisticButton(ctx.session.language || 'en').reply_markup,
+      });
+    } catch (err) {
+      this.logger.error('Error generating category chart', err);
+      await ctx.reply('Could not generate category chart. Make sure you have categorised expenses this month.');
     }
   }
 

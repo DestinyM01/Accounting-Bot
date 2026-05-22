@@ -114,6 +114,16 @@ export class TransactionService {
     await this.transactionModel.findByIdAndUpdate(transactionId, { category }).exec();
   }
 
+  async searchTransactions(userId: number, keyword: string, groupIds?: number[]): Promise<Transaction[]> {
+    const safeKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // escape regex chars
+    const regex = new RegExp(safeKeyword, 'i');
+    const query =
+      groupIds && groupIds.length > 0
+        ? { userId: { $in: [...groupIds, userId] }, transactionName: regex }
+        : { userId, transactionName: regex };
+    return this.transactionModel.find(query).sort({ timestamp: -1 }).limit(30).exec();
+  }
+
   async deleteAllTransactionsOfUser(userId: number): Promise<void> {
     try {
       await this.transactionModel.deleteMany({ userId }).exec();

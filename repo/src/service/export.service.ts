@@ -10,6 +10,30 @@ export class ExportService {
 
   constructor(@InjectModel('Transaction') private readonly transactionModel: Model<Transaction>) {}
 
+  async exportUserTransactionsCsvByPeriod(
+    userId: number,
+    startDate: Date,
+    endDate: Date,
+    groupIds?: number[],
+  ): Promise<Buffer> {
+    const query =
+      groupIds && groupIds.length > 0
+        ? { userId: { $in: [...groupIds, userId] }, timestamp: { $gte: startDate, $lte: endDate } }
+        : { userId, timestamp: { $gte: startDate, $lte: endDate } };
+
+    const transactions = await this.transactionModel.find(query).sort({ timestamp: -1 }).lean().exec();
+    const rows = transactions.map((t) => ({
+      date: new Date(t.timestamp).toISOString().slice(0, 10),
+      name: t.transactionName,
+      type: t.transactionType,
+      category: t.category ?? 'other',
+      amount: t.amount,
+    }));
+    const csv = stringify(rows, { header: true, columns: ['date', 'name', 'type', 'category', 'amount'] });
+    this.logger.log(`Exported ${rows.length} transactions (period) for user ${userId}`);
+    return Buffer.from(csv);
+  }
+
   async exportUserTransactionsCsv(userId: number, groupIds?: number[]): Promise<Buffer> {
     const query =
       groupIds && groupIds.length > 0 ? { userId: { $in: [...groupIds, userId] } } : { userId };

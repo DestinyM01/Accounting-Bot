@@ -3,23 +3,25 @@ import { Markup } from 'telegraf';
 import { IContext } from '../type/interface';
 
 export function actionButtonsStatistics(language: string = 'en') {
+  const lang = BUTTONS[language] ? language : 'en';
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback(BUTTONS[language].BALANCE, 'balance'),
-      Markup.button.callback(BUTTONS[language].SELECT_YEAR, 'select_year'),
+      Markup.button.callback(BUTTONS[lang].BALANCE, 'balance'),
+      Markup.button.callback(BUTTONS[lang].SELECT_YEAR, 'select_year'),
     ],
     [
-      Markup.button.callback(BUTTONS[language].TODAY, 'today'),
-      Markup.button.callback(BUTTONS[language].WEEK, 'on_week'),
-      Markup.button.callback(BUTTONS[language].MONTH, 'on_month'),
+      Markup.button.callback(BUTTONS[lang].TODAY, 'today'),
+      Markup.button.callback(BUTTONS[lang].WEEK, 'on_week'),
+      Markup.button.callback(BUTTONS[lang].MONTH, 'on_month'),
     ],
     [
-      Markup.button.callback(BUTTONS[language].MY_INCOME, 'my_income'),
-      Markup.button.callback(BUTTONS[language].MY_EXPENSE, 'my_expense'),
-      Markup.button.callback(BUTTONS[language].BY_CATEGORY, 'by_category'),
+      Markup.button.callback(BUTTONS[lang].MY_INCOME, 'my_income'),
+      Markup.button.callback(BUTTONS[lang].MY_EXPENSE, 'my_expense'),
+      Markup.button.callback(BUTTONS[lang].BY_CATEGORY, 'by_category'),
     ],
-    [Markup.button.callback(`${BUTTONS[language].ADVSTAT}`, 'advanced_statistics')],
-    [Markup.button.callback(BUTTONS[language].BACK, 'back')],
+    [Markup.button.callback('📊 Category Chart', 'category_chart')],
+    [Markup.button.callback(`${BUTTONS[lang].ADVSTAT}`, 'advanced_statistics')],
+    [Markup.button.callback(BUTTONS[lang].BACK, 'back')],
   ]);
 }
 

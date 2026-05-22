@@ -97,6 +97,36 @@ export class TransactionHandler {
 
   @On('text')
   async textCommand(ctx: IContext) {
+    // ── Search branch ─────────────────────────────────────────────────────────
+    if (ctx.session.type === 'search') {
+      const lang = ctx.session.language || 'en';
+      const keyword = (ctx.message as MyMessage).text.trim();
+      const results = await this.transactionService.searchTransactions(
+        ctx.from.id,
+        keyword,
+        ctx.session.group,
+      );
+      if (results.length === 0) {
+        const noResults = {
+          en: `🔍 No transactions found for "<b>${keyword}</b>".`,
+          ua: `🔍 Транзакцій не знайдено для "<b>${keyword}</b>".`,
+          pl: `🔍 Brak transakcji dla "<b>${keyword}</b>".`,
+          es: `🔍 No se encontraron transacciones para "<b>${keyword}</b>".`,
+        };
+        await ctx.replyWithHTML(noResults[lang] ?? noResults.en, backTranButton(lang));
+        return;
+      }
+      const lines = results.map((t) => {
+        const sign = t.amount >= 0 ? '📈' : '📉';
+        const date = new Date(t.timestamp).toLocaleDateString('en-US');
+        return `${sign} <b>${t.transactionName}</b>  ${Math.abs(t.amount)} — ${date}`;
+      });
+      const header = { en: `🔍 Results for "<b>${keyword}</b>" (top ${results.length}):`, ua: `🔍 Результати для "<b>${keyword}</b>":`, pl: `🔍 Wyniki dla "<b>${keyword}</b>":`, es: `🔍 Resultados para "<b>${keyword}</b>" (top ${results.length}):` };
+      await ctx.replyWithHTML(`${header[lang] ?? header.en}\n\n${lines.join('\n')}`, backTranButton(lang));
+      return;
+    }
+
+    // ── Normal income/expense branch ──────────────────────────────────────────
     if (ctx.session.type !== 'income' && ctx.session.type !== 'expense') {
       return;
     }
@@ -225,6 +255,22 @@ export class TransactionHandler {
     } else {
       await ctx.answerCbQuery();
     }
+  }
+
+  @Action('search_transactions')
+  async searchCommand(ctx: IContext) {
+    const lang = ctx.session.language || 'en';
+    ctx.session.type = 'search';
+    const prompt = {
+      en: '🔍 Type a keyword to search your transactions (e.g. <b>rent</b>, <b>food</b>):',
+      ua: '🔍 Введіть ключове слово для пошуку транзакцій:',
+      pl: '🔍 Wpisz słowo kluczowe, aby wyszukać transakcje:',
+      es: '🔍 Escribe una palabra clave para buscar tus transacciones (ej. <b>alquiler</b>):',
+    };
+    await ctx.editMessageText(prompt[lang] ?? prompt.en, {
+      parse_mode: 'HTML',
+      reply_markup: backTranButton(lang).reply_markup,
+    });
   }
 
   @Action('set_recurring')

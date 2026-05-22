@@ -4,7 +4,7 @@ import { ITransactionQuery } from './transaction.query.interface';
 export interface IContext extends ContextTelegraf {
   session: {
     id?: string;
-    type?: 'done' | 'edit' | 'remove' | 'income' | 'expense' | 'balance' | 'delete' | 'sendNewsAllUser';
+    type?: 'done' | 'edit' | 'remove' | 'income' | 'expense' | 'balance' | 'delete' | 'sendNewsAllUser' | 'search';
     language?: string;
     currency?: string;
     group?: number[];

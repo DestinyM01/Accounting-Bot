@@ -2,13 +2,14 @@ import { Markup } from 'telegraf';
 import { BUTTONS } from '../constants';
 
 export function actionButtonsTransaction(language: string = 'en') {
-  const lang = language || 'en';
+  const lang = (BUTTONS[language] ? language : 'en') as string;
   return Markup.inlineKeyboard(
     [
       Markup.button.callback(BUTTONS[lang].INCOME, 'income'),
       Markup.button.callback(BUTTONS[lang].EXPENSE, 'expense'),
       Markup.button.callback(BUTTONS[lang].DELETE_LAST, 'delete_last'),
       Markup.button.callback(BUTTONS[lang].RECURRING, 'set_recurring'),
+      Markup.button.callback('🔍 Search', 'search_transactions'),
       Markup.button.callback(BUTTONS[lang].BACK, 'back'),
     ],
     { columns: 2 },

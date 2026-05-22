@@ -140,6 +140,102 @@ export class ChartService {
       ctx.fillText(textUpTable, centerX, centerY - radius - 40);
     }
   }
+  // ─── Category expense pie chart ──────────────────────────────────────────────
+  async generateCategoryPieChart(categoryTotals: Record<string, number>, title: string): Promise<string> {
+    const entries = Object.entries(categoryTotals)
+      .filter(([, v]) => v > 0)
+      .sort((a, b) => b[1] - a[1]);
+
+    if (entries.length === 0) throw new Error('No category data');
+
+    const width = 900;
+    const height = 660;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+
+    // Background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+
+    // Title
+    ctx.fillStyle = '#2c3e50';
+    ctx.font = 'bold 22px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(title, width / 2, 36);
+
+    const total = entries.reduce((s, [, v]) => s + v, 0);
+    const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#95a5a6'];
+
+    const radius = 210;
+    const centerX = width / 2;
+    const centerY = 310;
+
+    // Draw slices
+    let startAngle = -Math.PI / 2;
+    entries.forEach(([, amount], i) => {
+      const pct = amount / total;
+      const endAngle = startAngle + pct * 2 * Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+      ctx.closePath();
+      ctx.fillStyle = COLORS[i % COLORS.length];
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      startAngle = endAngle;
+    });
+
+    // Percentage labels outside slices (only for slices > 5%)
+    startAngle = -Math.PI / 2;
+    entries.forEach(([, amount], i) => {
+      const pct = amount / total;
+      const endAngle = startAngle + pct * 2 * Math.PI;
+      if (pct > 0.05) {
+        const mid = (startAngle + endAngle) / 2;
+        const lx = centerX + (radius + 30) * Math.cos(mid);
+        const ly = centerY + (radius + 30) * Math.sin(mid);
+        ctx.fillStyle = '#2c3e50';
+        ctx.font = 'bold 13px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${Math.round(pct * 100)}%`, lx, ly);
+      }
+      startAngle = endAngle;
+    });
+
+    // Total label in center
+    ctx.fillStyle = '#2c3e50';
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`Total`, centerX, centerY - 12);
+    ctx.fillText(total.toLocaleString('en-US', { maximumFractionDigits: 0 }), centerX, centerY + 12);
+
+    // Legend at the bottom
+    const legendTop = height - 110;
+    const cols = Math.min(entries.length, 4);
+    const colWidth = width / cols;
+    entries.forEach(([category, amount], i) => {
+      const row = Math.floor(i / 4);
+      const col = i % 4;
+      const lx = col * colWidth + 20;
+      const ly = legendTop + row * 28;
+      ctx.fillStyle = COLORS[i % COLORS.length];
+      ctx.fillRect(lx, ly, 14, 14);
+      ctx.fillStyle = '#2c3e50';
+      ctx.font = '13px Arial';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      const label = `${category}: ${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+      ctx.fillText(label, lx + 20, ly);
+    });
+
+    const imageData = canvas.toDataURL();
+    return imageData.replace(/^data:image\/png;base64,/, '');
+  }
+
   private async getRandomColor(): Promise<string> {
     const letters = '0123456789ABCDEF';
     let color = '#';
@@ -248,8 +344,10 @@ export class ChartService {
 
       const groupedDates = Array.from(groupedTotals.keys()).sort();
 
-      // Find min and max values for scaling
-      let minTotal = 0;
+      // Find min and max values for scaling.
+      // Expenses are stored as negative amounts but we display them as positive
+      // so both income and expense lines live in the same positive Y space.
+      const minTotal = 0; // Y-axis always starts at 0
       let maxTotal = 0;
       const positiveData: number[] = [];
       const negativeData: number[] = [];
@@ -257,15 +355,12 @@ export class ChartService {
       groupedDates.forEach((date) => {
         const { positive, negative } = groupedTotals.get(date)!;
         positiveData.push(positive);
-        negativeData.push(negative);
-        minTotal = Math.min(minTotal, negative);
-        maxTotal = Math.max(maxTotal, positive);
+        negativeData.push(Math.abs(negative)); // absolute value — expenses shown positive
+        maxTotal = Math.max(maxTotal, positive, Math.abs(negative));
       });
 
-      // Add padding to min/max values
-      const valueRange = maxTotal - minTotal;
-      minTotal -= valueRange * 0.1;
-      maxTotal += valueRange * 0.1;
+      // 10% headroom at the top; bottom is fixed at 0
+      maxTotal = maxTotal > 0 ? maxTotal * 1.1 : 100;
 
       // Draw background and title
       ctx.fillStyle = '#ffffff';
