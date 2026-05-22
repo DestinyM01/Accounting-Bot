@@ -23,7 +23,7 @@ jobs:
         run: docker compose up -d --build app
 
       - name: Clean up old Docker images
-        run: docker image prune -f
+        run: docker image prune -af
 
       - name: Verify container is running
         run: |
