@@ -14,3 +14,4 @@ export * from './financial-literacy.service';
 export * from './budget.service';
 export * from './export.service';
 export * from './recurring.service';
+export * from './balance-history.service';

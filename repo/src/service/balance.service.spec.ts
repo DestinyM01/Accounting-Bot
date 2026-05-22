@@ -6,6 +6,7 @@ import { TransactionType } from '../type/enum/transactionType.enam';
 describe('BalanceService', () => {
   let service: BalanceService;
   let mockBalanceModel: any;
+  let mockHistoryService: any;
 
   beforeEach(() => {
     mockBalanceModel = jest.fn();
@@ -14,7 +15,10 @@ describe('BalanceService', () => {
     mockBalanceModel.countDocuments = jest.fn();
     mockBalanceModel.deleteMany = jest.fn();
 
-    service = new BalanceService(mockBalanceModel as any);
+    // BalanceHistoryService — failures must never break balance operations
+    mockHistoryService = { record: jest.fn().mockResolvedValue(undefined) };
+
+    service = new BalanceService(mockBalanceModel as any, mockHistoryService);
   });
 
   // ── getOrCreateBalance ─────────────────────────────────────────────────────

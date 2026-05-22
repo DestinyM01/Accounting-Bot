@@ -3,12 +3,16 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Balance } from '../mongodb/shemas/balance.shemas';
 import { TransactionType } from '../type/enum/transactionType.enam';
+import { BalanceHistoryService } from './balance-history.service';
 
 @Injectable()
 export class BalanceService {
   private readonly logger: Logger = new Logger(BalanceService.name);
 
-  constructor(@InjectModel('Balance') private readonly balanceModel: Model<Balance>) {}
+  constructor(
+    @InjectModel('Balance') private readonly balanceModel: Model<Balance>,
+    private readonly balanceHistoryService: BalanceHistoryService,
+  ) {}
 
   async getOrCreateBalance(userId: number): Promise<Balance> {
     let balance = await this.balanceModel.findOne({ userId }).exec();
@@ -33,9 +37,16 @@ export class BalanceService {
     }
   }
 
-  async updateBalance(userId: number, amount: number, transactionType: TransactionType): Promise<void> {
+  async updateBalance(
+    userId: number,
+    amount: number,
+    transactionType: TransactionType,
+    transactionName?: string,
+    transactionId?: string,
+  ): Promise<void> {
     try {
       const balance = await this.getOrCreateBalance(userId);
+      const previousBalance = balance.balance;
 
       if (transactionType === TransactionType.INCOME) {
         balance.balance += amount;
@@ -46,8 +57,53 @@ export class BalanceService {
       balance.lastActivity = new Date();
       await balance.save();
       this.logger.log(`Updated balance for user ${userId}`);
+
+      const reason = transactionType === TransactionType.INCOME ? 'income' : 'expense';
+      await this.balanceHistoryService.record(
+        userId,
+        previousBalance,
+        balance.balance,
+        reason,
+        transactionName,
+        transactionId,
+      );
     } catch (error) {
       this.logger.error('Error updating balance', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reverses the effect of a transaction on the balance (used when deleting a transaction).
+   * storedAmount: the amount as stored in the Transaction document (income = positive, expense = negative).
+   */
+  async reverseTransaction(
+    userId: number,
+    storedAmount: number,
+    transactionName?: string,
+    transactionId?: string,
+  ): Promise<void> {
+    try {
+      const balance = await this.getOrCreateBalance(userId);
+      const previousBalance = balance.balance;
+
+      // Undo: subtract the stored amount (works for both income and expense)
+      // e.g. income +500 → balance -500; expense -300 → balance +300
+      balance.balance -= storedAmount;
+      balance.lastActivity = new Date();
+      await balance.save();
+      this.logger.log(`Reversed transaction for user ${userId}`);
+
+      await this.balanceHistoryService.record(
+        userId,
+        previousBalance,
+        balance.balance,
+        'delete',
+        transactionName,
+        transactionId,
+      );
+    } catch (error) {
+      this.logger.error('Error reversing transaction', error);
       throw error;
     }
   }
@@ -55,10 +111,13 @@ export class BalanceService {
   async setBalance(userId: number, amount: number): Promise<void> {
     try {
       const balance = await this.getOrCreateBalance(userId);
+      const previousBalance = balance.balance;
       balance.balance = amount;
       balance.lastActivity = new Date();
       await balance.save();
       this.logger.log(`Set balance for user ${userId}`);
+
+      await this.balanceHistoryService.record(userId, previousBalance, amount, 'manual');
     } catch (error) {
       this.logger.error('Error updating balance', error);
       throw error;
@@ -106,11 +165,8 @@ export class BalanceService {
   async countBannedUsers(): Promise<number> {
     try {
       const bannedUsersCount = await this.balanceModel
-        .countDocuments({
-          isBaned: true,
-        })
+        .countDocuments({ isBaned: true })
         .exec();
-
       this.logger.log(`Number of banned users: ${bannedUsersCount}`);
       return bannedUsersCount;
     } catch (error) {
@@ -122,14 +178,10 @@ export class BalanceService {
   async countActiveUsersLast3Days(): Promise<number> {
     try {
       const threeDaysAgo = new Date();
-      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3); // Date 3 days ago
-
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
       const activeUsersCount = await this.balanceModel
-        .countDocuments({
-          lastActivity: { $gte: threeDaysAgo },
-        })
+        .countDocuments({ lastActivity: { $gte: threeDaysAgo } })
         .exec();
-
       this.logger.log(`Number of active users in the last 3 days: ${activeUsersCount}`);
       return activeUsersCount;
     } catch (error) {
@@ -137,6 +189,7 @@ export class BalanceService {
       throw error;
     }
   }
+
   async setStartPayload(userId: number, userStartPayload: string) {
     if (!userStartPayload.split(' ')[1]) {
       return;

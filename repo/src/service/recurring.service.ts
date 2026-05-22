@@ -55,7 +55,7 @@ export class RecurringService {
     const due = await this.recurringModel.find({ dayOfMonth: today, active: true }).exec();
     for (const r of due) {
       try {
-        await this.transactionService.createTransaction({
+        const created = await this.transactionService.createTransaction({
           userId: r.userId,
           userName: r.userName,
           transactionName: r.transactionName,
@@ -63,7 +63,13 @@ export class RecurringService {
           amount: r.amount,
           category: r.category,
         });
-        await this.balanceService.updateBalance(r.userId, r.amount, r.transactionType);
+        await this.balanceService.updateBalance(
+          r.userId,
+          r.amount,
+          r.transactionType,
+          r.transactionName,
+          (created as any)._id?.toString(),
+        );
         r.lastExecutedAt = new Date();
         await r.save();
         this.logger.log(`Processed recurring "${r.transactionName}" for user ${r.userId}`);

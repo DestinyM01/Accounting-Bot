@@ -59,15 +59,12 @@ export class TransactionService {
         );
         return;
       }
-      const balance = await this.balanceService.getOrCreateBalance(userId);
-
-      if (transaction.transactionType === TransactionType.INCOME) {
-        balance.balance -= transaction.amount;
-      } else if (transaction.transactionType === TransactionType.EXPENSE) {
-        balance.balance += Math.abs(transaction.amount);
-      }
-
-      await balance.save();
+      await this.balanceService.reverseTransaction(
+        userId,
+        transaction.amount,
+        transaction.transactionName,
+        transactionId,
+      );
       await this.transactionModel.deleteOne({ _id: transactionId }).exec();
 
       this.logger.log(`Deleted transaction with ID: ${transactionId}`);

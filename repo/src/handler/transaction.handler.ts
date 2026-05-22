@@ -162,7 +162,7 @@ export class TransactionHandler {
           amount,
           userName,
         });
-        await this.balanceService.updateBalance(userId, amount, transactionType);
+        await this.balanceService.updateBalance(userId, amount, transactionType, transactionName, (created as any)._id?.toString());
         transactionMessage.push(await this.statisticsService.getTransactionsByTransactionName(ctx, transactionName));
         if (transactions.length === 1) {
           ctx.session.pendingCategoryTransactionId = (created as any)._id.toString();

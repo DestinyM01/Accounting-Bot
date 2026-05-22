@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { Action, Ctx, Update } from 'nestjs-telegraf';
 import { TransactionType } from '../type/enum/transactionType.enam';
-import { ChartService, StatisticsService } from '../service';
+import { BalanceHistoryService, ChartService, StatisticsService } from '../service';
 import {
   PERIOD_NULL,
   SELECT_CATEGORY_MESSAGE,
@@ -32,6 +32,7 @@ export class StatisticsHandler {
   constructor(
     private readonly statisticsService: StatisticsService,
     private readonly chartService: ChartService,
+    private readonly balanceHistoryService: BalanceHistoryService,
   ) {}
 
   @Action('statistics')
@@ -330,6 +331,60 @@ export class StatisticsHandler {
       };
       await ctx.reply(errMsg[lang] ?? errMsg.en);
     }
+  }
+
+  // ── Balance history ──────────────────────────────────────────────────────
+
+  @Action('balance_history')
+  async balanceHistoryCommand(ctx: IContext) {
+    this.logger.log(`user:${ctx.from.id} balance_history`);
+    const lang = ctx.session.language || 'en';
+    await ctx.answerCbQuery();
+
+    const entries = await this.balanceHistoryService.getRecent(ctx.from.id, 20);
+
+    if (entries.length === 0) {
+      const empty = {
+        en: '📜 No balance history yet. Start adding transactions!',
+        es: '📜 Aún no hay historial de saldo. ¡Empieza a agregar transacciones!',
+      };
+      await ctx.reply(empty[lang] ?? empty.en, backStatisticButton(lang));
+      return;
+    }
+
+    const REASON_EMOJI: Record<string, string> = {
+      income: '📈',
+      expense: '📉',
+      delete: '🗑️',
+      manual: '✏️',
+      recurring: '🔄',
+    };
+
+    const fmt = (n: number) =>
+      (n >= 0 ? '+' : '') + n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+    const lines = entries.map((e) => {
+      const date = new Date(e.timestamp).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        timeZone: process.env.CRON_TIMEZONE || 'America/Santo_Domingo',
+      });
+      const emoji = REASON_EMOJI[e.reason] ?? '•';
+      const name = e.transactionName ? ` <i>${e.transactionName}</i>` : '';
+      const delta = `<b>${fmt(e.delta)}</b>`;
+      const after = e.newBalance.toLocaleString('en-US', { maximumFractionDigits: 2 });
+      return `${date} ${emoji}${name} ${delta} → ${after}`;
+    });
+
+    const header = {
+      en: `📜 <b>Last ${entries.length} balance changes:</b>`,
+      es: `📜 <b>Últimos ${entries.length} cambios de saldo:</b>`,
+    };
+
+    await ctx.replyWithHTML(
+      `${header[lang] ?? header.en}\n\n${lines.join('\n')}`,
+      backStatisticButton(lang),
+    );
   }
 
   @Action('backS')

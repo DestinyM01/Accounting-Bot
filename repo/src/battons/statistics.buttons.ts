@@ -20,6 +20,7 @@ export function actionButtonsStatistics(language: string = 'en') {
       Markup.button.callback(BUTTONS[lang].BY_CATEGORY, 'by_category'),
     ],
     [Markup.button.callback('📊 Category Chart', 'category_chart')],
+    [Markup.button.callback('📜 Balance History', 'balance_history')],
     [Markup.button.callback(`${BUTTONS[lang].ADVSTAT}`, 'advanced_statistics')],
     [Markup.button.callback(BUTTONS[lang].BACK, 'back')],
   ]);

@@ -36,6 +36,7 @@ describe('TransactionService', () => {
     mockBalanceService = {
       getOrCreateBalance: jest.fn(),
       updateBalance: jest.fn(),
+      reverseTransaction: jest.fn().mockResolvedValue(undefined),
     };
 
     // Jest fn used as a constructor (new this.transactionModel(...))
@@ -113,9 +114,8 @@ describe('TransactionService', () => {
   // ── deleteTransactionById ──────────────────────────────────────────────────
 
   describe('deleteTransactionById', () => {
-    it('adds back abs(amount) to balance when deleting an expense', async () => {
-      const transaction = { transactionType: TransactionType.EXPENSE, amount: -300 };
-      const balance = { balance: 100, save: jest.fn().mockResolvedValue(undefined) };
+    it('calls reverseTransaction with stored amount when deleting an expense', async () => {
+      const transaction = { transactionType: TransactionType.EXPENSE, amount: -300, transactionName: 'groceries' };
 
       mockTransactionModel.findOne = jest
         .fn()
@@ -123,19 +123,18 @@ describe('TransactionService', () => {
       mockTransactionModel.deleteOne = jest
         .fn()
         .mockReturnValue({ exec: jest.fn().mockResolvedValue(undefined) });
-      mockBalanceService.getOrCreateBalance = jest.fn().mockResolvedValue(balance);
 
       await service.deleteTransactionById(makeCtx(), 'txid1');
 
-      // balance 100 + Math.abs(-300) = 400
-      expect(balance.balance).toBe(400);
-      expect(balance.save).toHaveBeenCalled();
+      // BalanceService.reverseTransaction receives storedAmount (-300) and does balance -= -300 = balance + 300
+      expect(mockBalanceService.reverseTransaction).toHaveBeenCalledWith(
+        42, -300, 'groceries', 'txid1',
+      );
       expect(mockTransactionModel.deleteOne).toHaveBeenCalledWith({ _id: 'txid1' });
     });
 
-    it('subtracts amount from balance when deleting income', async () => {
-      const transaction = { transactionType: TransactionType.INCOME, amount: 500 };
-      const balance = { balance: 1000, save: jest.fn().mockResolvedValue(undefined) };
+    it('calls reverseTransaction with stored amount when deleting income', async () => {
+      const transaction = { transactionType: TransactionType.INCOME, amount: 500, transactionName: 'salary' };
 
       mockTransactionModel.findOne = jest
         .fn()
@@ -143,23 +142,23 @@ describe('TransactionService', () => {
       mockTransactionModel.deleteOne = jest
         .fn()
         .mockReturnValue({ exec: jest.fn().mockResolvedValue(undefined) });
-      mockBalanceService.getOrCreateBalance = jest.fn().mockResolvedValue(balance);
 
       await service.deleteTransactionById(makeCtx(), 'txid2');
 
-      // balance 1000 - 500 = 500
-      expect(balance.balance).toBe(500);
-      expect(balance.save).toHaveBeenCalled();
+      // BalanceService.reverseTransaction receives +500 and does balance -= 500
+      expect(mockBalanceService.reverseTransaction).toHaveBeenCalledWith(
+        42, 500, 'salary', 'txid2',
+      );
     });
 
-    it('does not touch balance or deleteOne when transaction is not found', async () => {
+    it('does not call reverseTransaction or deleteOne when transaction is not found', async () => {
       mockTransactionModel.findOne = jest
         .fn()
         .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
 
       await service.deleteTransactionById(makeCtx(), 'missing');
 
-      expect(mockBalanceService.getOrCreateBalance).not.toHaveBeenCalled();
+      expect(mockBalanceService.reverseTransaction).not.toHaveBeenCalled();
       expect(mockTransactionModel.deleteOne).not.toHaveBeenCalled();
     });
   });

@@ -10,6 +10,7 @@ import { Balance, BalanceSchema } from './mongodb/shemas/balance.shemas';
 import { Transaction, TransactionSchema } from './mongodb/shemas/transaction.shemas';
 import { Budget, BudgetSchema } from './mongodb/shemas/budget.shemas';
 import { Recurring, RecurringSchema } from './mongodb/shemas/recurring.shemas';
+import { BalanceHistory, BalanceHistorySchema } from './mongodb/shemas/balance-history.schemas';
 import { ScheduleModule } from '@nestjs/schedule';
 import { OpenAiApiModule } from './open-ai-api/open-ai-api.module';
 import { createSessionMiddleware, errorHandlingMiddleware } from './middleware';
@@ -38,6 +39,7 @@ import { HealthChecksController } from './api/health.checks.controller';
       { name: Analytics.name, schema: AnalyticsSchema },
       { name: Budget.name, schema: BudgetSchema },
       { name: Recurring.name, schema: RecurringSchema },
+      { name: BalanceHistory.name, schema: BalanceHistorySchema },
     ]),
   ],
 
