@@ -12,7 +12,7 @@ export class FinancialLiteracyHandler {
   @Action('financial-literacy')
   async handleFinancialLiteracyCommand(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} handleFinancialLiteracyCommand`);
-    await ctx.editMessageText(FINANCE_LITERACY_TEXT[ctx.session.language], {
+    await ctx.editMessageText((FINANCE_LITERACY_TEXT[ctx.session.language] ?? FINANCE_LITERACY_TEXT['en']), {
       reply_markup: financialLiteracyButtons(ctx.session.language).reply_markup,
       parse_mode: 'HTML',
     });
@@ -20,7 +20,7 @@ export class FinancialLiteracyHandler {
   @Action('compound-interest')
   async handleCompoundInterestCommand(@Ctx() ctx: IContext & WizardContext) {
     this.logger.log(`user:${ctx.from.id} handleCompoundInterestCommand`);
-    await ctx.editMessageText(FINANCE_LITERACY_COMPOUND_INTEREST_TEX[ctx.session.language], {
+    await ctx.editMessageText((FINANCE_LITERACY_COMPOUND_INTEREST_TEX[ctx.session.language] ?? FINANCE_LITERACY_COMPOUND_INTEREST_TEX['en']), {
       parse_mode: 'HTML',
       reply_markup: backStartButton(ctx.session.language).reply_markup,
     });

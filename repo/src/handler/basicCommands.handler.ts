@@ -89,7 +89,7 @@ export class BasicCommandsHandler {
   async helpCommand(ctx: IContext) {
     const markup = backHelpButton(ctx.session.language);
     try {
-      await ctx.editMessageText(HELP_MESSAGE[ctx.session.language || 'en'], {
+      await ctx.editMessageText((HELP_MESSAGE[ctx.session.language] ?? HELP_MESSAGE['en']), {
         reply_markup: markup.reply_markup,
         disable_web_page_preview: true,
         parse_mode: 'HTML',
@@ -105,7 +105,7 @@ export class BasicCommandsHandler {
   @Action('info')
   async infoCommand(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} infoCommand executed`);
-    await ctx.editMessageText(INFO_MESSAGE[ctx.session.language], {
+    await ctx.editMessageText((INFO_MESSAGE[ctx.session.language] ?? INFO_MESSAGE['en']), {
       reply_markup: infoButton(ctx.session.language).reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML',
@@ -172,7 +172,7 @@ export class BasicCommandsHandler {
   async getProjectSupport(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} getProjectSupport `);
     await ctx.telegram.sendMessage(process.env.BOSID, `user:${ctx.from.id} getProjectSupport`);
-    await ctx.editMessageText(SUPPORT_MESSAGE[ctx.session.language || 'en'], {
+    await ctx.editMessageText((SUPPORT_MESSAGE[ctx.session.language] ?? SUPPORT_MESSAGE['en']), {
       reply_markup: backStartButton(ctx.session.language).reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML',

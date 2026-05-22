@@ -105,6 +105,41 @@ export const HELP_MESSAGE = {
 
 📩 <b>W razie dodatkowych pytań lub pomocy, prosimy o kontakt pod adresem e-mail: help.tgbot@icloud.com</b> 📩
    <b>Jeśli chcesz finansowo wesprzeć projekt, kliknij poniższy przycisk 🔽🔽🔽🔽🔽</b>`,
+  es: `<b>📘 Guía de uso de tu asistente financiero. 📘</b>
+
+<i>Este bot está diseñado para gestionar tus finanzas de manera efectiva.</i> Ofrece los siguientes comandos principales:
+
+- <b>Transacciones 💸:</b> Permite ver y gestionar tus transacciones.
+- <b>Balance 💰:</b> Muestra tu balance actual.
+- <b>Estadísticas 📊:</b> Proporciona estadísticas de tu actividad financiera.
+- <b>Elegir idioma📝:</b> Para cambiar el idioma de la interfaz.
+- <b>Familia👨‍👩‍👧‍👧:</b> Menú de gestión familiar.
+- <b>⛔️Borrar todos los datos🗑️:</b> Elimina todos tus datos y restablece tu cuenta.
+
+👇 <i>Opciones adicionales:</i>
+- <b>Ingresos:</b> Para agregar un ingreso.
+- <b>Gastos:</b> Para agregar un gasto.
+- <b>Eliminar último❌:</b> Para eliminar las últimas transacciones.
+
+<b>👨‍👩‍👧‍👦 Acceso familiar:</b>
+1️⃣ <i>Tus transacciones y las de tu pareja se combinarán en una sola.</i>
+2️⃣ <i>Pídele a tu pareja su ID, que se puede obtener en el menú familiar.</i>
+3️⃣ <i>Presiona 'Crear familia👩‍❤️‍👨'.</i>
+4️⃣ <i>Agrega un miembro familiar usando el ID recibido.</i>
+5️⃣ <i>El miembro familiar debe confirmar la invitación.</i>
+🔄 <i>Esto combinará tu balance y transacciones. Si cambias de opinión, tus datos seguirán siendo tuyos.</i>
+🚫 <i>Puedes eliminar el acceso familiar en cualquier momento y tu balance y transacciones volverán a ser solo tuyos.</i>
+
+🌟 <b>Acceso Premium:</b>
+🔓 En la fase de prueba, ahora puedes obtener Acceso Premium a través de configuración.
+💹 Actualmente incluye tipos de cambio de divisas y criptomonedas.
+🔄 Se planean más funciones para el Acceso Premium.
+💡 También consideramos una función de suscripción para tasas de divisas y criptomonedas con actualizaciones por hora.
+
+🔧 <i>Si tienes alguna pregunta o sugerencia, no dudes en contactarnos.</i>
+
+📩 <b>Para ayuda adicional o consultas, escríbenos a: help.tgbot@icloud.com</b> 📩
+   <b>Si deseas apoyar el proyecto financieramente, haz clic en el botón de abajo 🔽🔽🔽🔽🔽</b>`,
 };
 
 export const SUPPORT_MESSAGE = {
@@ -126,4 +161,10 @@ export const SUPPORT_MESSAGE = {
 <b>Adres ETH (ERC20):</b> ${process.env.ETH}
 <b>Adres LTC:</b> ${process.env.LTC}
 <b>Karta MonoBank:</b> ${process.env.MONO}`,
+  es: `<u>Elige una forma conveniente de apoyar el proyecto:</u>
+<b>Dirección USDT (TRC20):</b> ${process.env.USDT}
+<b>Dirección BTC (SegWit new):</b> ${process.env.BTC}
+<b>Dirección ETH (ERC20):</b> ${process.env.ETH}
+<b>Dirección LTC:</b> ${process.env.LTC}
+<b>Tarjeta MonoBank:</b> ${process.env.MONO}`,
 };

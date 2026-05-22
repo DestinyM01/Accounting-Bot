@@ -2,10 +2,11 @@ import { Markup } from 'telegraf';
 import { BUTTONS } from '../constants';
 
 export function actionButtonsAnalytics(language: string = 'en') {
+  const lang = language || 'en';
   const baseButtons = [
-    [Markup.button.callback('За сьогодні ', 'for_today'), Markup.button.callback('За тиждень', 'for_week')],
-    [Markup.button.callback('За місяць', 'for_month'), Markup.button.callback('За три місяці', 'for_3_month')],
-    [Markup.button.callback(BUTTONS[language].BACK, 'backSettings')],
+    [Markup.button.callback(BUTTONS[lang].TODAY, 'for_today'), Markup.button.callback(BUTTONS[lang].WEEK, 'for_week')],
+    [Markup.button.callback(BUTTONS[lang].MONTH, 'for_month'), Markup.button.callback(BUTTONS[lang].FOR_3_MONTHS, 'for_3_month')],
+    [Markup.button.callback(BUTTONS[lang].BACK, 'backSettings')],
   ];
   return Markup.inlineKeyboard(baseButtons);
 }

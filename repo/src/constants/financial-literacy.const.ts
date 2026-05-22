@@ -48,12 +48,28 @@ Kiedy oszczędzasz lub inwestujesz pieniądze, oprocentowanie składane działa,
 
 Ten przycisk pomoże Ci obliczyć odsetki składane
 🔽🔽🔽🔽`,
+  es: `<b>El Poder del Interés Compuesto 💰</b>
+
+El interés compuesto hace que tu dinero crezca más rápido al ganar intereses tanto sobre tu inversión inicial como sobre los intereses ya acumulados. Es un concepto simple, pero puede marcar una gran diferencia a largo plazo. 📈
+
+<b>¿Cómo funciona?</b>
+Cuando ahorras o inviertes dinero, el interés compuesto actúa reinvirtiendo los intereses ganados. Por ejemplo, si inviertes $1000 a una tasa anual del 5%, ganarás $50 en el primer año. En el segundo año, ganarás intereses sobre $1050 en lugar de $1000, ¡lo que hace que tu dinero crezca más rápido! 💡
+
+<b>¿Por qué es importante?</b>
+
+<i>Crecimiento exponencial</i> ⏳ — Cuanto antes empieces, más se multiplicará tu riqueza. El tiempo es tu mayor activo con el interés compuesto.
+<i>Crecimiento sin esfuerzo</i> 🛋️ — Una vez que inviertes, tu dinero trabaja por ti. ¡Crece automáticamente sin que necesites hacer nada más!
+<b>Consejo:</b> ¡Empieza pronto y deja que el interés compuesto convierta pequeños ahorros en riqueza significativa! 🌱
+
+Este botón te ayudará a calcular el interés compuesto
+🔽🔽🔽🔽`,
 };
 
 export const FINANCE_LITERACY_BUTTON_TEXT = {
   en: 'Calculate Compound Interest',
   ua: 'Розрахувати Складний Відсоток',
   pl: 'Oblicz Oprocentowanie Składanego',
+  es: 'Calcular Interés Compuesto',
 };
 
 export const FINANCE_LITERACY_COMPOUND_INTEREST_TEX = {
@@ -87,6 +103,16 @@ Aby obliczyć, wpisz wartości oddzielone przecinkami:
 <i>Przykład:</i>
 <code>1000, 10, 15</code>
 — to oznacza, że odkładasz 1000 zł miesięcznie przez 10 lat przy rocznej stopie 15%.`,
+  es: `<b>¿Cómo calcular el interés compuesto? 📊</b>
+
+Para calcular, ingresa los siguientes valores separados por comas:
+1️⃣ La cantidad que ahorrarás cada mes.
+2️⃣ La duración (número de años).
+3️⃣ La tasa de interés anual.
+
+<i>Ejemplo:</i>
+<code>1000, 10, 15</code>
+— esto significa que ahorras $1000 por mes durante 10 años a una tasa anual del 15%.`,
 };
 
 export const COMPOUND_INTEREST_RESULT = (
@@ -101,8 +127,9 @@ export const COMPOUND_INTEREST_RESULT = (
       en: `Your compound interest on an amount of <b>${data.amountPerMonth}</b> at a rate of <b>${data.rate}%</b> over a period of <b>${data.durationInYears}</b> years is <b>${totalAmount}</b> 💰.`,
       ua: `Ваш складний відсоток на суму <b>${data.amountPerMonth}</b> під ставку <b>${data.rate}%</b> на термін <b>${data.durationInYears}</b> років складає <b>${totalAmount}</b> грн 💵.`,
       pl: `Twój złożony procent od kwoty <b>${data.amountPerMonth}</b> przy stopie <b>${data.rate}%</b> na okres <b>${data.durationInYears}</b> lat wynosi <b>${totalAmount}</b> zł 🪙.`,
+      es: `Tu interés compuesto sobre una cantidad de <b>${data.amountPerMonth}</b> a una tasa de <b>${data.rate}%</b> durante un período de <b>${data.durationInYears}</b> años es <b>${totalAmount}</b> 💰.`,
     };
-    return messages[ctx.session.language];
+    return messages[ctx.session.language] ?? messages.en;
   }
 };
 
@@ -132,7 +159,15 @@ export const VALIDATION_MESSAGES = (language: string) => {
       rateInvalid: 'Stawka procentowa musi być w zakresie od 0 do 100.',
       durationInvalid: 'Czas trwania musi być większy niż 0 lat.',
     },
+    es: {
+      amountNaN: 'El monto del depósito debe ser un número y no puede estar vacío.',
+      rateNaN: 'La tasa de interés debe ser un número y no puede estar vacía.',
+      durationNaN: 'La duración debe ser un número y no puede estar vacía.',
+      amountInvalid: 'El monto del depósito debe ser mayor que 0.',
+      rateInvalid: 'La tasa de interés debe estar entre 0 y 100.',
+      durationInvalid: 'La duración debe ser mayor que 0 años.',
+    },
   };
 
-  return messages[language];
+  return messages[language] ?? messages.en;
 };
