@@ -59,7 +59,7 @@ export class BasicCommandsHandler {
     ctx.session.currency = currency;
     this.logger.log(`user:${ctx.from.id} setCurrency:${currency}`);
     const markup = actionButtonsStart(ctx.session.language, ctx.session.isPremium);
-    await ctx.editMessageText(START_MESSAGE[ctx.session.language || 'en']['WELCOME_MESSAGE'], {
+    await ctx.editMessageText((START_MESSAGE[ctx.session.language] ?? START_MESSAGE['en'])['WELCOME_MESSAGE'], {
       reply_markup: markup.reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML',
@@ -160,7 +160,7 @@ export class BasicCommandsHandler {
     await ctx.reply(RESETS_ALL[ctx.session.language || 'en'].RESET_SUCCESSFUL);
     await this.balanceService.createBalance(ctx.from.id);
     const sendMessage = await ctx.replyWithHTML(
-      START_MESSAGE[ctx.session.language || 'en']['WELCOME_MESSAGE'],
+      (START_MESSAGE[ctx.session.language] ?? START_MESSAGE['en'])['WELCOME_MESSAGE'],
       actionButtonsStart(ctx.session.language || 'en', ctx.session.isPremium),
     );
     ctx.session.lastBotMessage = sendMessage.message_id;

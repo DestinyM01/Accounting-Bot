@@ -8,6 +8,15 @@ Additionally, we offer a feature to create a <b>Family Account 👨‍👩‍�
 
 To get started, select "Transaction," and then decide on the type: "Income" or "Expense". 📊`,
   },
+  es: {
+    WELCOME_MESSAGE: `<b>👋 ¡Hola! Bienvenido a tu asistente financiero. 📘</b>
+
+<i>Esta herramienta está diseñada para el seguimiento eficaz de tu presupuesto.</i> Con su ayuda, puedes monitorear fácilmente <b>Ingresos 💰</b> y <b>Gastos 📉</b>, además de obtener un resumen de tu saldo actual.
+
+También ofrecemos la función de crear una <b>Cuenta Familiar 👨‍👩‍👧‍👧</b> para que todos puedan gestionar el presupuesto juntos.
+
+Para comenzar, selecciona "Transacción" y luego elige el tipo: "Ingreso" o "Gasto". 📊`,
+  },
   ua: {
     WELCOME_MESSAGE: `<b>👋 Привіт! Ласкаво просимо до вашого фінансового помічника. 📘</b>
 
