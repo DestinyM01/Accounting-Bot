@@ -74,6 +74,7 @@ export class BasicCommandsHandler {
       const parts = callbackData.split(':');
       const markup = currencySet();
       ctx.session.language = parts[1];
+      await this.balanceService.setLanguage(ctx.from.id, parts[1]);
       await ctx.editMessageText('Choose your currency 💰', {
         reply_markup: markup.reply_markup,
         disable_web_page_preview: true,

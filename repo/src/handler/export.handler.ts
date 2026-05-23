@@ -34,7 +34,11 @@ export class ExportHandler {
   @Action('export')
   async exportMenu(ctx: IContext) {
     const lang = ctx.session.language || 'en';
-    await ctx.editMessageText(EXPORT_MENU[lang], exportMenuButtons(lang));
+    try {
+      await ctx.editMessageText(EXPORT_MENU[lang] ?? EXPORT_MENU.en, exportMenuButtons(lang));
+    } catch (err) {
+      this.logger.error(`exportMenu error`, err);
+    }
   }
 
   @Action('export_csv')

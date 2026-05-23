@@ -86,11 +86,14 @@ export class BudgetHandler {
 
     const lang = ctx.session.language || 'en';
     const category = ctx.session.budgetCategory as Category;
-    await this.budgetService.setBudget(ctx.from.id, category, amount);
-    delete ctx.session.budgetCategory;
-    delete ctx.session.type;
-
-    await ctx.reply(BUDGET_SAVED[lang] ?? BUDGET_SAVED.en, budgetListButtons(lang));
+    try {
+      await this.budgetService.setBudget(ctx.from.id, category, amount);
+      delete ctx.session.budgetCategory;
+      delete ctx.session.type;
+      await ctx.reply(BUDGET_SAVED[lang] ?? BUDGET_SAVED.en, budgetListButtons(lang));
+    } catch (err) {
+      this.logger.error(`handleBudgetAmount error`, err);
+    }
   }
 
   @Action('budget_list')

@@ -195,9 +195,10 @@ export const INVITATION_ACCEPTED_MESSAGE = (inputId: number, language: string) =
     en: `You have accepted the invitation from user with ID ${inputId}`,
     ua: `Ви прийняли запрошення від користувача з ID ${inputId}`,
     pl: `Zaakceptowałeś zaproszenie od użytkownika z ID ${inputId}`,
+    es: `Has aceptado la invitación del usuario con ID ${inputId}`,
   };
 
-  return messages[language];
+  return messages[language] ?? messages.en;
 };
 
 export const SELECT_YEAR_MESSAGE = {
@@ -212,9 +213,10 @@ export const GROUP_INVITATION_MESSAGE = (userId: number, language: string) => {
     en: `You have been invited to the group by user: ${userId}. Do you accept?`,
     ua: `Ви були запрошені в групу користувачем: ${userId}. Приймаєте?`,
     pl: `Zostałeś zaproszony do grupy przez użytkownika: ${userId}. Czy akceptujesz?`,
+    es: `Has sido invitado al grupo por el usuario: ${userId}. ¿Aceptas?`,
   };
 
-  return messages[language];
+  return messages[language] ?? messages.en;
 };
 
 export const SELECT_SETTING_MESSAGE = {
@@ -231,15 +233,19 @@ export const CURRENCY_MESSAGE = (currencyName: string, currencyBay: string, curr
      <b>sell:</b> ${currencySell}UAH
      <b>buy:</b> ${currencyBay}UAH `,
     ua: `Середній курс валюти:
- <b>${currencyName}</b> в обмінниках на сьогодні: 
-    <b>продаж:</b> ${currencySell}грн. 
+ <b>${currencyName}</b> в обмінниках на сьогодні:
+    <b>продаж:</b> ${currencySell}грн.
     <b>купівля:</b> ${currencyBay}грн.`,
     pl: `Średni kurs waluty:
  <b>${currencyName}</b> w kantorach na dziś:
      <b>sprzedaż:</b> ${currencySell}UAH
      <b>kupno:</b> ${currencyBay}UAH `,
+    es: `Tasa de cambio promedio:
+ <b>${currencyName}</b> en casas de cambio hoy:
+     <b>venta:</b> ${currencySell}UAH
+     <b>compra:</b> ${currencyBay}UAH `,
   };
-  return messages[language];
+  return messages[language] ?? messages.en;
 };
 
 export const CRYPTO_MESSAGE = (
@@ -253,15 +259,18 @@ export const CRYPTO_MESSAGE = (
     en: `Coin rate: 🪙${cryptoSymbol} <b>${cryptoName}</b> in average for today:
     <b>Price:</b> ${parseFloat(cryptoPriceUsd).toFixed(3)}$.
     <b>Crypto change over the last 24 hours 📊:</b> ${parseFloat(cryptoChangePercent24Hr).toFixed(3)}%.`,
-    ua: `Курс монеты: 
-    ${cryptoSymbol} <b>${cryptoName}</b> в середньому на сьогодні: 
-    <b>Ціна:</b> ${parseFloat(cryptoPriceUsd).toFixed(3)}$. 
+    ua: `Курс монеты:
+    ${cryptoSymbol} <b>${cryptoName}</b> в середньому на сьогодні:
+    <b>Ціна:</b> ${parseFloat(cryptoPriceUsd).toFixed(3)}$.
     <b>Зміна ціни за останні 24 години 📊:</b> ${parseFloat(cryptoChangePercent24Hr).toFixed(3)}%.`,
     pl: `Kurs kryptowaluty: 🪙${cryptoSymbol} <b>${cryptoName}</b> średnio na dzisiaj:
     <b>Cena:</b> ${parseFloat(cryptoPriceUsd).toFixed(3)}$.
     <b>Zmiana w ciągu ostatnich 24 godzin 📊:</b> ${parseFloat(cryptoChangePercent24Hr).toFixed(3)}%.`,
+    es: `Tasa de la moneda: 🪙${cryptoSymbol} <b>${cryptoName}</b> promedio de hoy:
+    <b>Precio:</b> ${parseFloat(cryptoPriceUsd).toFixed(3)}$.
+    <b>Cambio en las últimas 24 horas 📊:</b> ${parseFloat(cryptoChangePercent24Hr).toFixed(3)}%.`,
   };
-  return messages[language];
+  return messages[language] ?? messages.en;
 };
 export const SELECT_CURRENCY_MESSAGE = {
   en: 'Choose the currency you need:🔽',
@@ -336,7 +345,7 @@ export const INFO_MESSAGE = {
 export const PLEASE_NUM = {
   ua: `Будь ласка, введіть ціле число ⛔️`,
   en: `Please enter a whole number. ⛔️`,
-  pl: `Please enter a whole number. ⛔️`,
+  pl: `Proszę wpisać całą liczbę. ⛔️`,
   es: `Por favor ingresa un número entero. ⛔️`,
 };
 export const SET_BALANCE = {

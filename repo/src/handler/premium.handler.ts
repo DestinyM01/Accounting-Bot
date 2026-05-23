@@ -56,7 +56,7 @@ export class PremiumHandler {
   @Action('setPremium')
   async setPremium(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} setPremium`);
-    await ctx.editMessageText(`${PREMIUM_SET[ctx.session.language]}`, {
+    await ctx.editMessageText(`${PREMIUM_SET[ctx.session.language] ?? PREMIUM_SET['en']}`, {
       reply_markup: actionSetPremium(ctx.session.language).reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML',
@@ -68,14 +68,14 @@ export class PremiumHandler {
     const result = await this.premiumService.setIsPremium(ctx.from.id, 14);
     if (result === false) {
       this.logger.log(`User:${ctx.from.id} Premium is already active for more than 3 days. No changes made.`);
-      await ctx.editMessageText(`${TRIAL_PROVIDED_FALSE[ctx.session.language]}`, {
+      await ctx.editMessageText(`${TRIAL_PROVIDED_FALSE[ctx.session.language] ?? TRIAL_PROVIDED_FALSE['en']}`, {
         reply_markup: backStartButton(ctx.session.language).reply_markup,
         disable_web_page_preview: true,
         parse_mode: 'HTML',
       });
     } else {
       ctx.session.isPremium = await this.premiumService.getIsPremium(ctx.from.id);
-      await ctx.editMessageText(`${TRIAL_PROVIDED[ctx.session.language]}`, {
+      await ctx.editMessageText(`${TRIAL_PROVIDED[ctx.session.language] ?? TRIAL_PROVIDED['en']}`, {
         reply_markup: backStartButton(ctx.session.language).reply_markup,
         disable_web_page_preview: true,
         parse_mode: 'HTML',
@@ -95,7 +95,7 @@ export class PremiumHandler {
   async exchangeRate(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} getPremiumMenu`);
     const currencyData = await this.currencyService.getCurrencyData();
-    await ctx.editMessageText(`${SELECT_CURRENCY_MESSAGE[ctx.session.language]}`, {
+    await ctx.editMessageText(`${SELECT_CURRENCY_MESSAGE[ctx.session.language] ?? SELECT_CURRENCY_MESSAGE['en']}`, {
       reply_markup: generateCurrencyButtons(currencyData).reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML',
@@ -123,7 +123,7 @@ export class PremiumHandler {
   async cryptoCourse(ctx: IContext) {
     this.logger.log(`User:${ctx.from.id}cryptoCourse`);
     const cryptoAssetData = await this.cryptoService.getCryptoAsset();
-    await ctx.editMessageText(`${SELECT_CURRENCY_MESSAGE[ctx.session.language]}`, {
+    await ctx.editMessageText(`${SELECT_CURRENCY_MESSAGE[ctx.session.language] ?? SELECT_CURRENCY_MESSAGE['en']}`, {
       reply_markup: generateCryptoButtons(cryptoAssetData).reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML',

@@ -47,9 +47,14 @@ export class NotificationService {
   }
 
   private async getInactiveUsers(): Promise<Balance[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setHours(cutoffDate.getHours() - 72);
     return await this.balanceModel
       .find({
-        $or: [{ isBaned: { $ne: true } }, { isBaned: { $ne: true } }],
+        $or: [
+          { lastActivity: { $lt: cutoffDate }, isBaned: { $ne: true } },
+          { lastActivity: { $exists: false }, isBaned: { $ne: true } },
+        ],
       })
       .exec();
   }

@@ -190,6 +190,18 @@ export class BalanceService {
     }
   }
 
+  async setLanguage(userId: number, language: string): Promise<void> {
+    try {
+      const balance = await this.balanceModel.findOne({ userId }).exec();
+      if (balance) {
+        balance.language = language;
+        await balance.save();
+      }
+    } catch (error) {
+      this.logger.error(`Error setting language for user ${userId}`, error);
+    }
+  }
+
   async setStartPayload(userId: number, userStartPayload: string) {
     if (!userStartPayload.split(' ')[1]) {
       return;

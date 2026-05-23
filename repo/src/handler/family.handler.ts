@@ -63,7 +63,7 @@ export class FamilyHandler {
 
   @Hears(/^\d+$/)
   async addUserId(ctx: IContext) {
-    if (ctx.session.awaitingUserIdInput === false) {
+    if (!ctx.session.awaitingUserIdInput) {
       return;
     }
     const initiatorId = ctx.from.id;
@@ -126,31 +126,35 @@ export class FamilyHandler {
   @Action(/^accept_invite:\d+$/)
   async acceptInvite(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} acceptInvite`);
-    const recipientId = ctx.from.id;
-    const callbackQuery: CustomCallbackQuery = ctx.callbackQuery as CustomCallbackQuery;
-    const initiatorId = parseInt(callbackQuery.message.text.split(':')[1], 10);
-    const message = INVITATION_ACCEPTED_MESSAGE(initiatorId, ctx.session.language || 'en');
+    try {
+      const recipientId = ctx.from.id;
+      const callbackQuery: CustomCallbackQuery = ctx.callbackQuery as CustomCallbackQuery;
+      const initiatorId = parseInt(callbackQuery.message.text.split(':')[1], 10);
+      const message = INVITATION_ACCEPTED_MESSAGE(initiatorId, ctx.session.language || 'en');
 
-    if (!ctx.session.group) {
-      ctx.session.group = [];
-    }
+      if (!ctx.session.group) {
+        ctx.session.group = [];
+      }
 
-    if (!ctx.session.group.includes(initiatorId)) {
-      ctx.session.group.push(initiatorId);
-      ctx.session.group.push(recipientId);
+      if (!ctx.session.group.includes(initiatorId)) {
+        ctx.session.group.push(initiatorId);
+        ctx.session.group.push(recipientId);
+      }
+      await ctx.telegram.sendMessage(
+        initiatorId,
+        (FAMILY_TEXT[ctx.session.language] ?? FAMILY_TEXT['en']).ACCEPT,
+        acceptButton(ctx.session.language, recipientId),
+      );
+      await ctx.deleteMessage();
+      const sendMessage = await ctx.telegram.sendMessage(
+        recipientId,
+        message,
+        familyButton(ctx.session.language || 'en'),
+      );
+      ctx.session.lastBotMessage = sendMessage.message_id;
+    } catch (err) {
+      this.logger.error(`acceptInvite error`, err);
     }
-    await ctx.telegram.sendMessage(
-      initiatorId,
-      FAMILY_TEXT[ctx.session.language].ACCEPT,
-      acceptButton(ctx.session.language, recipientId),
-    );
-    await ctx.deleteMessage();
-    const sendMessage = await ctx.telegram.sendMessage(
-      recipientId,
-      message,
-      familyButton(ctx.session.language || 'en'),
-    );
-    ctx.session.lastBotMessage = sendMessage.message_id;
   }
   @Action(/^accept_user:\d+$/)
   async acceptUser(ctx: IContext) {
@@ -165,7 +169,7 @@ export class FamilyHandler {
     await ctx.deleteMessage();
     const sendMessage = await ctx.telegram.sendMessage(
       initiatorId,
-      FAMILY_TEXT[ctx.session.language].GROUP_CREATED,
+      (FAMILY_TEXT[ctx.session.language] ?? FAMILY_TEXT['en']).GROUP_CREATED,
       familyButton(ctx.session.language || 'en'),
     );
     ctx.session.lastBotMessage = sendMessage.message_id;
@@ -182,7 +186,7 @@ export class FamilyHandler {
       const index = ctx.session.group.indexOf(recipientId);
       ctx.session.group.splice(index, 1);
     }
-    await ctx.telegram.sendMessage(initiatorId, FAMILY_TEXT[ctx.session.language].DECLINE, backStartButton());
+    await ctx.telegram.sendMessage(initiatorId, (FAMILY_TEXT[ctx.session.language] ?? FAMILY_TEXT['en']).DECLINE, backStartButton());
     const sendMessage = await ctx.telegram.sendMessage(
       recipientId,
       FAMILY_TEXT[ctx.session.language || 'en'].INVITATION_DECLINED,

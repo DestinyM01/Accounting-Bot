@@ -79,33 +79,44 @@ export class CronNotificationsService {
         const income = transactions
           .filter((t) => t.transactionType === TransactionType.INCOME)
           .reduce((s, t) => s + t.amount, 0);
-        const expenses = transactions
+        // Expenses are stored as negative numbers — Math.abs gives the display value
+        const expensesRaw = transactions
           .filter((t) => t.transactionType === TransactionType.EXPENSE)
           .reduce((s, t) => s + t.amount, 0);
+        const expenses = Math.abs(expensesRaw);
         const net = income - expenses;
 
+        const lang = user.language || 'en';
         const catTotals: Record<string, number> = {};
         for (const t of transactions) {
           if (t.transactionType === TransactionType.EXPENSE && t.category) {
-            catTotals[t.category] = (catTotals[t.category] || 0) + t.amount;
+            catTotals[t.category] = (catTotals[t.category] || 0) + Math.abs(t.amount);
           }
         }
         const topCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 3);
         const fmt = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
-        let msg = `📊 <b>Monthly Summary — ${MONTH_NAMES[prevMonth - 1]} ${prevYear}</b>\n`;
+        const LABELS: Record<string, Record<string, string>> = {
+          en: { header: 'Monthly Summary', income: 'Income', expenses: 'Expenses', net: 'Net', topCats: 'Top Expense Categories', footer: 'Keep tracking your finances!' },
+          es: { header: 'Resumen mensual', income: 'Ingresos', expenses: 'Gastos', net: 'Neto', topCats: 'Principales categorías de gasto', footer: '¡Sigue registrando tus finanzas!' },
+          ua: { header: 'Місячний підсумок', income: 'Доходи', expenses: 'Витрати', net: 'Баланс', topCats: 'Топ категорії витрат', footer: 'Продовжуй відстежувати свої фінанси!' },
+          pl: { header: 'Miesięczne podsumowanie', income: 'Przychody', expenses: 'Wydatki', net: 'Netto', topCats: 'Główne kategorie wydatków', footer: 'Śledź swoje finanse regularnie!' },
+        };
+        const L = LABELS[lang] ?? LABELS.en;
+
+        let msg = `📊 <b>${L.header} — ${MONTH_NAMES[prevMonth - 1]} ${prevYear}</b>\n`;
         msg += `━━━━━━━━━━━━━━━━━━\n`;
-        msg += `💵 Income: <b>${fmt(income)}</b>\n`;
-        msg += `💸 Expenses: <b>${fmt(expenses)}</b>\n`;
-        msg += `💰 Net: <b>${net >= 0 ? '+' : ''}${fmt(net)}</b>\n`;
+        msg += `💵 ${L.income}: <b>${fmt(income)}</b>\n`;
+        msg += `💸 ${L.expenses}: <b>${fmt(expenses)}</b>\n`;
+        msg += `💰 ${L.net}: <b>${net >= 0 ? '+' : ''}${fmt(net)}</b>\n`;
         if (topCats.length > 0) {
-          msg += `\n📑 <b>Top Expense Categories:</b>\n`;
+          msg += `\n📑 <b>${L.topCats}:</b>\n`;
           for (const [cat, amount] of topCats) {
             msg += `  ${CATEGORY_EMOJI[cat] ?? '📌'} ${cat}: ${fmt(amount)}\n`;
           }
         }
         msg += `━━━━━━━━━━━━━━━━━━\n`;
-        msg += `📈 Keep tracking your finances!`;
+        msg += `📈 ${L.footer}`;
 
         await this.bot.telegram.sendMessage(user.userId, msg, { parse_mode: 'HTML' });
         sent++;
@@ -140,9 +151,26 @@ export class CronNotificationsService {
     const fmt = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
     let alertsSent = 0;
 
+    const BUDGET_EXCEEDED: Record<string, string> = {
+      en: 'Budget Exceeded!', es: '¡Presupuesto excedido!', ua: 'Бюджет перевищено!', pl: 'Budżet przekroczony!',
+    };
+    const BUDGET_WARNING: Record<string, string> = {
+      en: 'Budget Warning', es: 'Advertencia de presupuesto', ua: 'Попередження про бюджет', pl: 'Ostrzeżenie o budżecie',
+    };
+    const BUDGET_SPENT: Record<string, string> = {
+      en: 'spent', es: 'gastado', ua: 'витрачено', pl: 'wydano',
+    };
+    const BUDGET_OF: Record<string, string> = {
+      en: 'of', es: 'de', ua: 'з', pl: 'z',
+    };
+    const BUDGET_USED: Record<string, string> = {
+      en: 'used this month', es: 'usado este mes', ua: 'використано цього місяця', pl: 'wykorzystano w tym miesiącu',
+    };
+
     for (const [userId, budgets] of byUser) {
       const balanceDoc = await this.balanceModel.findOne({ userId }).exec();
       if (balanceDoc?.isBaned) continue;
+      const lang = balanceDoc?.language || 'en';
 
       for (const budget of budgets) {
         const txs = await this.transactionModel
@@ -160,12 +188,12 @@ export class CronNotificationsService {
 
         if (spent > budget.limitAmount) {
           msg =
-            `🚨 <b>Budget Exceeded!</b>\n` +
-            `<b>${budget.category}</b>: spent <b>${fmt(spent)}</b> of <b>${fmt(budget.limitAmount)}</b> (${pct}%)`;
+            `🚨 <b>${BUDGET_EXCEEDED[lang] ?? BUDGET_EXCEEDED.en}</b>\n` +
+            `<b>${budget.category}</b>: ${BUDGET_SPENT[lang] ?? BUDGET_SPENT.en} <b>${fmt(spent)}</b> ${BUDGET_OF[lang] ?? BUDGET_OF.en} <b>${fmt(budget.limitAmount)}</b> (${pct}%)`;
         } else if (pct >= 80) {
           msg =
-            `⚠️ <b>Budget Warning (${pct}%)</b>\n` +
-            `<b>${budget.category}</b>: ${fmt(spent)} / ${fmt(budget.limitAmount)} used this month`;
+            `⚠️ <b>${BUDGET_WARNING[lang] ?? BUDGET_WARNING.en} (${pct}%)</b>\n` +
+            `<b>${budget.category}</b>: ${fmt(spent)} / ${fmt(budget.limitAmount)} ${BUDGET_USED[lang] ?? BUDGET_USED.en}`;
         }
 
         if (msg) {

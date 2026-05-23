@@ -47,7 +47,7 @@ export class AnalyticsService {
     // const endOfDay = new Date(endDate);
     // endOfDay.setUTCHours(23, 59, 59, 999);
 
-    console.log(`startDate: ${startDate} endDate: ${endDate}`);
+    this.logger.log(`startDate: ${startDate} endDate: ${endDate}`);
 
     const startDateAnalytics = await this.analyticsModel
       .findOne({
@@ -75,7 +75,7 @@ export class AnalyticsService {
       analyticsData.push(endDateAnalytics);
     }
 
-    console.log(analyticsData);
+    this.logger.log(JSON.stringify(analyticsData));
 
     return analyticsData;
   }

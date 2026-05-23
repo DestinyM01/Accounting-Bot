@@ -23,6 +23,9 @@ export class Balance extends Document {
 
   @Prop({ default: Date.now })
   lastActivity: Date;
+
+  @Prop({ default: 'en' })
+  language: string;
 }
 
 export const BalanceSchema = SchemaFactory.createForClass(Balance);

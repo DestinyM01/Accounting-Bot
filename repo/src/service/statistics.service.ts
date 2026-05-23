@@ -34,9 +34,10 @@ export class StatisticsService {
       } else {
         this.logger.log(`No transactions of type ${transactionType} found`);
         await ctx.editMessageText(
-          `${PERIOD_NULL[ctx.session.language]} (${transactionType})⛔️`,
+          `${PERIOD_NULL[ctx.session.language] ?? PERIOD_NULL['en']} (${transactionType})⛔️`,
           backStatisticButton(ctx.session.language || 'en'),
         );
+        return [];
       }
     } catch (error) {
       this.logger.error('Error getting transactions by type', error);

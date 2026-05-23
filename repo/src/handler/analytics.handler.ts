@@ -31,48 +31,59 @@ export class AnalyticsHandler {
   async for_today(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} for_today`);
     const lang = ctx.session.language || 'en';
-    const today = new Date();
-    today.setDate(today.getDate() - 1);
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
-    const message = await this.analyticsService.generateReport(yesterday, today, 'for_today', lang);
-    await ctx.editMessageText(message, { parse_mode: 'HTML', reply_markup: actionButtonsBackSettings(lang).reply_markup });
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 1);
+      const message = await this.analyticsService.generateReport(startDate, endDate, 'for_today', lang);
+      await ctx.editMessageText(message, { parse_mode: 'HTML', reply_markup: actionButtonsBackSettings(lang).reply_markup });
+    } catch (err) {
+      this.logger.error(`for_today error`, err);
+    }
   }
 
   @Action('for_week')
   async for_week(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} for_week`);
     const lang = ctx.session.language || 'en';
-    const today = new Date();
-    today.setDate(today.getDate() - 1);
-    const weekAgo = new Date();
-    weekAgo.setDate(today.getDate() - 7);
-    const message = await this.analyticsService.generateReport(weekAgo, today, 'for_week', lang);
-    await ctx.editMessageText(message, { parse_mode: 'HTML', reply_markup: actionButtonsBackSettings(lang).reply_markup });
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 7);
+      const message = await this.analyticsService.generateReport(startDate, endDate, 'for_week', lang);
+      await ctx.editMessageText(message, { parse_mode: 'HTML', reply_markup: actionButtonsBackSettings(lang).reply_markup });
+    } catch (err) {
+      this.logger.error(`for_week error`, err);
+    }
   }
 
   @Action('for_month')
   async for_month(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} for_month`);
     const lang = ctx.session.language || 'en';
-    const today = new Date();
-    today.setDate(today.getDate() - 1);
-    const monthAgo = new Date();
-    monthAgo.setMonth(today.getMonth() - 1);
-    const message = await this.analyticsService.generateReport(monthAgo, today, 'for_month', lang);
-    await ctx.editMessageText(message, { parse_mode: 'HTML', reply_markup: actionButtonsBackSettings(lang).reply_markup });
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - 1);
+      const message = await this.analyticsService.generateReport(startDate, endDate, 'for_month', lang);
+      await ctx.editMessageText(message, { parse_mode: 'HTML', reply_markup: actionButtonsBackSettings(lang).reply_markup });
+    } catch (err) {
+      this.logger.error(`for_month error`, err);
+    }
   }
 
   @Action('for_3_month')
   async for_half_a_year(ctx: IContext) {
-    this.logger.log(`user:${ctx.from.id} for_half_a_year`);
+    this.logger.log(`user:${ctx.from.id} for_3_month`);
     const lang = ctx.session.language || 'en';
-    const today = new Date();
-    today.setDate(today.getDate() - 1);
-    this.logger.log(today);
-    const halfYearAgo = new Date();
-    halfYearAgo.setMonth(today.getMonth() - 3);
-    const message = await this.analyticsService.generateReport(halfYearAgo, today, 'for_3_month', lang);
-    await ctx.editMessageText(message, { parse_mode: 'HTML', reply_markup: actionButtonsBackSettings(lang).reply_markup });
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - 3);
+      const message = await this.analyticsService.generateReport(startDate, endDate, 'for_3_month', lang);
+      await ctx.editMessageText(message, { parse_mode: 'HTML', reply_markup: actionButtonsBackSettings(lang).reply_markup });
+    } catch (err) {
+      this.logger.error(`for_3_month error`, err);
+    }
   }
 }

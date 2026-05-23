@@ -39,17 +39,21 @@ export class AdvancedStatisticsHandler {
   @Action('get_сhart')
   async getCustomChart(ctx: IContext) {
     this.logger.log(`user:${ctx.from.id} get_сhart `);
-    const transaction = await this.statsService.getTransactionsForChard(ctx, ctx.session.transactionQuery);
-    const chart = await this.chartService.generateCustomChart(
-      transaction,
-      ctx.session.transactionQuery,
-      ctx.session.language,
-    );
-    const imageBuffer = Buffer.from(chart, 'base64');
-    await ctx.deleteMessage();
-    await ctx.replyWithPhoto(
-      { source: imageBuffer },
-      { caption: `${SELECT_PERIOD[ctx.session.language || 'en']}`, reply_markup: backStatisticButton().reply_markup },
-    );
+    try {
+      const transaction = await this.statsService.getTransactionsForChard(ctx, ctx.session.transactionQuery);
+      const chart = await this.chartService.generateCustomChart(
+        transaction,
+        ctx.session.transactionQuery,
+        ctx.session.language,
+      );
+      const imageBuffer = Buffer.from(chart, 'base64');
+      await ctx.deleteMessage();
+      await ctx.replyWithPhoto(
+        { source: imageBuffer },
+        { caption: `${SELECT_PERIOD[ctx.session.language || 'en']}`, reply_markup: backStatisticButton().reply_markup },
+      );
+    } catch (err) {
+      this.logger.error(`getCustomChart error`, err);
+    }
   }
 }
