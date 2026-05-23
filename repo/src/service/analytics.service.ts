@@ -80,11 +80,19 @@ export class AnalyticsService {
     return analyticsData;
   }
 
-  async generateReport(startDate: Date, endDate: Date, period: string): Promise<string> {
+  async generateReport(startDate: Date, endDate: Date, period: string, language: string = 'en'): Promise<string> {
     const analyticsData = await this.getAnalyticsByDateRange(startDate, endDate);
+    const lang = language || 'en';
+
+    const NO_DATA = {
+      en: '⛔️ No data available for the selected period.',
+      es: '⛔️ No hay datos disponibles para el período seleccionado.',
+      ua: '⛔️ Немає даних за вказаний період.',
+      pl: '⛔️ Brak danych za wybrany okres.',
+    };
 
     if (analyticsData.length === 0) {
-      return 'Нет данных за указанный период.';
+      return NO_DATA[lang] ?? NO_DATA.en;
     }
 
     const current = analyticsData[0];
@@ -96,7 +104,6 @@ export class AnalyticsService {
 
     for (let i = 1; i < analyticsData.length; i++) {
       const previous = analyticsData[i];
-
       allUserCountChangeSum += current.allUserCount - previous.allUserCount;
       activeUsersCountChangeSum += current.activeUsersCount - previous.activeUsersCount;
       premiumUsersCountChangeSum += current.premiumUsersCount - previous.premiumUsersCount;
@@ -105,41 +112,63 @@ export class AnalyticsService {
     }
 
     const count = analyticsData.length - 1;
+    const fmtChange = (sum: number) => (count === 0 ? 'N/A' : this.formatChange(sum / count));
 
-    const nextDay = new Date(current.day);
-    nextDay.setDate(nextDay.getDate() + 1);
-    const formattedDate = nextDay.toISOString().split('T')[0];
+    const PERIOD_LABELS: Record<string, Record<string, string>> = {
+      for_today: { en: 'Today', es: 'Hoy', ua: 'За день', pl: 'Dzisiaj' },
+      for_week: { en: 'Last week', es: 'Última semana', ua: 'За тиждень', pl: 'Ostatni tydzień' },
+      for_month: { en: 'Last month', es: 'Último mes', ua: 'За місяць', pl: 'Ostatni miesiąc' },
+      for_3_month: { en: 'Last 3 months', es: 'Últimos 3 meses', ua: 'За три місяці', pl: 'Ostatnie 3 miesiące' },
+    };
+    const periodDescription = PERIOD_LABELS[period]?.[lang] ?? PERIOD_LABELS[period]?.en ?? period;
 
-    let periodDescription = '';
+    const LABELS: Record<string, Record<string, string>> = {
+      en: {
+        header: '📊 Report:',
+        period: '📅 Period',
+        allUsers: '👥 Total users',
+        activeUsers: '🔥 Active users',
+        premiumUsers: '💎 Premium users',
+        bannedUsers: '🚫 Banned users',
+        totalTx: '💸 Total transactions',
+      },
+      es: {
+        header: '📊 Informe:',
+        period: '📅 Período',
+        allUsers: '👥 Total de usuarios',
+        activeUsers: '🔥 Usuarios activos',
+        premiumUsers: '💎 Usuarios premium',
+        bannedUsers: '🚫 Usuarios bloqueados',
+        totalTx: '💸 Total de transacciones',
+      },
+      ua: {
+        header: '📊 Звіт:',
+        period: '📅 Період',
+        allUsers: '👥 Всього користувачів',
+        activeUsers: '🔥 Активні користувачі',
+        premiumUsers: '💎 Преміум користувачі',
+        bannedUsers: '🚫 Заблоковані користувачі',
+        totalTx: '💸 Всього транзакцій',
+      },
+      pl: {
+        header: '📊 Raport:',
+        period: '📅 Okres',
+        allUsers: '👥 Łączna liczba użytkowników',
+        activeUsers: '🔥 Aktywni użytkownicy',
+        premiumUsers: '💎 Użytkownicy premium',
+        bannedUsers: '🚫 Zablokowani użytkownicy',
+        totalTx: '💸 Łączna liczba transakcji',
+      },
+    };
+    const t = LABELS[lang] ?? LABELS.en;
 
-    switch (period) {
-      case 'for_today':
-        periodDescription = `За день`;
-        break;
-      case 'for_week':
-        periodDescription = `За тиждень`;
-        break;
-      case 'for_month':
-        periodDescription = `за мисяць`;
-        break;
-      case 'for_3_month':
-        periodDescription = `за три місяці`;
-        break;
-    }
-
-    const report = `
-    📊 Отчет:
-    📅 Період: ${periodDescription}
-    👥 Всего пользователей: ${current.allUserCount} (${this.formatChange(allUserCountChangeSum / count)})
-    🔥 Активные пользователи: ${current.activeUsersCount} (${this.formatChange(activeUsersCountChangeSum / count)})
-    💎 Премиум пользователи: ${current.premiumUsersCount} (${this.formatChange(premiumUsersCountChangeSum / count)})
-    🚫 Заблокированные пользователи: ${current.bannedUsersCount} (${this.formatChange(
-      bannedUsersCountChangeSum / count,
-    )})
-    💸 Всего транзакций: ${current.totalTransactionsCount} (${this.formatChange(
-      totalTransactionsCountChangeSum / count,
-    )})
-  `;
+    const report = `${t.header}
+${t.period}: ${periodDescription}
+${t.allUsers}: ${current.allUserCount} (${fmtChange(allUserCountChangeSum)})
+${t.activeUsers}: ${current.activeUsersCount} (${fmtChange(activeUsersCountChangeSum)})
+${t.premiumUsers}: ${current.premiumUsersCount} (${fmtChange(premiumUsersCountChangeSum)})
+${t.bannedUsers}: ${current.bannedUsersCount} (${fmtChange(bannedUsersCountChangeSum)})
+${t.totalTx}: ${current.totalTransactionsCount} (${fmtChange(totalTransactionsCountChangeSum)})`;
 
     return report.trim();
   }
