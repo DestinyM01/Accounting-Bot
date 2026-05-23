@@ -96,7 +96,7 @@ export class TransactionHandler {
   }
 
   @On('text')
-  async textCommand(ctx: IContext) {
+  async textCommand(ctx: IContext, next: () => Promise<void>) {
     // ── Search branch ─────────────────────────────────────────────────────────
     if (ctx.session.type === 'search') {
       const lang = ctx.session.language || 'en';
@@ -128,7 +128,7 @@ export class TransactionHandler {
 
     // ── Normal income/expense branch ──────────────────────────────────────────
     if (ctx.session.type !== 'income' && ctx.session.type !== 'expense') {
-      return;
+      return next(); // not our message — let budget, family, and other handlers try
     }
     const message = ctx.message as MyMessage;
     const userId = ctx.from.id;

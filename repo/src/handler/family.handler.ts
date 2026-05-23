@@ -62,9 +62,9 @@ export class FamilyHandler {
   }
 
   @Hears(/^\d+$/)
-  async addUserId(ctx: IContext) {
+  async addUserId(ctx: IContext, next: () => Promise<void>) {
     if (!ctx.session.awaitingUserIdInput) {
-      return;
+      return next(); // not in family invite flow — let other handlers process the number
     }
     const initiatorId = ctx.from.id;
     this.logger.log(`user:${ctx.from.id} Executing addUserId`);

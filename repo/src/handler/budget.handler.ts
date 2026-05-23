@@ -72,7 +72,6 @@ export class BudgetHandler {
     const category = callbackData.replace('budget_cat_', '') as Category;
     const lang = ctx.session.language || 'en';
     ctx.session.budgetCategory = category;
-    ctx.session.type = 'balance';
     await ctx.editMessageText(`${BUDGET_ENTER_AMOUNT[lang] ?? BUDGET_ENTER_AMOUNT.en} (${category})`);
     await ctx.answerCbQuery();
   }
