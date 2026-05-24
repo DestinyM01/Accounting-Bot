@@ -10,6 +10,8 @@ spec:
   replicas: 1
   updateStrategy:
     type: RollingUpdate
+    rollingUpdate:
+      partition: 0   # Kubernetes default — explicit here to prevent ArgoCD drift
   selector:
     matchLabels:
       app: mongodb
@@ -62,6 +64,7 @@ spec:
       spec:
         accessModes: ["ReadWriteOnce"]
         storageClassName: local-path   # K3s default StorageClass
+        volumeMode: Filesystem         # Kubernetes default — explicit to prevent ArgoCD drift
         resources:
           requests:
             storage: 5Gi
