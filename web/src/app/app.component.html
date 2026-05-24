@@ -1,30 +1,48 @@
-<mat-sidenav-container class="sidenav-container">
-  <mat-sidenav mode="side" opened class="sidenav">
-    <div class="sidenav-header">
-      <mat-icon class="logo-icon">account_balance</mat-icon>
-      <span class="app-name">AccBot</span>
+<div class="shell">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon"><mat-icon>account_balance</mat-icon></div>
+      <div class="brand-text">
+        <span class="brand-name">AccBot</span>
+        <span class="brand-sub">Personal Finance</span>
+      </div>
     </div>
 
-    <mat-nav-list>
+    <ul class="nav-list">
       @for (item of navItems; track item.path) {
-        <a mat-list-item
-           [routerLink]="item.path"
-           routerLinkActive="active-link">
-          <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
-          <span matListItemTitle>{{ item.label }}</span>
-        </a>
+        <li>
+          <a class="nav-item"
+             [routerLink]="item.path"
+             routerLinkActive="active">
+            <mat-icon>{{ item.icon }}</mat-icon>
+            <span>{{ item.label }}</span>
+          </a>
+        </li>
       }
-    </mat-nav-list>
+    </ul>
 
-    <div class="sidenav-footer">
-      <span class="user-name">{{ userName }}</span>
-      <button mat-icon-button (click)="logout()" title="Logout">
+    <div class="sidebar-footer">
+      <div class="avatar">{{ initials }}</div>
+      <span class="footer-name">{{ userName }}</span>
+      <button class="logout-btn" (click)="logout()" title="Logout">
         <mat-icon>logout</mat-icon>
       </button>
     </div>
-  </mat-sidenav>
+  </nav>
 
-  <mat-sidenav-content>
-    <router-outlet />
-  </mat-sidenav-content>
-</mat-sidenav-container>
+  <!-- Main area -->
+  <div class="main">
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="topbar-right">
+        <button class="icon-btn"><mat-icon>notifications_none</mat-icon></button>
+        <button class="icon-btn"><mat-icon>settings</mat-icon></button>
+      </div>
+    </header>
+
+    <div class="content">
+      <router-outlet />
+    </div>
+  </div>
+</div>

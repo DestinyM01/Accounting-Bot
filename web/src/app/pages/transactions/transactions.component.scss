@@ -1,39 +1,166 @@
-.filters {
+.filters-card { margin-bottom: 16px; }
+
+.filters-row {
   display: flex;
   gap: 16px;
   align-items: center;
-  margin-bottom: 16px;
   flex-wrap: wrap;
-
-  mat-select { width: 180px; }
 }
-.total-label { color: #888; font-size: 0.85rem; margin-bottom: 12px; }
-.tx-row {
+
+.search-wrap {
+  flex: 1;
+  min-width: 200px;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid #2a2a2a;
-  &:last-child { border-bottom: none; }
 }
-.tx-info {
-  flex: 1;
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+.search-input {
+  width: 100%;
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-family: 'Inter', sans-serif;
+  padding: 10px 14px 10px 40px;
+  outline: none;
+  transition: border-color 0.15s;
+
+  &::placeholder { color: var(--text-muted); }
+  &:focus { border-color: var(--accent); }
+}
+
+.filter-group {
+  position: relative;
   display: flex;
   flex-direction: column;
-  .tx-name { font-weight: 500; }
-  .tx-meta { font-size: 0.8rem; color: #888; }
+  gap: 2px;
 }
-.tx-amount { font-weight: 600; }
-.income-icon { color: #66bb6a; }
-.expense-icon { color: #ef5350; }
-.tx-amount.income { color: #66bb6a; }
-.tx-amount.expense { color: #ef5350; }
-.empty { color: #888; text-align: center; padding: 16px; }
-.pagination {
+.filter-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+.filter-select {
+  appearance: none;
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-family: 'Inter', sans-serif;
+  padding: 9px 36px 9px 14px;
+  outline: none;
+  cursor: pointer;
+  min-width: 160px;
+  transition: border-color 0.15s;
+  &:focus { border-color: var(--accent); }
+}
+.select-chevron {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  color: var(--text-muted);
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.export-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 0.875rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0.5;
+  white-space: nowrap;
+}
+
+// ── Table ──────────────────────────────────────────────────────────────
+.tx-table { padding: 0; overflow: hidden; }
+
+.tx-table-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 120px 80px;
+  padding: 12px 24px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border);
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr 1fr 100px;
+    span:last-child { display: none; }
+  }
+}
+
+.tx-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 120px 80px;
+  padding: 14px 24px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: rgba(255,255,255,0.02); }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr 1fr 100px;
+    .tx-cell:last-child { display: none; }
+  }
+}
+
+.tx-cell { display: flex; align-items: center; }
+.tx-main { gap: 14px; }
+.align-right { justify-content: flex-end; }
+
+.status-icon.ok {
+  color: var(--income);
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+// ── Load more ──────────────────────────────────────────────────────────
+.load-more-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.load-more-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.875rem;
+  padding: 10px 24px;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 16px;
-  color: #aaa;
+  gap: 6px;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover:not(:disabled) { background: rgba(255,255,255,0.04); color: var(--text); }
+  &:disabled { opacity: 0.5; cursor: default; }
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
 }

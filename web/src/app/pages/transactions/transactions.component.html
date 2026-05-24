@@ -1,53 +1,90 @@
-<div class="page-container">
-  <div class="filters">
-    <mat-button-toggle-group [(ngModel)]="typeFilter" (change)="onFilterChange()">
-      <mat-button-toggle value="all">All</mat-button-toggle>
-      <mat-button-toggle value="income">Income</mat-button-toggle>
-      <mat-button-toggle value="expense">Expenses</mat-button-toggle>
-    </mat-button-toggle-group>
-
-    <mat-select [(ngModel)]="categoryFilter" (selectionChange)="onFilterChange()" placeholder="All categories">
-      <mat-option value="">All categories</mat-option>
-      @for (cat of categories; track cat) {
-        <mat-option [value]="cat">{{ cat | titlecase }}</mat-option>
-      }
-    </mat-select>
+<div class="page-wrap">
+  <div class="page-header">
+    <h1>Transactions</h1>
+    <p>Review and manage your recent financial activity.</p>
   </div>
 
-  <div class="total-label">{{ total }} transactions</div>
+  <!-- Filters row -->
+  <div class="card filters-card">
+    <div class="filters-row">
+      <div class="search-wrap">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input class="search-input"
+               [(ngModel)]="search"
+               (input)="onSearch()"
+               placeholder="Search transactions…" />
+      </div>
 
+      <div class="filter-group">
+        <label class="filter-label">Category</label>
+        <select class="filter-select" [(ngModel)]="categoryFilter" (change)="onCategoryChange()">
+          <option value="">All Categories</option>
+          @for (cat of categories; track cat) {
+            <option [value]="cat">{{ cat | titlecase }}</option>
+          }
+        </select>
+        <mat-icon class="select-chevron">expand_more</mat-icon>
+      </div>
+
+      <button class="export-btn" disabled>Export</button>
+    </div>
+  </div>
+
+  <!-- Table -->
   @if (loading) {
-    <p>Loading…</p>
+    <p class="loading-state">Loading…</p>
   } @else {
-    <mat-card>
-      <mat-card-content>
-        @for (tx of items; track tx._id) {
-          <div class="tx-row">
-            <mat-icon [class]="tx.isExpense ? 'expense-icon' : 'income-icon'">
-              {{ tx.isExpense ? 'arrow_downward' : 'arrow_upward' }}
-            </mat-icon>
+    <div class="card tx-table">
+      <div class="tx-table-header">
+        <span>TRANSACTION</span>
+        <span>CATEGORY</span>
+        <span class="align-right">AMOUNT</span>
+        <span class="align-right">STATUS</span>
+      </div>
+
+      @for (tx of filtered; track tx._id) {
+        <div class="tx-row">
+          <div class="tx-cell tx-main">
+            <div class="tx-icon" [class]="tx.isExpense ? 'expense-icon' : 'income-icon'">
+              <mat-icon>{{ catIcon(tx.category) }}</mat-icon>
+            </div>
             <div class="tx-info">
               <span class="tx-name">{{ tx.transactionName }}</span>
-              <span class="tx-meta">{{ tx.category | titlecase }} · {{ tx.timestamp | date:'MMM d, y, h:mm a' }}</span>
+              <span class="tx-meta">{{ tx.timestamp | date:'MMM d, y · h:mm a' }}</span>
             </div>
-            <span [class]="tx.isExpense ? 'tx-amount expense' : 'tx-amount income'">
+          </div>
+
+          <div class="tx-cell">
+            <span class="cat-pill"
+                  [style.background]="catColor(tx.category) + '22'"
+                  [style.color]="catColor(tx.category)">
+              <span class="dot" [style.background]="catColor(tx.category)"></span>
+              {{ tx.category | titlecase }}
+            </span>
+          </div>
+
+          <div class="tx-cell align-right">
+            <span class="tx-amount" [class]="tx.isExpense ? 'expense' : 'income'">
               {{ tx.isExpense ? '-' : '+' }}{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}
             </span>
           </div>
-        } @empty {
-          <p class="empty">No transactions found.</p>
-        }
-      </mat-card-content>
-    </mat-card>
 
-    <div class="pagination">
-      <button mat-icon-button [disabled]="!hasPrev" (click)="prevPage()">
-        <mat-icon>chevron_left</mat-icon>
-      </button>
-      <span>Page {{ page }} of {{ pages }}</span>
-      <button mat-icon-button [disabled]="!hasNext" (click)="nextPage()">
-        <mat-icon>chevron_right</mat-icon>
-      </button>
+          <div class="tx-cell align-right">
+            <mat-icon class="status-icon ok">check_circle</mat-icon>
+          </div>
+        </div>
+      } @empty {
+        <p class="empty">No transactions found.</p>
+      }
     </div>
+
+    @if (hasMore) {
+      <div class="load-more-wrap">
+        <button class="load-more-btn" (click)="loadMore()" [disabled]="loadingMore">
+          {{ loadingMore ? 'Loading…' : 'Load More Transactions' }}
+          @if (!loadingMore) { <mat-icon>expand_more</mat-icon> }
+        </button>
+      </div>
+    }
   }
 </div>

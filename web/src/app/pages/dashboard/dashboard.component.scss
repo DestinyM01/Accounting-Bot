@@ -1,21 +1,102 @@
-.tx-row {
+.dash-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid #2a2a2a;
-  &:last-child { border-bottom: none; }
+  justify-content: space-between;
+  margin-bottom: 24px;
+
+  h1 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.5px;
+  }
 }
-.tx-info {
-  flex: 1;
+
+.live-badge {
   display: flex;
-  flex-direction: column;
-  .tx-name { font-weight: 500; }
-  .tx-meta { font-size: 0.8rem; color: #888; }
+  align-items: center;
+  gap: 7px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--income);
+  background: rgba(16,229,160,0.1);
+  border: 1px solid rgba(16,229,160,0.2);
+  padding: 5px 12px;
+  border-radius: 20px;
 }
-.tx-amount { font-weight: 600; }
-.income-icon { color: #66bb6a; }
-.expense-icon { color: #ef5350; }
-.tx-amount.income { color: #66bb6a; }
-.tx-amount.expense { color: #ef5350; }
-.empty { color: #888; text-align: center; padding: 16px; }
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--income);
+  box-shadow: 0 0 6px var(--income);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+// ── Mid row: chart + categories ────────────────────────────────────────
+.mid-row {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
+
+.chart-card {
+  .chart-sub {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin: 2px 0 0;
+  }
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+    &.income  { background: var(--income); }
+    &.expense { background: var(--expense); }
+  }
+}
+
+.chart-area {
+  height: 220px;
+  margin-top: 16px;
+  position: relative;
+  canvas { width: 100% !important; height: 100% !important; }
+}
+
+// ── Categories panel ───────────────────────────────────────────────────
+.categories-card { overflow-y: auto; }
+
+.cat-row {
+  margin-bottom: 18px;
+  &:last-child { margin-bottom: 0; }
+}
+
+.cat-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+
+  .cat-name   { font-weight: 500; }
+  .cat-amount { color: var(--text-muted); }
+}
+
+// ── Transactions card ──────────────────────────────────────────────────
+.txs-card { margin-top: 0; }

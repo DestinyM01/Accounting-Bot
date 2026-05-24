@@ -1,32 +1,124 @@
-<div class="page-container">
-  <div class="section-title">Budget — {{ monthLabel }}</div>
+<div class="page-wrap">
+  <!-- Header -->
+  <div class="page-header budget-page-header">
+    <div>
+      <h1>Budget — {{ monthLabel }}</h1>
+      <p>Manage your monthly allocations and track spending.</p>
+    </div>
+    <button class="new-budget-btn" disabled>
+      <mat-icon>add</mat-icon> Set New Budget
+    </button>
+  </div>
 
   @if (loading) {
-    <p>Loading…</p>
+    <p class="loading-state">Loading…</p>
   } @else if (!budgets.length) {
-    <mat-card><mat-card-content><p class="empty">No budgets set for this month. Add them via the Telegram bot.</p></mat-card-content></mat-card>
+    <div class="card"><p class="empty">No budgets set for this month. Add them via the Telegram bot.</p></div>
   } @else {
+
+    <!-- Hero + Insights row -->
+    <div class="hero-row">
+      <!-- Total budget hero card -->
+      <div class="card hero-card">
+        <div class="hero-bg-chart">
+          <!-- simple decorative lines placeholder -->
+          <div class="bg-lines"></div>
+        </div>
+        <div class="hero-label">Total Monthly Budget</div>
+        <div class="hero-amount">
+          {{ totalSpent | currency:'USD':'symbol':'1.0-0' }}
+          <span class="hero-cents">.00</span>
+        </div>
+        <div class="hero-progress-row">
+          <span>Spent: {{ totalSpent | currency:'USD':'symbol':'1.0-0' }}</span>
+          <span class="hero-remaining">Remaining: {{ totalRemain | currency:'USD':'symbol':'1.0-0' }}</span>
+        </div>
+        <div class="prog-bar hero-bar">
+          <div class="prog-fill" [style.width.%]="totalPct" [style.background]="budgetBarColor(totalPct)"></div>
+        </div>
+        <div class="hero-footer">
+          <span class="hero-pct">{{ totalPct }}% utilized</span>
+          @if (totalPct <= 80) {
+            <span class="on-track"><mat-icon>trending_up</mat-icon> On track</span>
+          } @else {
+            <span class="over-track"><mat-icon>warning</mat-icon> Near limit</span>
+          }
+        </div>
+      </div>
+
+      <!-- Insights panel -->
+      <div class="card insights-card">
+        <div class="section-header"><h2>Insights</h2></div>
+        <p class="insight-text">
+          You are spending
+          @if (nearLimit.length === 0) {
+            <span class="highlight-green">well within</span> your budget limits.
+          } @else {
+            <span class="highlight-red">{{ nearLimit[0].percentage }}% </span>
+            of your <strong>{{ nearLimit[0].category | titlecase }}</strong> budget.
+          }
+        </p>
+        @for (b of nearLimit; track b.category) {
+          <div class="alert-row">
+            <mat-icon class="alert-icon">warning_amber</mat-icon>
+            <div>
+              <div class="alert-title">{{ b.category | titlecase }}</div>
+              <div class="alert-sub">Nearing limit ({{ b.remaining | currency:'USD':'symbol':'1.0-0' }} left)</div>
+            </div>
+          </div>
+        }
+        @if (!nearLimit.length) {
+          <div class="insight-ok">
+            <mat-icon>check_circle</mat-icon>
+            All categories within budget
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Category grid -->
+    <div class="section-header" style="margin-top:24px;">
+      <h2>Category Breakdown</h2>
+      <span class="link">View All</span>
+    </div>
+
     <div class="budget-grid">
       @for (b of budgets; track b.category) {
-        <mat-card class="budget-card">
-          <mat-card-header>
-            <mat-card-title>{{ b.category | titlecase }}</mat-card-title>
-            <mat-card-subtitle [class]="b.percentage >= 90 ? 'over-budget' : ''">
-              {{ b.percentage }}% used
-            </mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
-            <mat-progress-bar [mode]="'determinate'" [value]="b.percentage" [color]="budgetColor(b.percentage)" />
-            <div class="budget-details">
-              <span class="spent">Spent: {{ b.spent | currency:'USD':'symbol':'1.2-2' }}</span>
-              <span class="limit">Limit: {{ b.limit | currency:'USD':'symbol':'1.2-2' }}</span>
+        <div class="cat-budget-card card">
+          <div class="cbc-top">
+            <div class="cbc-icon-wrap" [style.background]="catColor(b.category) + '22'">
+              <mat-icon [style.color]="catColor(b.category)">{{ catIcon(b.category) }}</mat-icon>
             </div>
-            <div class="remaining" [class.negative]="b.remaining < 0">
-              {{ b.remaining >= 0 ? 'Remaining' : 'Over by' }}: {{ b.remaining | currency:'USD':'symbol':'1.2-2' }}
+            <div class="cbc-budget-label">
+              <span class="cbc-budget-text">Budget</span>
+              <span class="cbc-budget-amount">{{ b.limit | currency:'USD':'symbol':'1.0-0' }}</span>
             </div>
-          </mat-card-content>
-        </mat-card>
+          </div>
+
+          <div class="cbc-name">{{ b.category | titlecase }}</div>
+          <div class="cbc-spent">{{ b.spent | currency:'USD':'symbol':'1.0-0' }} spent</div>
+
+          <div class="prog-bar cbc-bar">
+            <div class="prog-fill"
+                 [style.width.%]="b.percentage"
+                 [style.background]="budgetBarColor(b.percentage)">
+            </div>
+          </div>
+
+          <div class="cbc-footer">
+            <span class="cbc-pct" [style.color]="budgetBarColor(b.percentage)">
+              {{ b.percentage }}%
+            </span>
+            <span class="cbc-left">{{ b.remaining | currency:'USD':'symbol':'1.0-0' }} left</span>
+          </div>
+        </div>
       }
+
+      <!-- Create category placeholder -->
+      <div class="cat-budget-card card create-card">
+        <div class="create-icon"><mat-icon>add</mat-icon></div>
+        <span>Create Category</span>
+      </div>
     </div>
   }
 </div>

@@ -1,14 +1,26 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule, CurrencyPipe, TitleCasePipe } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/services/api.service';
 import { BudgetEntry } from '../../core/services/api.models';
+
+const CAT_COLORS: Record<string, string> = {
+  housing:'#38bdf8', food:'#10e5a0', transport:'#fb923c',
+  health:'#a78bfa', entertainment:'#f472b6', salary:'#10e5a0',
+  groceries:'#10e5a0', shopping:'#f472b6', savings:'#34d399', other:'#94a3b8',
+};
+
+const CAT_ICONS: Record<string, string> = {
+  housing:'home', food:'restaurant', groceries:'shopping_cart',
+  transport:'directions_car', health:'medical_services',
+  entertainment:'movie', shopping:'shopping_bag',
+  salary:'payments', savings:'savings', other:'receipt_long',
+};
 
 @Component({
   selector: 'app-budget',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, TitleCasePipe, MatCardModule, MatProgressBarModule],
+  imports: [CommonModule, CurrencyPipe, TitleCasePipe, MatIconModule],
   templateUrl: './budget.component.html',
   styleUrls: ['./budget.component.scss'],
 })
@@ -16,7 +28,7 @@ export class BudgetComponent implements OnInit {
   budgets: BudgetEntry[] = [];
   loading = true;
   month = new Date().getMonth() + 1;
-  year = new Date().getFullYear();
+  year  = new Date().getFullYear();
 
   constructor(private api: ApiService) {}
 
@@ -27,13 +39,31 @@ export class BudgetComponent implements OnInit {
     });
   }
 
-  budgetColor(pct: number): 'primary' | 'accent' | 'warn' {
-    if (pct >= 90) return 'warn';
-    if (pct >= 70) return 'accent';
-    return 'primary';
+  get monthLabel() {
+    return new Date(this.year, this.month - 1, 1)
+      .toLocaleString('en', { month: 'long', year: 'numeric' });
   }
 
-  get monthLabel() {
-    return new Date(this.year, this.month - 1, 1).toLocaleString('en', { month: 'long', year: 'numeric' });
+  get totalLimit()   { return this.budgets.reduce((s, b) => s + b.limit, 0); }
+  get totalSpent()   { return this.budgets.reduce((s, b) => s + b.spent, 0); }
+  get totalPct()     { return this.totalLimit > 0 ? Math.round(this.totalSpent / this.totalLimit * 100) : 0; }
+  get totalRemain()  { return this.totalLimit - this.totalSpent; }
+
+  get insightText(): string {
+    if (!this.budgets.length) return '';
+    const best = [...this.budgets].sort((a, b) => a.percentage - b.percentage)[0];
+    const pct  = 100 - best.percentage;
+    return `You are spending ${pct}% less than your ${best.category} budget this month.`;
+  }
+
+  get nearLimit(): BudgetEntry[] { return this.budgets.filter(b => b.percentage >= 80); }
+
+  catColor(cat: string) { return CAT_COLORS[cat.toLowerCase()] ?? '#64748b'; }
+  catIcon(cat: string)  { return CAT_ICONS[cat.toLowerCase()]  ?? 'category'; }
+
+  budgetBarColor(pct: number): string {
+    if (pct >= 90) return '#f87171';
+    if (pct >= 70) return '#fb923c';
+    return '#10e5a0';
   }
 }
