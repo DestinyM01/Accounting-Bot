@@ -1,0 +1,53 @@
+<div class="page-container">
+  <div class="filters">
+    <mat-button-toggle-group [(ngModel)]="typeFilter" (change)="onFilterChange()">
+      <mat-button-toggle value="all">All</mat-button-toggle>
+      <mat-button-toggle value="income">Income</mat-button-toggle>
+      <mat-button-toggle value="expense">Expenses</mat-button-toggle>
+    </mat-button-toggle-group>
+
+    <mat-select [(ngModel)]="categoryFilter" (selectionChange)="onFilterChange()" placeholder="All categories">
+      <mat-option value="">All categories</mat-option>
+      @for (cat of categories; track cat) {
+        <mat-option [value]="cat">{{ cat | titlecase }}</mat-option>
+      }
+    </mat-select>
+  </div>
+
+  <div class="total-label">{{ total }} transactions</div>
+
+  @if (loading) {
+    <p>Loading…</p>
+  } @else {
+    <mat-card>
+      <mat-card-content>
+        @for (tx of items; track tx._id) {
+          <div class="tx-row">
+            <mat-icon [class]="tx.isExpense ? 'expense-icon' : 'income-icon'">
+              {{ tx.isExpense ? 'arrow_downward' : 'arrow_upward' }}
+            </mat-icon>
+            <div class="tx-info">
+              <span class="tx-name">{{ tx.transactionName }}</span>
+              <span class="tx-meta">{{ tx.category | titlecase }} · {{ tx.timestamp | date:'MMM d, y, h:mm a' }}</span>
+            </div>
+            <span [class]="tx.isExpense ? 'tx-amount expense' : 'tx-amount income'">
+              {{ tx.isExpense ? '-' : '+' }}{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}
+            </span>
+          </div>
+        } @empty {
+          <p class="empty">No transactions found.</p>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <div class="pagination">
+      <button mat-icon-button [disabled]="!hasPrev" (click)="prevPage()">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <span>Page {{ page }} of {{ pages }}</span>
+      <button mat-icon-button [disabled]="!hasNext" (click)="nextPage()">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+    </div>
+  }
+</div>

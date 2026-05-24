@@ -1,0 +1,46 @@
+<div class="page-container">
+  @if (loading) {
+    <p>Loading…</p>
+  } @else {
+    <!-- Current month summary cards -->
+    <div class="summary-grid">
+      <mat-card class="summary-card income">
+        <mat-card-header><mat-card-title>Income</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="amount">{{ summary?.income | currency:'USD':'symbol':'1.2-2' }}</div>
+          <div class="label">This month</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="summary-card expense">
+        <mat-card-header><mat-card-title>Expenses</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="amount">{{ summary?.expense | currency:'USD':'symbol':'1.2-2' }}</div>
+          <div class="label">This month</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="summary-card net">
+        <mat-card-header><mat-card-title>Net</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="amount">{{ summary?.net | currency:'USD':'symbol':'1.2-2' }}</div>
+          <div class="label">{{ summary?.transactionCount }} transactions</div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- 12-month bar chart -->
+    <mat-card class="chart-card">
+      <mat-card-header><mat-card-title>Income vs Expenses — Last 12 Months</mat-card-title></mat-card-header>
+      <mat-card-content>
+        <canvas baseChart [data]="barData" [options]="barOptions" type="bar"></canvas>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Category doughnut -->
+    <mat-card class="chart-card">
+      <mat-card-header><mat-card-title>Expenses by Category — This Month</mat-card-title></mat-card-header>
+      <mat-card-content class="doughnut-wrap">
+        <canvas baseChart [data]="doughnutData" [options]="doughnutOptions" type="doughnut"></canvas>
+      </mat-card-content>
+    </mat-card>
+  }
+</div>

@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: accounting-api
+  namespace: accounting-bot
+  labels:
+    app: accounting-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: accounting-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: accounting-api
+    spec:
+      containers:
+        - name: accounting-api
+          image: ghcr.io/destinym01/accounting-api:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 4000
+          env:
+            - name: PORT
+              value: "4000"
+            - name: MONGO_URI
+              value: "mongodb://mongodb-svc:27017/accbot"
+            - name: BOSS_USER_ID
+              valueFrom:
+                secretKeyRef:
+                  name: accounting-bot-secret
+                  key: BOSID
+            - name: AUTHENTIK_ISSUER
+              value: "http://10.0.0.98:9000/application/o/bot-angular-auth/"
+            - name: AUTHENTIK_JWKS_URI
+              value: "http://10.0.0.98:9000/application/o/bot-angular-auth/jwks/"
+            - name: CORS_ORIGIN
+              value: "https://bot.andujaronline.uk"
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 256Mi
+              cpu: 300m
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3

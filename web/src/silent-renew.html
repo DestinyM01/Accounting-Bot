@@ -1,0 +1,12 @@
+<!doctype html>
+<html>
+  <body>
+    <script>
+      // This page is loaded in a hidden iframe by angular-oauth2-oidc to silently
+      // refresh the access token before it expires.
+      window.onload = function () {
+        parent.postMessage(location.href, location.origin);
+      };
+    </script>
+  </body>
+</html>

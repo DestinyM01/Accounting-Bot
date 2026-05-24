@@ -1,0 +1,81 @@
+<div class="page-container">
+  @if (loading) {
+    <p>Loading…</p>
+  } @else {
+    <!-- Balance + month summary -->
+    <div class="summary-grid">
+      <mat-card class="summary-card">
+        <mat-card-header><mat-card-title>Balance</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="amount">{{ balance?.balance | currency:'USD':'symbol':'1.2-2' }}</div>
+          <div class="label">Current balance</div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="summary-card income">
+        <mat-card-header><mat-card-title>Income</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="amount">{{ summary?.income | currency:'USD':'symbol':'1.2-2' }}</div>
+          <div class="label">This month</div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="summary-card expense">
+        <mat-card-header><mat-card-title>Expenses</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="amount">{{ summary?.expense | currency:'USD':'symbol':'1.2-2' }}</div>
+          <div class="label">This month</div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="summary-card net">
+        <mat-card-header><mat-card-title>Net</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="amount">{{ summary?.net | currency:'USD':'symbol':'1.2-2' }}</div>
+          <div class="label">{{ summary?.transactionCount }} transactions</div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Recent transactions -->
+    <div class="section-title">Recent Transactions</div>
+    <mat-card>
+      <mat-card-content>
+        @for (tx of recentTx; track tx._id) {
+          <div class="tx-row">
+            <mat-icon [class]="tx.isExpense ? 'expense-icon' : 'income-icon'">
+              {{ tx.isExpense ? 'arrow_downward' : 'arrow_upward' }}
+            </mat-icon>
+            <div class="tx-info">
+              <span class="tx-name">{{ tx.transactionName }}</span>
+              <span class="tx-meta">{{ tx.category }} · {{ tx.timestamp | date:'MMM d, y' }}</span>
+            </div>
+            <span [class]="tx.isExpense ? 'tx-amount expense' : 'tx-amount income'">
+              {{ tx.isExpense ? '-' : '+' }}{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}
+            </span>
+          </div>
+        } @empty {
+          <p class="empty">No transactions this month.</p>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Budget overview -->
+    @if (budgets.length) {
+      <div class="section-title">Budget Overview</div>
+      <mat-card>
+        <mat-card-content>
+          @for (b of budgets; track b.category) {
+            <div class="budget-item">
+              <div class="budget-header">
+                <span>{{ b.category | titlecase }}</span>
+                <span>{{ b.spent | currency:'USD':'symbol':'1.0-0' }} / {{ b.limit | currency:'USD':'symbol':'1.0-0' }} ({{ b.percentage }}%)</span>
+              </div>
+              <mat-progress-bar [mode]="'determinate'" [value]="b.percentage" [color]="budgetColor(b.percentage)" />
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+    }
+  }
+</div>

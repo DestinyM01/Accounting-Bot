@@ -1,0 +1,79 @@
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+$primary: mat.define-palette(mat.$indigo-palette, 600);
+$accent: mat.define-palette(mat.$cyan-palette, A200);
+$warn: mat.define-palette(mat.$red-palette);
+
+$theme: mat.define-dark-theme((
+  color: (primary: $primary, accent: $accent, warn: $warn),
+  typography: mat.define-typography-config(),
+  density: 0,
+));
+
+@include mat.all-component-themes($theme);
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
+  background: #121212;
+  color: #e0e0e0;
+}
+
+.page-container {
+  padding: 24px;
+  max-width: 1200px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.summary-card {
+  mat-card-content {
+    padding-top: 8px;
+  }
+  .amount {
+    font-size: 1.8rem;
+    font-weight: 500;
+  }
+  .label {
+    font-size: 0.85rem;
+    color: #aaa;
+  }
+  &.income .amount { color: #66bb6a; }
+  &.expense .amount { color: #ef5350; }
+  &.net .amount { color: #42a5f5; }
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin: 24px 0 12px;
+  color: #bbb;
+}
+
+.budget-item {
+  margin-bottom: 16px;
+  .budget-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    font-size: 0.9rem;
+  }
+  mat-progress-bar {
+    height: 8px;
+    border-radius: 4px;
+  }
+}
+
+.chart-card {
+  margin-bottom: 24px;
+}

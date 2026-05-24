@@ -1,0 +1,32 @@
+<div class="page-container">
+  <div class="section-title">Budget — {{ monthLabel }}</div>
+
+  @if (loading) {
+    <p>Loading…</p>
+  } @else if (!budgets.length) {
+    <mat-card><mat-card-content><p class="empty">No budgets set for this month. Add them via the Telegram bot.</p></mat-card-content></mat-card>
+  } @else {
+    <div class="budget-grid">
+      @for (b of budgets; track b.category) {
+        <mat-card class="budget-card">
+          <mat-card-header>
+            <mat-card-title>{{ b.category | titlecase }}</mat-card-title>
+            <mat-card-subtitle [class]="b.percentage >= 90 ? 'over-budget' : ''">
+              {{ b.percentage }}% used
+            </mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <mat-progress-bar [mode]="'determinate'" [value]="b.percentage" [color]="budgetColor(b.percentage)" />
+            <div class="budget-details">
+              <span class="spent">Spent: {{ b.spent | currency:'USD':'symbol':'1.2-2' }}</span>
+              <span class="limit">Limit: {{ b.limit | currency:'USD':'symbol':'1.2-2' }}</span>
+            </div>
+            <div class="remaining" [class.negative]="b.remaining < 0">
+              {{ b.remaining >= 0 ? 'Remaining' : 'Over by' }}: {{ b.remaining | currency:'USD':'symbol':'1.2-2' }}
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+    </div>
+  }
+</div>
