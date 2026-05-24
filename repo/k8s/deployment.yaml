@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: accounting-bot
+  namespace: accounting-bot
+  labels:
+    app: accounting-bot
+  annotations:
+    # ⚠️  Long-polling constraint: Telegram delivers each update to exactly
+    # one getUpdates caller. Running >1 replica causes every message to be
+    # processed twice. Keep replicas: 1 and strategy: Recreate at all times.
+    bot/polling-mode: "long-poll"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: accounting-bot
+  # Recreate terminates the old pod fully before starting the new one.
+  # RollingUpdate (the default) would briefly run two pollers in parallel
+  # during a deploy and double-process every incoming Telegram update.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: accounting-bot
+    spec:
+      # If the GHCR image is private, create an imagePullSecret first:
+      #   kubectl create secret docker-registry ghcr-secret \
+      #     --docker-server=ghcr.io \
+      #     --docker-username=<github-user> \
+      #     --docker-password=<PAT-with-read:packages> \
+      #     -n accounting-bot
+      # Then uncomment the block below:
+      # imagePullSecrets:
+      #   - name: ghcr-secret
+      containers:
+        - name: accounting-bot
+          image: ghcr.io/destinym01/accounting-bot:latest
+          imagePullPolicy: Always   # always re-pull :latest on pod restart
+          ports:
+            - name: http
+              containerPort: 3000
+          # Pull all secrets from the Secret object
+          envFrom:
+            - secretRef:
+                name: accounting-bot-secret
+          # Override MONGO_URI to the in-cluster service regardless of the
+          # value set in the Secret, so the bot always talks to the StatefulSet.
+          env:
+            - name: MONGO_URI
+              value: "mongodb://mongodb-svc:27017/accbot"
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m
+          # Health endpoint: GET /HealthChecks → { detail: "ok", result: "working" }
+          livenessProbe:
+            httpGet:
+              path: /HealthChecks
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /HealthChecks
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5

@@ -1,0 +1,37 @@
+# Apply this manifest to the ArgoCD namespace on the cluster once:
+#   kubectl apply -f k8s/argocd-app.yaml -n argocd
+# After that ArgoCD owns everything else in k8s/ automatically.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: accounting-bot
+  namespace: argocd
+  finalizers:
+    # Tells ArgoCD to clean up all managed resources when this Application
+    # is deleted (cascade delete). Remove if you prefer manual cleanup.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/DestinyM01/Accounting-Bot
+    targetRevision: main
+    path: k8s/
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: accounting-bot
+
+  syncPolicy:
+    automated:
+      prune: true       # delete resources removed from git
+      selfHeal: true    # revert any manual kubectl edits automatically
+    syncOptions:
+      - CreateNamespace=true   # create accounting-bot namespace if absent
+      - ServerSideApply=true   # avoids annotation size limits on large manifests
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        maxDuration: 3m
+        factor: 2
