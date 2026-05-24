@@ -24,6 +24,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # GHCR requires fully lowercase image names; github.repository_owner
+      # preserves the original casing (e.g. DestinyM01) which causes a build
+      # error. This step rewrites IMAGE_NAME in $GITHUB_ENV so all subsequent
+      # steps pick up the lowercase version automatically.
+      - name: Lowercase image name
+        run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> $GITHUB_ENV
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+
       # Buildx gives us layer caching and multi-platform support
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
