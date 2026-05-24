@@ -6,20 +6,22 @@ metadata:
   labels:
     app: accounting-bot
   annotations:
-    # ⚠️  Long-polling constraint: Telegram delivers each update to exactly
-    # one getUpdates caller. Running >1 replica causes every message to be
-    # processed twice. Keep replicas: 1 and strategy: Recreate at all times.
     bot/polling-mode: "long-poll"
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: accounting-bot
-  # Recreate terminates the old pod fully before starting the new one.
-  # RollingUpdate (the default) would briefly run two pollers in parallel
-  # during a deploy and double-process every incoming Telegram update.
+  # maxUnavailable: 0 ensures the old pod is never terminated before the new
+  # one is ready, giving zero-downtime deploys. maxSurge: 1 allows a brief
+  # overlap where both old and new pods are running — during that window both
+  # call getUpdates, so a small number of messages may be processed twice.
+  # Acceptable trade-off for a single-replica bot; keep replicas: 1.
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:

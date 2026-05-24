@@ -8,6 +8,8 @@ metadata:
 spec:
   serviceName: mongodb-svc   # must match the headless-capable Service name
   replicas: 1
+  updateStrategy:
+    type: RollingUpdate
   selector:
     matchLabels:
       app: mongodb
