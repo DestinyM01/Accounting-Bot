@@ -4,6 +4,28 @@ import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/services/api.service';
 import { RecurringEntry } from '../../core/services/api.models';
 
+const CATEGORY_ICONS: Record<string, string> = {
+  food:          'restaurant',
+  transport:     'directions_car',
+  housing:       'home',
+  health:        'medical_services',
+  entertainment: 'movie',
+  salary:        'account_balance_wallet',
+  savings:       'savings',
+  other:         'receipt_long',
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  food:          '#f59e0b',
+  transport:     '#38bdf8',
+  housing:       '#a78bfa',
+  health:        '#34d399',
+  entertainment: '#f87171',
+  salary:        '#10e5a0',
+  savings:       '#3b82f6',
+  other:         '#94a3b8',
+};
+
 @Component({
   selector: 'app-recurring',
   standalone: true,
@@ -18,9 +40,7 @@ export class RecurringComponent implements OnInit {
 
   constructor(private api: ApiService) {}
 
-  ngOnInit() {
-    this.load();
-  }
+  ngOnInit() { this.load(); }
 
   load() {
     this.loading = true;
@@ -31,15 +51,23 @@ export class RecurringComponent implements OnInit {
     });
   }
 
-  get totalMonthlyExpense(): number {
-    return this.items.filter(r => !r.isIncome).reduce((s, r) => s + r.amount, 0);
-  }
-
   get totalMonthlyIncome(): number {
     return this.items.filter(r => r.isIncome).reduce((s, r) => s + r.amount, 0);
   }
 
-  dayLabel(day: number): string {
+  get totalMonthlyExpense(): number {
+    return this.items.filter(r => !r.isIncome).reduce((s, r) => s + r.amount, 0);
+  }
+
+  categoryIcon(cat: string): string {
+    return CATEGORY_ICONS[cat] ?? CATEGORY_ICONS['other'];
+  }
+
+  categoryColor(cat: string): string {
+    return CATEGORY_COLORS[cat] ?? CATEGORY_COLORS['other'];
+  }
+
+  scheduleLabel(day: number): string {
     const s = day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th';
     return `Every ${day}${s}`;
   }

@@ -1,28 +1,22 @@
-<div class="recurring-page">
+<div class="rp-page">
 
   <!-- Header -->
-  <div class="page-header">
-    <div class="header-left">
-      <mat-icon class="header-icon">repeat</mat-icon>
-      <div>
-        <h1>Recurring</h1>
-        <p class="subtitle">Scheduled income &amp; expenses</p>
-      </div>
+  <div class="rp-header">
+    <div>
+      <h1>Recurring Payments</h1>
+      <p class="rp-subtitle">Manage your scheduled income and expenses</p>
     </div>
   </div>
 
-  <!-- Loading skeleton -->
+  <!-- Loading -->
   @if (loading) {
     <div class="summary-row">
-      <div class="summary-card skeleton"><div class="sk-line sk-title"></div><div class="sk-line"></div></div>
-      <div class="summary-card skeleton"><div class="sk-line sk-title"></div><div class="sk-line"></div></div>
+      <div class="summary-card skeleton"><div class="sk-block"></div></div>
+      <div class="summary-card skeleton"><div class="sk-block"></div></div>
     </div>
-    <div class="items-list">
+    <div class="items-panel skeleton-panel">
       @for (_ of [1,2,3]; track $index) {
-        <div class="item-card skeleton">
-          <div class="sk-line sk-title"></div>
-          <div class="sk-line"></div>
-        </div>
+        <div class="sk-row"></div>
       }
     </div>
   }
@@ -39,50 +33,77 @@
   @if (!loading && !error) {
 
     <!-- Summary cards -->
-    @if (items.length > 0) {
-      <div class="summary-row">
-        <div class="summary-card income-card">
-          <span class="summary-label">Monthly Income</span>
-          <span class="summary-amount income">+{{ totalMonthlyIncome | currency:'USD':'symbol':'1.0-2' }}</span>
+    <div class="summary-row">
+      <div class="summary-card income-card">
+        <div class="sc-icon income-icon">
+          <mat-icon>trending_up</mat-icon>
         </div>
-        <div class="summary-card expense-card">
-          <span class="summary-label">Monthly Expenses</span>
-          <span class="summary-amount expense">-{{ totalMonthlyExpense | currency:'USD':'symbol':'1.0-2' }}</span>
+        <div class="sc-body">
+          <span class="sc-label">Monthly Scheduled Income</span>
+          <span class="sc-amount income">{{ totalMonthlyIncome | currency:'USD':'symbol':'1.2-2' }}</span>
         </div>
       </div>
-    }
+      <div class="summary-card expense-card">
+        <div class="sc-icon expense-icon">
+          <mat-icon>account_balance</mat-icon>
+        </div>
+        <div class="sc-body">
+          <span class="sc-label">Monthly Scheduled Expenses</span>
+          <span class="sc-amount expense">{{ totalMonthlyExpense | currency:'USD':'symbol':'1.2-2' }}</span>
+        </div>
+      </div>
+    </div>
 
-    <!-- Items list -->
+    <!-- Scheduled Items table -->
     @if (items.length === 0) {
       <div class="empty-state">
-        <mat-icon class="empty-icon">repeat_one</mat-icon>
+        <mat-icon class="empty-icon">event_repeat</mat-icon>
         <p>No recurring transactions yet.</p>
-        <p class="empty-hint">Add them via the Telegram bot under Transactions → Recurring.</p>
+        <p class="empty-hint">Add them via the Telegram bot → Transactions → Recurring.</p>
       </div>
     } @else {
-      <div class="items-list">
+      <div class="items-panel">
+        <div class="items-header">
+          <span class="items-title">Scheduled Items</span>
+          <span class="items-count">{{ items.length }} active</span>
+        </div>
+
+        <div class="table-head">
+          <span class="col-tx">Transaction</span>
+          <span class="col-sched">Schedule</span>
+          <span class="col-cat">Category</span>
+          <span class="col-amt">Amount</span>
+        </div>
+
         @for (item of items; track trackById($index, item)) {
-          <div class="item-card" [class.is-income]="item.isIncome" [class.is-expense]="!item.isIncome">
-            <div class="item-icon">
-              <mat-icon>{{ item.isIncome ? 'trending_up' : 'trending_down' }}</mat-icon>
-            </div>
-            <div class="item-body">
-              <div class="item-name">{{ item.transactionName | titlecase }}</div>
-              <div class="item-meta">
-                <span class="item-day">
-                  <mat-icon>event_repeat</mat-icon>
-                  {{ dayLabel(item.dayOfMonth) }}
-                </span>
-                <span class="item-category">{{ item.category }}</span>
+          <div class="table-row">
+            <!-- Icon + name -->
+            <div class="col-tx">
+              <div class="row-icon" [style.background]="categoryColor(item.category) + '22'">
+                <mat-icon [style.color]="categoryColor(item.category)">{{ categoryIcon(item.category) }}</mat-icon>
               </div>
+              <span class="row-name">{{ item.transactionName | titlecase }}</span>
             </div>
-            <div class="item-amount" [class.income]="item.isIncome" [class.expense]="!item.isIncome">
-              {{ item.isIncome ? '+' : '-' }}{{ item.amount | currency:'USD':'symbol':'1.0-2' }}
+
+            <!-- Schedule -->
+            <span class="col-sched row-sched">{{ scheduleLabel(item.dayOfMonth) }}</span>
+
+            <!-- Category badge -->
+            <div class="col-cat">
+              <span class="cat-badge">
+                <span class="cat-dot" [style.background]="categoryColor(item.category)"></span>
+                {{ item.category | uppercase }}
+              </span>
             </div>
+
+            <!-- Amount -->
+            <span class="col-amt row-amount" [class.income]="item.isIncome" [class.expense]="!item.isIncome">
+              {{ item.isIncome ? '+' : '-' }}{{ item.amount | currency:'USD':'symbol':'1.2-2' }}
+            </span>
           </div>
         }
       </div>
     }
-
   }
+
 </div>
