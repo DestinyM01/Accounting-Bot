@@ -33,4 +33,10 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/tips/tips.component').then((m) => m.TipsComponent),
   },
+  {
+    path: 'recurring',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/recurring/recurring.component').then((m) => m.RecurringComponent),
+  },
 ];

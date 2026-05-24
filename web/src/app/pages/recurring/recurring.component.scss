@@ -1,0 +1,210 @@
+.recurring-page {
+  padding: 28px;
+  max-width: 780px;
+}
+
+// ── Header ────────────────────────────────────────────────────────────
+.page-header {
+  margin-bottom: 24px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.header-icon {
+  font-size: 2rem;
+  width: 2rem;
+  height: 2rem;
+  color: var(--accent);
+}
+
+h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
+
+// ── Summary row ───────────────────────────────────────────────────────
+.summary-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &.income-card  { border-left: 3px solid var(--income); }
+  &.expense-card { border-left: 3px solid var(--expense); }
+}
+
+.summary-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.summary-amount {
+  font-size: 1.4rem;
+  font-weight: 700;
+  &.income  { color: var(--income); }
+  &.expense { color: var(--expense); }
+}
+
+// ── Items list ────────────────────────────────────────────────────────
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.item-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: transform 0.15s, box-shadow 0.15s;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  }
+
+  &.is-income  { border-left: 3px solid var(--income); }
+  &.is-expense { border-left: 3px solid var(--expense); }
+}
+
+.item-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .is-income &  { background: rgba(16,229,160,0.12); mat-icon { color: var(--income); } }
+  .is-expense & { background: rgba(248,113,113,0.12); mat-icon { color: var(--expense); } }
+
+  mat-icon { font-size: 1.25rem; width: 1.25rem; height: 1.25rem; }
+}
+
+.item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.item-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.item-day {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  mat-icon { font-size: 0.85rem; width: 0.85rem; height: 0.85rem; }
+}
+
+.item-category {
+  text-transform: capitalize;
+  padding: 1px 8px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 20px;
+}
+
+.item-amount {
+  font-size: 1.05rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  &.income  { color: var(--income); }
+  &.expense { color: var(--expense); }
+}
+
+// ── Empty / Error ─────────────────────────────────────────────────────
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 20px;
+  gap: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  p { font-size: 0.92rem; margin: 0; }
+}
+
+.empty-icon {
+  font-size: 3rem;
+  width: 3rem;
+  height: 3rem;
+  opacity: 0.3;
+  color: var(--text);
+}
+
+.error-icon { color: var(--expense); opacity: 0.7; }
+
+.empty-hint { font-size: 0.8rem !important; opacity: 0.7; }
+
+.retry-btn {
+  margin-top: 4px;
+  padding: 8px 18px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover { opacity: 0.85; }
+}
+
+// ── Skeleton ──────────────────────────────────────────────────────────
+.skeleton { pointer-events: none; }
+
+.sk-line {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-card-alt) 25%, rgba(255,255,255,0.04) 50%, var(--bg-card-alt) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  margin-bottom: 8px;
+
+  &.sk-title { width: 55%; height: 18px; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

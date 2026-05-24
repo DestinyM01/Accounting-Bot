@@ -52,6 +52,16 @@ export interface CategoryPoint {
   total: number;
 }
 
+export interface RecurringEntry {
+  id: string;
+  transactionName: string;
+  isIncome: boolean;
+  amount: number;
+  category: string;
+  dayOfMonth: number;
+  lastExecutedAt?: string | null;
+}
+
 export interface Tip {
   title: string;
   description: string;

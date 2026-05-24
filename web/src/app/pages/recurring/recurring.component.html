@@ -1,0 +1,88 @@
+<div class="recurring-page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <mat-icon class="header-icon">repeat</mat-icon>
+      <div>
+        <h1>Recurring</h1>
+        <p class="subtitle">Scheduled income &amp; expenses</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading skeleton -->
+  @if (loading) {
+    <div class="summary-row">
+      <div class="summary-card skeleton"><div class="sk-line sk-title"></div><div class="sk-line"></div></div>
+      <div class="summary-card skeleton"><div class="sk-line sk-title"></div><div class="sk-line"></div></div>
+    </div>
+    <div class="items-list">
+      @for (_ of [1,2,3]; track $index) {
+        <div class="item-card skeleton">
+          <div class="sk-line sk-title"></div>
+          <div class="sk-line"></div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Error -->
+  @if (!loading && error) {
+    <div class="empty-state">
+      <mat-icon class="empty-icon error-icon">error_outline</mat-icon>
+      <p>{{ error }}</p>
+      <button class="retry-btn" (click)="load()">Try Again</button>
+    </div>
+  }
+
+  @if (!loading && !error) {
+
+    <!-- Summary cards -->
+    @if (items.length > 0) {
+      <div class="summary-row">
+        <div class="summary-card income-card">
+          <span class="summary-label">Monthly Income</span>
+          <span class="summary-amount income">+{{ totalMonthlyIncome | currency:'USD':'symbol':'1.0-2' }}</span>
+        </div>
+        <div class="summary-card expense-card">
+          <span class="summary-label">Monthly Expenses</span>
+          <span class="summary-amount expense">-{{ totalMonthlyExpense | currency:'USD':'symbol':'1.0-2' }}</span>
+        </div>
+      </div>
+    }
+
+    <!-- Items list -->
+    @if (items.length === 0) {
+      <div class="empty-state">
+        <mat-icon class="empty-icon">repeat_one</mat-icon>
+        <p>No recurring transactions yet.</p>
+        <p class="empty-hint">Add them via the Telegram bot under Transactions → Recurring.</p>
+      </div>
+    } @else {
+      <div class="items-list">
+        @for (item of items; track trackById($index, item)) {
+          <div class="item-card" [class.is-income]="item.isIncome" [class.is-expense]="!item.isIncome">
+            <div class="item-icon">
+              <mat-icon>{{ item.isIncome ? 'trending_up' : 'trending_down' }}</mat-icon>
+            </div>
+            <div class="item-body">
+              <div class="item-name">{{ item.transactionName | titlecase }}</div>
+              <div class="item-meta">
+                <span class="item-day">
+                  <mat-icon>event_repeat</mat-icon>
+                  {{ dayLabel(item.dayOfMonth) }}
+                </span>
+                <span class="item-category">{{ item.category }}</span>
+              </div>
+            </div>
+            <div class="item-amount" [class.income]="item.isIncome" [class.expense]="!item.isIncome">
+              {{ item.isIncome ? '+' : '-' }}{{ item.amount | currency:'USD':'symbol':'1.0-2' }}
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+  }
+</div>

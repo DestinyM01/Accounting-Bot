@@ -7,6 +7,7 @@ import {
   CategoryPoint,
   MonthlyPoint,
   MonthlySummary,
+  RecurringEntry,
   Tip,
   TransactionPage,
 } from './api.models';
@@ -58,6 +59,10 @@ export class ApiService {
     if (month) params = params.set('month', month);
     if (year)  params = params.set('year', year);
     return this.http.get<CategoryPoint[]>(`${this.base}/statistics/by-category`, { params });
+  }
+
+  getRecurring(): Observable<RecurringEntry[]> {
+    return this.http.get<RecurringEntry[]>(`${this.base}/recurring`);
   }
 
   getTips(): Observable<Tip[]> {
