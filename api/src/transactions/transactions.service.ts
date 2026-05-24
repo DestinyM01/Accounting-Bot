@@ -10,6 +10,23 @@ export interface TransactionQuery {
   category?: string;
 }
 
+export interface TransactionItem {
+  _id: unknown;
+  transactionName: string;
+  transactionType: string;
+  amount: number;
+  isExpense: boolean;
+  timestamp: Date;
+  category: string;
+}
+
+export interface TransactionPage {
+  items: TransactionItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 @Injectable()
 export class TransactionsService {
   private readonly userId = parseInt(process.env.BOSS_USER_ID || '0', 10);
@@ -18,7 +35,7 @@ export class TransactionsService {
     @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
   ) {}
 
-  async findAll(query: TransactionQuery) {
+  async findAll(query: TransactionQuery): Promise<TransactionPage> {
     const filter: any = { userId: this.userId };
 
     if (query.type === 'income') filter.amount = { $gt: 0 };

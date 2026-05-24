@@ -1,9 +1,10 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
+RUN npm install -g pnpm
+COPY package.json pnpm.json ./
+RUN pnpm install
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
 FROM node:20-alpine
 WORKDIR /app

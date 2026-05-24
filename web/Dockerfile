@@ -1,9 +1,10 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
+RUN npm install -g pnpm
+COPY package.json pnpm.json ./
+RUN pnpm install --shamefully-hoist
 COPY . .
-RUN npm run build:prod
+RUN pnpm run build:prod
 
 FROM nginx:1.25-alpine
 COPY --from=builder /app/dist/web/browser /usr/share/nginx/html
