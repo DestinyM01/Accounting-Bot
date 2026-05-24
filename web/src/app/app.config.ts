@@ -16,7 +16,10 @@ import { authConfig } from './core/auth/auth.config';
 function initializeAuth(oauth: OAuthService): () => Promise<void> {
   return () => {
     oauth.configure(authConfig);
-    oauth.setupAutomaticSilentRefresh();
+    // setupAutomaticSilentRefresh() is intentionally omitted: Authentik sets
+    // X-Frame-Options: deny on the auth page, which blocks the iframe-based
+    // silent refresh and causes invalid_nonce_in_state loops. Token expiry
+    // is handled by the auth interceptor (single guarded initCodeFlow call).
     // loadDiscoveryDocumentAndTryLogin handles the ?code= callback on return
     // from Authentik as well as normal page loads.
     return oauth.loadDiscoveryDocumentAndTryLogin().then(() => void 0);
