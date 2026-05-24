@@ -38,9 +38,9 @@ spec:
                   name: accounting-bot-secret
                   key: BOSID
             - name: AUTHENTIK_ISSUER
-              value: "http://10.0.0.98:9000/application/o/bot-angular-auth/"
+              value: "https://auth.andujaronline.uk/application/o/bot-angular-auth/"
             - name: AUTHENTIK_JWKS_URI
-              value: "http://10.0.0.98:9000/application/o/bot-angular-auth/jwks/"
+              value: "https://auth.andujaronline.uk/application/o/bot-angular-auth/jwks/"
             - name: CORS_ORIGIN
               value: "https://bot.andujaronline.uk"
           resources:
