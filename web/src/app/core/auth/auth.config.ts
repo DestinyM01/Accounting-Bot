@@ -14,4 +14,7 @@ export const authConfig: AuthConfig = {
   showDebugInformation: false,
   clearHashAfterLogin: true,
   nonceStateSeparator: 'semicolon',
+  // Authentik's endpoint URLs don't all share the issuer as a prefix,
+  // which fails angular-oauth2-oidc's strict discovery document check.
+  strictDiscoveryDocumentValidation: false,
 };
