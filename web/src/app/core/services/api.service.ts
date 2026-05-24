@@ -7,6 +7,7 @@ import {
   CategoryPoint,
   MonthlyPoint,
   MonthlySummary,
+  Tip,
   TransactionPage,
 } from './api.models';
 
@@ -57,5 +58,13 @@ export class ApiService {
     if (month) params = params.set('month', month);
     if (year)  params = params.set('year', year);
     return this.http.get<CategoryPoint[]>(`${this.base}/statistics/by-category`, { params });
+  }
+
+  getTips(): Observable<Tip[]> {
+    return this.http.get<Tip[]>(`${this.base}/tips`);
+  }
+
+  refreshTips(): Observable<Tip[]> {
+    return this.http.post<Tip[]>(`${this.base}/tips/refresh`, {});
   }
 }

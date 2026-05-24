@@ -27,4 +27,10 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/statistics/statistics.component').then((m) => m.StatisticsComponent),
   },
+  {
+    path: 'tips',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/tips/tips.component').then((m) => m.TipsComponent),
+  },
 ];

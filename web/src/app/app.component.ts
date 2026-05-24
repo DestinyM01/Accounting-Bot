@@ -19,6 +19,7 @@ export class AppComponent {
     { label: 'Transactions', icon: 'receipt_long',           path: '/transactions' },
     { label: 'Budget',       icon: 'account_balance_wallet', path: '/budget' },
     { label: 'Statistics',   icon: 'bar_chart',              path: '/statistics' },
+    { label: 'Tips',         icon: 'lightbulb',              path: '/tips' },
   ];
 
   // ── Sidebar collapse ──────────────────────────────────────────────────

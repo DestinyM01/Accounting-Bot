@@ -51,3 +51,12 @@ export interface CategoryPoint {
   category: string;
   total: number;
 }
+
+export interface Tip {
+  title: string;
+  description: string;
+  category: string;
+  icon: string;
+  priority: 'high' | 'medium' | 'low';
+  potentialSaving?: string;
+}

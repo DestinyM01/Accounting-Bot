@@ -1,0 +1,76 @@
+<div class="tips-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <mat-icon class="header-icon">lightbulb</mat-icon>
+      <div>
+        <h1>Financial Tips</h1>
+        <p class="subtitle">Personalized advice based on your spending habits</p>
+      </div>
+    </div>
+    <button class="refresh-btn" (click)="refresh()" [disabled]="loading || refreshing">
+      <mat-icon [class.spinning]="refreshing">refresh</mat-icon>
+      <span>{{ refreshing ? 'Analyzing...' : 'Refresh' }}</span>
+    </button>
+  </div>
+
+  <!-- Loading skeleton -->
+  @if (loading) {
+    <div class="tips-grid">
+      @for (_ of [1,2,3]; track $index) {
+        <div class="tip-card skeleton">
+          <div class="sk-line sk-title"></div>
+          <div class="sk-line sk-body"></div>
+          <div class="sk-line sk-body short"></div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Error -->
+  @if (!loading && error) {
+    <div class="empty-state">
+      <mat-icon class="empty-icon error-icon">error_outline</mat-icon>
+      <p>{{ error }}</p>
+      <button class="refresh-btn" (click)="load()">Try Again</button>
+    </div>
+  }
+
+  <!-- Tips grid -->
+  @if (!loading && !error && tips.length > 0) {
+    <div class="tips-grid">
+      @for (tip of tips; track trackByTitle($index, tip)) {
+        <div class="tip-card" [class]="'priority-' + tip.priority">
+          <div class="tip-header">
+            <div class="tip-icon-wrap">
+              <mat-icon>{{ tip.icon }}</mat-icon>
+            </div>
+            <span class="priority-badge">{{ priorityLabel(tip.priority) }}</span>
+          </div>
+          <div class="tip-body">
+            <h3>{{ tip.title }}</h3>
+            <p>{{ tip.description }}</p>
+          </div>
+          @if (tip.potentialSaving) {
+            <div class="saving-chip">
+              <mat-icon>savings</mat-icon>
+              <span>{{ tip.potentialSaving }}</span>
+            </div>
+          }
+          <div class="tip-category">
+            <mat-icon>label</mat-icon>
+            <span>{{ tip.category }}</span>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Empty -->
+  @if (!loading && !error && tips.length === 0) {
+    <div class="empty-state">
+      <mat-icon class="empty-icon">lightbulb_outline</mat-icon>
+      <p>No tips yet. Add some transactions and click Refresh!</p>
+    </div>
+  }
+</div>
