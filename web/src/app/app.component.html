@@ -1,12 +1,17 @@
-<div class="shell">
+<div class="shell" [class.sidebar-collapsed]="sidebarCollapsed">
   <!-- Sidebar -->
   <nav class="sidebar">
     <div class="sidebar-brand">
       <div class="brand-icon"><mat-icon>account_balance</mat-icon></div>
-      <div class="brand-text">
-        <span class="brand-name">AccBot</span>
-        <span class="brand-sub">Personal Finance</span>
-      </div>
+      @if (!sidebarCollapsed) {
+        <div class="brand-text">
+          <span class="brand-name">AccBot</span>
+          <span class="brand-sub">Personal Finance</span>
+        </div>
+      }
+      <button class="collapse-btn" (click)="toggleSidebar()" [title]="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+        <mat-icon>{{ sidebarCollapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+      </button>
     </div>
 
     <ul class="nav-list">
@@ -14,20 +19,23 @@
         <li>
           <a class="nav-item"
              [routerLink]="item.path"
-             routerLinkActive="active">
+             routerLinkActive="active"
+             [title]="sidebarCollapsed ? item.label : ''">
             <mat-icon>{{ item.icon }}</mat-icon>
-            <span>{{ item.label }}</span>
+            @if (!sidebarCollapsed) { <span>{{ item.label }}</span> }
           </a>
         </li>
       }
     </ul>
 
     <div class="sidebar-footer">
-      <div class="avatar">{{ initials }}</div>
-      <span class="footer-name">{{ userName }}</span>
-      <button class="logout-btn" (click)="logout()" title="Logout">
-        <mat-icon>logout</mat-icon>
-      </button>
+      <div class="avatar" [title]="userName">{{ initials }}</div>
+      @if (!sidebarCollapsed) {
+        <span class="footer-name">{{ userName }}</span>
+        <button class="logout-btn" (click)="logout()" title="Logout">
+          <mat-icon>logout</mat-icon>
+        </button>
+      }
     </div>
   </nav>
 
@@ -36,8 +44,89 @@
     <!-- Top bar -->
     <header class="topbar">
       <div class="topbar-right">
-        <button class="icon-btn"><mat-icon>notifications_none</mat-icon></button>
-        <button class="icon-btn"><mat-icon>settings</mat-icon></button>
+
+        <!-- Notifications -->
+        <div class="notif-wrap">
+          <button class="icon-btn" (click)="toggleNotifications()" title="Notifications">
+            <mat-icon>notifications_none</mat-icon>
+            @if (notifCount > 0) {
+              <span class="notif-badge">{{ notifCount }}</span>
+            }
+          </button>
+
+          @if (notifOpen) {
+            <div class="dropdown-panel notif-panel">
+              <div class="dp-header">
+                <span>Notifications</span>
+                @if (notifCount > 0) {
+                  <span class="dp-count">{{ notifCount }} alert{{ notifCount !== 1 ? 's' : '' }}</span>
+                }
+              </div>
+
+              @if (notifLoading) {
+                <p class="dp-empty">Loading…</p>
+              } @else if (!budgetAlerts.length) {
+                <div class="dp-ok">
+                  <mat-icon>check_circle</mat-icon>
+                  All budgets are on track
+                </div>
+              } @else {
+                @for (b of budgetAlerts; track b.category) {
+                  <div class="notif-item" [class.critical]="b.percentage >= 90">
+                    <div class="notif-icon">
+                      <mat-icon>{{ b.percentage >= 100 ? 'error' : 'warning_amber' }}</mat-icon>
+                    </div>
+                    <div class="notif-body">
+                      <div class="notif-title">{{ b.category | titlecase }} budget</div>
+                      <div class="notif-sub">
+                        {{ b.percentage }}% used — {{ b.remaining >= 0 ? (b.remaining | currency:'USD':'symbol':'1.0-0') + ' left' : 'over by ' + ((-b.remaining) | currency:'USD':'symbol':'1.0-0') }}
+                      </div>
+                      <div class="notif-bar">
+                        <div class="notif-bar-fill"
+                             [style.width.%]="b.percentage > 100 ? 100 : b.percentage"
+                             [style.background]="b.percentage >= 100 ? '#f87171' : '#fb923c'">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                }
+              }
+            </div>
+          }
+        </div>
+
+        <!-- Settings -->
+        <div class="settings-wrap">
+          <button class="icon-btn" (click)="toggleSettings()" title="Settings" [class.active]="settingsOpen">
+            <mat-icon>settings</mat-icon>
+          </button>
+
+          @if (settingsOpen) {
+            <div class="dropdown-panel settings-panel">
+              <div class="dp-header">Account</div>
+
+              <div class="settings-user">
+                <div class="avatar sm">{{ initials }}</div>
+                <div>
+                  <div class="settings-name">{{ userName }}</div>
+                  @if (userEmail) { <div class="settings-email">{{ userEmail }}</div> }
+                </div>
+              </div>
+
+              <div class="settings-divider"></div>
+
+              <a class="settings-item" [href]="authentikProfileUrl" target="_blank" rel="noopener">
+                <mat-icon>manage_accounts</mat-icon>
+                Edit Profile
+              </a>
+              <button class="settings-item danger" (click)="logout()">
+                <mat-icon>logout</mat-icon>
+                Sign Out
+              </button>
+            </div>
+          }
+        </div>
+
       </div>
     </header>
 

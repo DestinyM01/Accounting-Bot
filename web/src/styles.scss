@@ -89,12 +89,10 @@ mat-icon {
     margin-bottom: 10px;
   }
   .stat-amount {
-    font-size: 1.85rem;
+    font-size: clamp(1.3rem, 2.2vw, 1.85rem);
     font-weight: 700;
     letter-spacing: -1px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    padding-right: 68px; // keep clear of the ghost icon (56px wide + 12px gap)
   }
   .stat-badge {
     display: inline-flex;
