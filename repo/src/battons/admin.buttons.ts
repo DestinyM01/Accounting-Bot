@@ -15,7 +15,7 @@ export function actionButtonsAdminStat(language: string = 'en') {
       Markup.button.callback('Най популярніші транзакції', 'popularTransactions'),
       Markup.button.callback('Топ юзерів ', 'toUser'),
     ],
-    [, Markup.button.callback('Повирнутися ↩️', 'backA')],
+    [Markup.button.callback('Повирнутися ↩️', 'backA')],
   ];
   return Markup.inlineKeyboard(baseButtons);
 }
