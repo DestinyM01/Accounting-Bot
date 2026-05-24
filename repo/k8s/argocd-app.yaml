@@ -16,11 +16,26 @@ spec:
   source:
     repoURL: https://github.com/DestinyM01/Accounting-Bot
     targetRevision: main
-    path: k8s/
+    path: repo/k8s/
 
   destination:
     server: https://kubernetes.default.svc
     namespace: accounting-bot
+
+  # Tell ArgoCD to ignore the /data field on the bot's Secret.
+  # Combined with ServerSideApply=true, ArgoCD strips /data from the patch
+  # before applying — so manually-set secret values are never overwritten by
+  # the placeholder values committed in secret.yaml.
+  # Flow: ArgoCD creates the Secret once (with placeholders) → you run
+  # `kubectl create secret ... --dry-run=client -o yaml | kubectl apply -f -`
+  # once with real values → ArgoCD never touches /data again.
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      name: accounting-bot-secret
+      namespace: accounting-bot
+      jsonPointers:
+        - /data
 
   syncPolicy:
     automated:
