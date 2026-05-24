@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import Anthropic from '@anthropic-ai/sdk';
@@ -28,6 +28,7 @@ Sort tips by priority descending. Focus on specific, actionable advice tied to a
 
 @Injectable()
 export class TipsService {
+  private readonly logger = new Logger(TipsService.name);
   private readonly userId = parseInt(process.env.BOSS_USER_ID || '0', 10);
   private client: Anthropic | null = null;
   private cache: { tips: Tip[]; expiresAt: number } | null = null;
@@ -129,11 +130,16 @@ export class TipsService {
         .map((b) => (b as Anthropic.TextBlock).text)
         .join('');
 
-      // Strip markdown code fence if Claude wraps the JSON
-      const json = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-      return JSON.parse(json) as Tip[];
+      // Extract JSON array from anywhere in the response (handles prose wrappers + code fences)
+      const match = text.match(/\[[\s\S]*\]/);
+      if (!match) {
+        this.logger.error(`No JSON array in Claude response. Raw (first 400 chars): ${text.slice(0, 400)}`);
+        throw new InternalServerErrorException('Failed to generate financial tips');
+      }
+      return JSON.parse(match[0]) as Tip[];
     } catch (err) {
       if (err instanceof InternalServerErrorException) throw err;
+      this.logger.error('callClaude failed', err instanceof Error ? err.stack : String(err));
       throw new InternalServerErrorException('Failed to generate financial tips');
     }
   }
