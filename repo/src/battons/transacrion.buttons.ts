@@ -8,7 +8,7 @@ export function actionButtonsTransaction(language: string = 'en') {
       Markup.button.callback(BUTTONS[lang].INCOME, 'income'),
       Markup.button.callback(BUTTONS[lang].EXPENSE, 'expense'),
       Markup.button.callback(BUTTONS[lang].DELETE_LAST, 'delete_last'),
-      Markup.button.callback(BUTTONS[lang].RECURRING, 'set_recurring'),
+      Markup.button.callback(BUTTONS[lang].RECURRING, 'recurring_menu'),
       Markup.button.callback('🔍 Search', 'search_transactions'),
       Markup.button.callback(BUTTONS[lang].BACK, 'back'),
     ],

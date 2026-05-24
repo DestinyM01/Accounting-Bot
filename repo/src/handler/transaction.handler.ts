@@ -273,7 +273,7 @@ export class TransactionHandler {
     });
   }
 
-  @Action('set_recurring')
+  @Action('recurring_add')
   async setRecurring(@Ctx() ctx: IContext & WizardContext) {
     this.logger.log(`user:${ctx.from.id} entering set_recurring scene`);
     await ctx.scene.enter('set_recurring');
