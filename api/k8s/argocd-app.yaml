@@ -1,0 +1,36 @@
+# Apply once to the cluster:
+#   kubectl apply -f api/k8s/argocd-app.yaml -n argocd
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: accounting-api
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/DestinyM01/Accounting-Bot
+    targetRevision: main
+    path: api/k8s/
+    directory:
+      exclude: "argocd-app.yaml"   # don't let ArgoCD sync this file into the app namespace
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: accounting-bot
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        maxDuration: 3m
+        factor: 2
