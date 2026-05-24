@@ -73,6 +73,8 @@ spec:
           # Override MONGO_URI to the in-cluster service regardless of the
           # value set in the Secret, so the bot always talks to the StatefulSet.
           env:
+            - name: PORT
+              value: "3000"
             - name: MONGO_URI
               value: "mongodb://mongodb-svc:27017/accbot"
           resources:
@@ -88,14 +90,14 @@ spec:
               path: /HealthChecks
               port: 3000
             initialDelaySeconds: 30
-            periodSeconds: 30
+            periodSeconds: 15
             failureThreshold: 3
             timeoutSeconds: 5
           readinessProbe:
             httpGet:
               path: /HealthChecks
               port: 3000
-            initialDelaySeconds: 10
+            initialDelaySeconds: 15
             periodSeconds: 10
             failureThreshold: 3
             timeoutSeconds: 5
