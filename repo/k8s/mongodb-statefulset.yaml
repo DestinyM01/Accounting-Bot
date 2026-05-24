@@ -19,7 +19,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: mongodb
-          image: mongo:7
+          image: mongo:4.4
           ports:
             - name: mongo
               containerPort: 27017
