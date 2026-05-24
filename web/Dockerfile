@@ -1,8 +1,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 RUN npm install -g pnpm
-COPY package.json pnpm.json ./
-RUN pnpm install --shamefully-hoist
+COPY package.json pnpm.json pnpm-lock.yaml .npmrc pnpm-workspace.yaml ./
+RUN --mount=type=cache,id=pnpm-web-store,target=/root/.local/share/pnpm/store \
+    CI=true pnpm install --frozen-lockfile --shamefully-hoist
 COPY . .
 RUN pnpm run build:prod
 

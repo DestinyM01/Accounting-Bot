@@ -70,7 +70,6 @@ export class SetRecurringScene {
   constructor(private readonly recurringService: RecurringService) {}
 
   @WizardStep(1)
-  @On('text')
   async askType(@Ctx() ctx: IContext & WizardContext) {
     const lang = ctx.session.language || 'en';
     await ctx.replyWithHTML(STEP_LABELS.ask_type[lang] ?? STEP_LABELS.ask_type.en);
