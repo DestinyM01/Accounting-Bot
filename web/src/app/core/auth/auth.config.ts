@@ -4,7 +4,7 @@ export const authConfig: AuthConfig = {
   issuer: 'https://auth.andujaronline.uk/application/o/bot-angular-auth/',
   redirectUri: 'https://bot.andujaronline.uk/',
   silentRefreshRedirectUri: 'https://bot.andujaronline.uk/silent-renew.html',
-  clientId: 'DF1VNYRNAWGgpRai7lTVa0sVcNEgnyLA9ES0U6qA',
+  clientId: 'DFlVNYRNAW6gpRai7lTVa0sVcNEgnylA9ESOU6qA',
   responseType: 'code',
   scope: 'openid profile email',
   useSilentRefresh: true,
