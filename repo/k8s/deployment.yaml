@@ -36,6 +36,29 @@ spec:
       # Then uncomment the block below:
       # imagePullSecrets:
       #   - name: ghcr-secret
+
+      # Wait until api.telegram.org is reachable before starting the bot.
+      # Without this, Telegraf's initial getMe call times out if the pod's
+      # network stack isn't fully ready, crashing the container on startup.
+      initContainers:
+        - name: wait-for-network
+          image: curlimages/curl:latest
+          command:
+            - sh
+            - -c
+            - |
+              until curl -sf --max-time 5 https://api.telegram.org; do
+                echo "waiting for network / api.telegram.org...";
+                sleep 2;
+              done
+          resources:
+            requests:
+              memory: 16Mi
+              cpu: 10m
+            limits:
+              memory: 32Mi
+              cpu: 50m
+
       containers:
         - name: accounting-bot
           image: ghcr.io/destinym01/accounting-bot:latest

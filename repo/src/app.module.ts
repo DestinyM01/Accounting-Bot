@@ -26,6 +26,18 @@ import { HealthChecksController } from './api/health.checks.controller';
       useFactory: (configService: ConfigService) => ({
         middlewares: [errorHandlingMiddleware(), createSessionMiddleware(configService)],
         token: configService.getOrThrow('TELEGRAM_TOKEN'),
+        options: {
+          // Maximum time (ms) allowed for a single update handler to complete.
+          // Defaults to 90 000 in nestjs-telegraf; set explicitly for clarity.
+          handlerTimeout: 90_000,
+        },
+        launchOptions: {
+          // Give the initial getMe + polling setup up to 60 s before Telegraf
+          // considers the connection failed. Combined with the initContainer
+          // network-readiness check this prevents ETIMEDOUT crashes at startup.
+          allowedUpdates: [],
+          dropPendingUpdates: false,
+        },
       }),
       inject: [ConfigService],
     }),
