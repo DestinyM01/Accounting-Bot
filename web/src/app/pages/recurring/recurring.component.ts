@@ -51,6 +51,7 @@ export class RecurringComponent implements OnInit {
     });
   }
 
+  // ── Summary ──────────────────────────────────────────────────────────
   get totalMonthlyIncome(): number {
     return this.items.filter(r => r.isIncome).reduce((s, r) => s + r.amount, 0);
   }
@@ -59,13 +60,52 @@ export class RecurringComponent implements OnInit {
     return this.items.filter(r => !r.isIncome).reduce((s, r) => s + r.amount, 0);
   }
 
-  categoryIcon(cat: string): string {
-    return CATEGORY_ICONS[cat] ?? CATEGORY_ICONS['other'];
+  // ── Upcoming next ─────────────────────────────────────────────────────
+  get upcomingNext(): RecurringEntry | null {
+    if (!this.items.length) return null;
+    return this.items.reduce((nearest, r) => {
+      return this.daysUntil(r.dayOfMonth) < this.daysUntil(nearest.dayOfMonth) ? r : nearest;
+    });
   }
 
-  categoryColor(cat: string): string {
-    return CATEGORY_COLORS[cat] ?? CATEGORY_COLORS['other'];
+  daysUntil(day: number): number {
+    const today = new Date();
+    const todayDay = today.getDate();
+    if (day >= todayDay) return day - todayDay;
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    return (daysInMonth - todayDay) + day;
   }
+
+  nextBillingDate(day: number): Date {
+    const today = new Date();
+    if (day >= today.getDate()) {
+      return new Date(today.getFullYear(), today.getMonth(), day);
+    }
+    return new Date(today.getFullYear(), today.getMonth() + 1, day);
+  }
+
+  monthAbbr(day: number): string {
+    return this.nextBillingDate(day).toLocaleString('en', { month: 'short' }).toUpperCase();
+  }
+
+  // ── Billed this month ─────────────────────────────────────────────────
+  get billedThisMonth(): RecurringEntry[] {
+    const now = new Date();
+    return this.items.filter(r => {
+      if (!r.lastExecutedAt) return false;
+      const d = new Date(r.lastExecutedAt);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+  }
+
+  billedDate(r: RecurringEntry): string {
+    if (!r.lastExecutedAt) return '';
+    return new Date(r.lastExecutedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────
+  categoryIcon(cat: string): string  { return CATEGORY_ICONS[cat]  ?? CATEGORY_ICONS['other'];  }
+  categoryColor(cat: string): string { return CATEGORY_COLORS[cat] ?? CATEGORY_COLORS['other']; }
 
   scheduleLabel(day: number): string {
     const s = day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th';

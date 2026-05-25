@@ -104,6 +104,71 @@
         }
       </div>
     }
+
+    <!-- Bottom row: Upcoming Next + Billed This Month -->
+    @if (items.length > 0) {
+      <div class="bottom-row">
+
+        <!-- Upcoming Next -->
+        <div class="upcoming-panel">
+          <div class="panel-header">
+            <span class="panel-title">Upcoming Next</span>
+            <mat-icon class="panel-header-icon">schedule</mat-icon>
+          </div>
+          @if (upcomingNext) {
+            <div class="upcoming-body">
+              <div class="date-card">
+                <span class="date-month">{{ monthAbbr(upcomingNext.dayOfMonth) }}</span>
+                <span class="date-day">{{ upcomingNext.dayOfMonth }}</span>
+              </div>
+              <div class="upcoming-info">
+                <span class="upcoming-name">{{ upcomingNext.transactionName | titlecase }}</span>
+                <span class="upcoming-amount" [class.income]="upcomingNext.isIncome" [class.expense]="!upcomingNext.isIncome">
+                  {{ upcomingNext.isIncome ? '+' : '-' }}{{ upcomingNext.amount | currency:'USD':'symbol':'1.2-2' }}
+                </span>
+                @if (daysUntil(upcomingNext.dayOfMonth) === 0) {
+                  <span class="days-badge today">Today</span>
+                } @else {
+                  <span class="days-badge">in {{ daysUntil(upcomingNext.dayOfMonth) }} day{{ daysUntil(upcomingNext.dayOfMonth) === 1 ? '' : 's' }}</span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Billed This Month -->
+        <div class="billed-panel">
+          <div class="panel-header">
+            <span class="panel-title">Billed This Month</span>
+            <span class="billed-count">{{ billedThisMonth.length }}</span>
+          </div>
+          @if (billedThisMonth.length === 0) {
+            <div class="billed-empty">
+              <mat-icon class="billed-empty-icon">check_circle_outline</mat-icon>
+              <p>Nothing billed yet this month</p>
+            </div>
+          } @else {
+            <div class="billed-list">
+              @for (item of billedThisMonth; track item.id) {
+                <div class="billed-row">
+                  <div class="billed-icon" [style.background]="categoryColor(item.category) + '22'">
+                    <mat-icon [style.color]="categoryColor(item.category)">{{ categoryIcon(item.category) }}</mat-icon>
+                  </div>
+                  <div class="billed-info">
+                    <span class="billed-name">{{ item.transactionName | titlecase }}</span>
+                    <span class="billed-date">{{ billedDate(item) }}</span>
+                  </div>
+                  <span class="billed-amount" [class.income]="item.isIncome" [class.expense]="!item.isIncome">
+                    {{ item.isIncome ? '+' : '-' }}{{ item.amount | currency:'USD':'symbol':'1.2-2' }}
+                  </span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+      </div>
+    }
   }
 
 </div>
