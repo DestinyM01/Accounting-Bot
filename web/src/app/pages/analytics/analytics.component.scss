@@ -1,0 +1,172 @@
+.an-page {
+  padding: 28px;
+  max-width: 1000px;
+}
+
+.an-header {
+  margin-bottom: 28px;
+  h1 { font-size: 1.75rem; font-weight: 700; color: var(--text); margin: 0 0 4px; }
+}
+.an-subtitle { font-size: 0.875rem; color: var(--text-muted); margin: 0; }
+
+// ── Top 10 panel ──────────────────────────────────────────────────────────
+.an-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-title { font-size: 1rem; font-weight: 700; color: var(--text); }
+.panel-sub   { font-size: 0.75rem; color: var(--text-muted); }
+
+.table-head {
+  display: grid;
+  grid-template-columns: 48px 1fr 80px 130px;
+  padding: 10px 24px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 80px 130px;
+  padding: 14px 24px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.13s;
+
+  &:last-child { border-bottom: none; }
+  &:hover      { background: rgba(255,255,255,0.025); }
+  &.active {
+    background:   rgba(16,229,160,0.06);
+    border-left:  3px solid var(--income);
+    padding-left: 21px;
+  }
+}
+
+.rank-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.tx-name   { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+.tx-count  { font-size: 0.875rem; color: var(--text-muted); }
+.tx-amount { font-size: 0.9rem; font-weight: 700; color: var(--text); }
+.align-right { text-align: right; }
+
+.empty-state-inline {
+  padding: 32px 24px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+// ── Chart panel ───────────────────────────────────────────────────────────
+.chart-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.chart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 20px;
+  gap: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  p { font-size: 0.875rem; margin: 0; }
+}
+
+.chart-empty-icon {
+  font-size: 2.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  opacity: 0.25;
+}
+
+.chart-skeleton {
+  height: 220px;
+  margin: 16px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--bg-card-alt) 25%, rgba(255,255,255,0.04) 50%, var(--bg-card-alt) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+.chart-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 16px 24px 0;
+}
+
+.chart-title    { font-size: 1rem; font-weight: 700; color: var(--text); }
+.chart-subtitle { font-size: 0.78rem; color: var(--text-muted); }
+
+.chart-wrap {
+  height: 220px;
+  padding: 16px 24px 24px;
+}
+
+// ── Skeleton ──────────────────────────────────────────────────────────────
+.skeleton-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 24px;
+}
+
+.sk-row {
+  height: 48px;
+  border-radius: 8px;
+  margin: 8px 0;
+  background: linear-gradient(90deg, var(--bg-card-alt) 25%, rgba(255,255,255,0.04) 50%, var(--bg-card-alt) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+// ── Empty / Error ─────────────────────────────────────────────────────────
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 20px;
+  gap: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  p { font-size: 0.92rem; margin: 0; }
+}
+
+.empty-icon  { font-size: 3rem; width: 3rem; height: 3rem; opacity: 0.3; color: var(--text); }
+.error-icon  { color: var(--expense); opacity: 0.7 !important; }

@@ -84,3 +84,15 @@ export interface CompareResult {
   monthB:   PeriodSummary;
   analysis: string;
 }
+
+export interface TopTransaction {
+  rank:        number;
+  name:        string;
+  count:       number;
+  totalAmount: number;
+}
+
+export interface ChartPoint {
+  month: string;
+  total: number;
+}

@@ -1,0 +1,77 @@
+<div class="an-page">
+
+  <!-- Header -->
+  <div class="an-header">
+    <h1>Analytics</h1>
+    <p class="an-subtitle">Top transactions and spending trends</p>
+  </div>
+
+  <!-- Loading skeleton -->
+  @if (loading) {
+    <div class="skeleton-panel">
+      @for (_ of [1,2,3,4,5]; track $index) {
+        <div class="sk-row"></div>
+      }
+    </div>
+  }
+
+  <!-- Error -->
+  @if (!loading && error) {
+    <div class="empty-state">
+      <mat-icon class="empty-icon error-icon">error_outline</mat-icon>
+      <p>{{ error }}</p>
+    </div>
+  }
+
+  @if (!loading && !error) {
+
+    <!-- Top 10 table -->
+    <div class="an-panel">
+      <div class="panel-header">
+        <span class="panel-title">Top 10 Transactions</span>
+        <span class="panel-sub">by frequency · all time</span>
+      </div>
+      <div class="table-head">
+        <span>#</span>
+        <span>Name</span>
+        <span>Count</span>
+        <span class="align-right">Total</span>
+      </div>
+      @for (item of top10; track item.name) {
+        <div class="table-row"
+             [class.active]="selectedName === item.name"
+             (click)="selectTransaction(item.name)">
+          <span class="rank-badge">{{ item.rank }}</span>
+          <span class="tx-name">{{ item.name | titlecase }}</span>
+          <span class="tx-count">{{ item.count }}×</span>
+          <span class="tx-amount align-right">{{ item.totalAmount | currency:'USD':'symbol':'1.2-2' }}</span>
+        </div>
+      }
+      @if (top10.length === 0) {
+        <div class="empty-state-inline"><p>No transactions yet.</p></div>
+      }
+    </div>
+
+    <!-- Chart panel -->
+    <div class="chart-panel">
+      @if (!selectedName) {
+        <div class="chart-empty">
+          <mat-icon class="chart-empty-icon">touch_app</mat-icon>
+          <p>Select a transaction above to see its history</p>
+        </div>
+      } @else if (chartLoading) {
+        <div class="chart-skeleton"></div>
+      } @else {
+        <div class="chart-header">
+          <span class="chart-title">{{ selectedName | titlecase }}</span>
+          <span class="chart-subtitle">Monthly total</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas #chartCanvas></canvas>
+        </div>
+      }
+    </div>
+
+  }
+
+</div>

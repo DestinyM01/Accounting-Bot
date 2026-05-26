@@ -20,6 +20,7 @@ export class AppComponent {
     { label: 'Budget',       icon: 'account_balance_wallet', path: '/budget' },
     { label: 'Statistics',   icon: 'bar_chart',              path: '/statistics' },
     { label: 'Compare',      icon: 'compare_arrows',         path: '/compare' },
+    { label: 'Analytics',    icon: 'insights',               path: '/analytics' },
     { label: 'Recurring',    icon: 'repeat',                 path: '/recurring' },
     { label: 'Tips',         icon: 'lightbulb',              path: '/tips' },
   ];

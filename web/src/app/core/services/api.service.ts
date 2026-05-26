@@ -5,11 +5,13 @@ import {
   BalanceSummary,
   BudgetEntry,
   CategoryPoint,
+  ChartPoint,
   CompareResult,
   MonthlyPoint,
   MonthlySummary,
   RecurringEntry,
   Tip,
+  TopTransaction,
   TransactionPage,
 } from './api.models';
 
@@ -98,5 +100,13 @@ export class ApiService {
 
   compare(monthA: string, monthB: string): Observable<CompareResult> {
     return this.http.post<CompareResult>(`${this.base}/compare`, { monthA, monthB });
+  }
+
+  getTop10(): Observable<TopTransaction[]> {
+    return this.http.get<TopTransaction[]>(`${this.base}/analytics/top10`);
+  }
+
+  getTransactionChart(name: string): Observable<ChartPoint[]> {
+    return this.http.get<ChartPoint[]>(`${this.base}/analytics/chart/${encodeURIComponent(name)}`);
   }
 }

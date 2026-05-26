@@ -34,6 +34,12 @@ export const routes: Routes = [
       import('./pages/compare/compare.component').then((m) => m.CompareComponent),
   },
   {
+    path: 'analytics',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/analytics/analytics.component').then((m) => m.AnalyticsComponent),
+  },
+  {
     path: 'tips',
     canActivate: [authGuard],
     loadComponent: () =>
