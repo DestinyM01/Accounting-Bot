@@ -1,7 +1,7 @@
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import Anthropic from '@anthropic-ai/sdk';
+import { Mistral } from '@mistralai/mistralai';
 import { Transaction } from '../shared/schemas/transaction.schema';
 
 export interface Tip {
@@ -30,28 +30,27 @@ Sort tips by priority descending. Focus on specific, actionable advice tied to a
 export class TipsService {
   private readonly logger = new Logger(TipsService.name);
   private readonly userId = parseInt(process.env.BOSS_USER_ID || '0', 10);
-  private client: Anthropic | null = null;
+  private client: Mistral | null = null;
   private cache: { tips: Tip[]; expiresAt: number } | null = null;
   private readonly CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
   constructor(
     @InjectModel(Transaction.name) private txModel: Model<Transaction>,
   ) {
-    // Only init client if key is present — prevents crash on startup if key not yet set
-    if (process.env.ANTHROPIC_API_KEY) {
-      this.client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    if (process.env.MISTRAL_API_KEY) {
+      this.client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
     }
   }
 
   async getTips(): Promise<Tip[]> {
     if (!this.client) {
-      throw new InternalServerErrorException('ANTHROPIC_API_KEY is not configured');
+      throw new InternalServerErrorException('MISTRAL_API_KEY is not configured');
     }
     if (this.cache && Date.now() < this.cache.expiresAt) {
       return this.cache.tips;
     }
     const context = await this.buildSpendingContext();
-    const tips    = await this.callClaude(context);
+    const tips    = await this.callMistral(context);
     this.cache    = { tips, expiresAt: Date.now() + this.CACHE_TTL };
     return tips;
   }
@@ -109,37 +108,28 @@ export class TipsService {
     ].join('\n');
   }
 
-  private async callClaude(context: string): Promise<Tip[]> {
+  private async callMistral(context: string): Promise<Tip[]> {
     try {
-      const response = await this.client!.messages.create({
-        model: 'claude-opus-4-7',
-        max_tokens: 1500,
-        thinking: { type: 'adaptive' },
-        system: [
-          {
-            type: 'text',
-            text: SYSTEM_PROMPT,
-            cache_control: { type: 'ephemeral' },  // static prompt — cache it
-          },
-        ] as any,
-        messages: [{ role: 'user', content: context }],
+      const response = await this.client!.chat.complete({
+        model: 'mistral-small-latest',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user',   content: context },
+        ],
       });
 
-      const text = response.content
-        .filter((b) => b.type === 'text')
-        .map((b) => (b as Anthropic.TextBlock).text)
-        .join('');
+      const text = (response.choices?.[0]?.message?.content as string) ?? '';
 
       // Extract JSON array from anywhere in the response (handles prose wrappers + code fences)
       const match = text.match(/\[[\s\S]*\]/);
       if (!match) {
-        this.logger.error(`No JSON array in Claude response. Raw (first 400 chars): ${text.slice(0, 400)}`);
+        this.logger.error(`No JSON array in Mistral response. Raw (first 400 chars): ${text.slice(0, 400)}`);
         throw new InternalServerErrorException('Failed to generate financial tips');
       }
       return JSON.parse(match[0]) as Tip[];
     } catch (err) {
       if (err instanceof InternalServerErrorException) throw err;
-      this.logger.error('callClaude failed', err instanceof Error ? err.stack : String(err));
+      this.logger.error('callMistral failed', err instanceof Error ? err.stack : String(err));
       throw new InternalServerErrorException('Failed to generate financial tips');
     }
   }
