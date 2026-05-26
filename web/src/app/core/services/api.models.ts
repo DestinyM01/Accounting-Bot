@@ -70,3 +70,17 @@ export interface Tip {
   priority: 'high' | 'medium' | 'low';
   potentialSaving?: string;
 }
+
+export interface PeriodSummary {
+  month:          string;
+  totalIncome:    number;
+  totalExpenses:  number;
+  net:            number;
+  topCategories:  { category: string; amount: number }[];
+}
+
+export interface CompareResult {
+  monthA:   PeriodSummary;
+  monthB:   PeriodSummary;
+  analysis: string;
+}

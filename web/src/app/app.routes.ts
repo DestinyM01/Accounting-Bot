@@ -28,6 +28,12 @@ export const routes: Routes = [
       import('./pages/statistics/statistics.component').then((m) => m.StatisticsComponent),
   },
   {
+    path: 'compare',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/compare/compare.component').then((m) => m.CompareComponent),
+  },
+  {
     path: 'tips',
     canActivate: [authGuard],
     loadComponent: () =>

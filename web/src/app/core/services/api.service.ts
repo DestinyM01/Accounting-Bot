@@ -5,6 +5,7 @@ import {
   BalanceSummary,
   BudgetEntry,
   CategoryPoint,
+  CompareResult,
   MonthlyPoint,
   MonthlySummary,
   RecurringEntry,
@@ -89,5 +90,13 @@ export class ApiService {
 
   refreshTips(): Observable<Tip[]> {
     return this.http.post<Tip[]>(`${this.base}/tips/refresh`, {});
+  }
+
+  getCompareMonths(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.base}/compare/months`);
+  }
+
+  compare(monthA: string, monthB: string): Observable<CompareResult> {
+    return this.http.post<CompareResult>(`${this.base}/compare`, { monthA, monthB });
   }
 }

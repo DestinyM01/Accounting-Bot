@@ -1,0 +1,106 @@
+<div class="cp-page">
+
+  <!-- Header -->
+  <div class="cp-header">
+    <h1>Period Compare</h1>
+    <p class="cp-subtitle">AI-powered comparison of two financial months</p>
+  </div>
+
+  <!-- Pickers -->
+  <div class="pickers-card">
+    <div class="pickers-row">
+
+      <div class="picker-group">
+        <label class="picker-label">Period A</label>
+        <select class="picker-select" [(ngModel)]="monthA">
+          <option value="">Select month…</option>
+          @for (m of availableMonths; track m) {
+            <option [value]="m">{{ formatMonth(m) }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="picker-vs">VS</div>
+
+      <div class="picker-group">
+        <label class="picker-label">Period B</label>
+        <select class="picker-select" [(ngModel)]="monthB">
+          <option value="">Select month…</option>
+          @for (m of availableMonths; track m) {
+            <option [value]="m">{{ formatMonth(m) }}</option>
+          }
+        </select>
+      </div>
+
+      <button class="compare-btn"
+              [disabled]="!canCompare || comparing"
+              (click)="compare()">
+        <mat-icon [class.spin]="comparing">{{ comparing ? 'autorenew' : 'compare_arrows' }}</mat-icon>
+        {{ comparing ? 'Analyzing…' : 'Compare' }}
+      </button>
+
+    </div>
+  </div>
+
+  <!-- Error -->
+  @if (error) {
+    <div class="empty-state">
+      <mat-icon class="empty-icon error-icon">error_outline</mat-icon>
+      <p>{{ error }}</p>
+      <button class="retry-btn" (click)="compare()">Try Again</button>
+    </div>
+  }
+
+  <!-- Results -->
+  @if (result) {
+    <div class="summary-row">
+      @for (period of [result.monthA, result.monthB]; track period.month) {
+        <div class="period-card">
+          <div class="period-month">{{ formatMonth(period.month) }}</div>
+
+          <div class="period-stats">
+            <div class="stat-row">
+              <span class="stat-label">Income</span>
+              <span class="stat-value income">+{{ period.totalIncome | currency:'USD':'symbol':'1.2-2' }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Expenses</span>
+              <span class="stat-value expense">-{{ period.totalExpenses | currency:'USD':'symbol':'1.2-2' }}</span>
+            </div>
+            <div class="stat-row net-row">
+              <span class="stat-label">Net</span>
+              <span class="stat-value"
+                    [class.income]="period.net >= 0"
+                    [class.expense]="period.net < 0">
+                {{ period.net | currency:'USD':'symbol':'1.2-2' }}
+              </span>
+            </div>
+          </div>
+
+          @if (period.topCategories.length) {
+            <div class="top-cats">
+              <span class="top-cats-label">Top Categories</span>
+              @for (cat of period.topCategories; track cat.category) {
+                <div class="cat-row">
+                  <span class="cat-dot" [style.background]="catColor(cat.category)"></span>
+                  <span class="cat-name">{{ cat.category | titlecase }}</span>
+                  <span class="cat-amount">{{ cat.amount | currency:'USD':'symbol':'1.0-0' }}</span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- AI Analysis -->
+    <div class="analysis-panel">
+      <div class="analysis-header">
+        <mat-icon class="analysis-icon">psychology</mat-icon>
+        <span class="analysis-title">AI Analysis</span>
+      </div>
+      <p class="analysis-text">{{ result.analysis }}</p>
+    </div>
+  }
+
+</div>
