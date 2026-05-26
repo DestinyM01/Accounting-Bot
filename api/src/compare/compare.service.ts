@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Mistral } from '@mistralai/mistralai';
@@ -47,6 +47,10 @@ export class CompareService {
   }
 
   async compare(monthA: string, monthB: string): Promise<CompareResult> {
+    const monthRe = /^\d{4}-\d{2}$/;
+    if (!monthRe.test(monthA) || !monthRe.test(monthB)) {
+      throw new BadRequestException('Month must be in YYYY-MM format');
+    }
     const [summaryA, summaryB] = await Promise.all([
       this.buildPeriodSummary(monthA),
       this.buildPeriodSummary(monthB),

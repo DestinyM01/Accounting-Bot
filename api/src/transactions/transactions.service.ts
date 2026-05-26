@@ -90,6 +90,7 @@ export class TransactionsService {
     const filter = this.buildFilter(query);
     const txs = await this.transactionModel
       .find(filter)
+      .limit(10000)
       .sort({ timestamp: -1 })
       .select('transactionName transactionType amount timestamp category')
       .lean();

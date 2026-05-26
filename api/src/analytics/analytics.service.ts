@@ -46,6 +46,9 @@ export class AnalyticsService {
   }
 
   async getTransactionChart(name: string): Promise<ChartPoint[]> {
+    if (!name || name.length > 200) {
+      return [];
+    }
     const txs = await this.txModel
       .find({ userId: this.userId, transactionName: name })
       .select('timestamp amount')
