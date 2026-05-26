@@ -26,7 +26,30 @@
         <mat-icon class="select-chevron">expand_more</mat-icon>
       </div>
 
-      <button class="export-btn" disabled>Export</button>
+      <div class="filter-group">
+        <label class="filter-label">Type</label>
+        <select class="filter-select type-select" [(ngModel)]="typeFilter" (change)="onTypeChange()">
+          <option value="">All Types</option>
+          <option value="income">Income</option>
+          <option value="expense">Expense</option>
+        </select>
+        <mat-icon class="select-chevron">expand_more</mat-icon>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label">From</label>
+        <input class="filter-date" type="date" [(ngModel)]="startDate" (change)="onDateChange()" />
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label">To</label>
+        <input class="filter-date" type="date" [(ngModel)]="endDate" (change)="onDateChange()" />
+      </div>
+
+      <button class="export-btn" (click)="exportCsv()">
+        <mat-icon>download</mat-icon>
+        Export CSV
+      </button>
     </div>
   </div>
 

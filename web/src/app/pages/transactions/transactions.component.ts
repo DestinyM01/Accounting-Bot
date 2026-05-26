@@ -30,16 +30,19 @@ const CAT_ICONS: Record<string, string> = {
   styleUrls: ['./transactions.component.scss'],
 })
 export class TransactionsComponent implements OnInit {
-  items: Transaction[] = [];
-  total = 0;
-  offset = 0;
-  limit = 20;
-  loading = true;
-  loadingMore = false;
+  items:       Transaction[] = [];
+  total        = 0;
+  offset       = 0;
+  limit        = 20;
+  loading      = true;
+  loadingMore  = false;
 
-  search = '';
+  search         = '';
   categoryFilter = '';
-  categories = CATEGORIES;
+  typeFilter:    '' | 'income' | 'expense' = '';
+  startDate      = '';
+  endDate        = '';
+  categories     = CATEGORIES;
 
   private search$ = new Subject<string>();
 
@@ -53,16 +56,19 @@ export class TransactionsComponent implements OnInit {
 
   load(append: boolean) {
     if (append) this.loadingMore = true;
-    else this.loading = true;
+    else        this.loading     = true;
 
     this.api.getTransactions({
-      limit: this.limit,
-      offset: this.offset,
-      category: this.categoryFilter || undefined,
+      limit:     this.limit,
+      offset:    this.offset,
+      category:  this.categoryFilter || undefined,
+      type:      (this.typeFilter as 'income' | 'expense') || undefined,
+      startDate: this.startDate || undefined,
+      endDate:   this.endDate   || undefined,
     }).subscribe({
       next: (page: TransactionPage) => {
-        this.items  = append ? [...this.items, ...page.items] : page.items;
-        this.total  = page.total;
+        this.items   = append ? [...this.items, ...page.items] : page.items;
+        this.total   = page.total;
         this.loading = this.loadingMore = false;
       },
       error: () => { this.loading = this.loadingMore = false; },
@@ -71,12 +77,13 @@ export class TransactionsComponent implements OnInit {
 
   onSearch()         { this.search$.next(this.search); }
   onCategoryChange() { this.offset = 0; this.load(false); }
+  onTypeChange()     { this.offset = 0; this.load(false); }
+  onDateChange()     { this.offset = 0; this.load(false); }
 
   loadMore() { this.offset += this.limit; this.load(true); }
 
   get hasMore() { return this.offset + this.limit < this.total; }
 
-  // Apply client-side search filter (API doesn't support text search)
   get filtered(): Transaction[] {
     if (!this.search.trim()) return this.items;
     const q = this.search.toLowerCase();
@@ -84,6 +91,25 @@ export class TransactionsComponent implements OnInit {
       t.transactionName.toLowerCase().includes(q) ||
       t.category.toLowerCase().includes(q)
     );
+  }
+
+  exportCsv() {
+    this.api.exportTransactions({
+      type:      (this.typeFilter as 'income' | 'expense') || undefined,
+      category:  this.categoryFilter || undefined,
+      startDate: this.startDate || undefined,
+      endDate:   this.endDate   || undefined,
+    }).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a   = document.createElement('a');
+        a.href    = url;
+        a.download = `transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {},
+    });
   }
 
   catColor(cat: string) { return CAT_COLORS[cat.toLowerCase()] ?? '#64748b'; }

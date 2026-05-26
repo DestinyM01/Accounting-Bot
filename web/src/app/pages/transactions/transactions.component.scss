@@ -77,18 +77,41 @@
   pointer-events: none;
 }
 
+.type-select { min-width: 120px; }
+
+.filter-date {
+  appearance: none;
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-family: 'Inter', sans-serif;
+  padding: 9px 14px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  &:focus { border-color: var(--accent); }
+  &::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
+}
+
 .export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 10px;
-  padding: 10px 20px;
+  padding: 10px 18px;
   font-size: 0.875rem;
   font-family: 'Inter', sans-serif;
   font-weight: 600;
   cursor: pointer;
-  opacity: 0.5;
   white-space: nowrap;
+  transition: opacity 0.13s;
+  mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
+  &:hover { opacity: 0.85; }
 }
 
 // ── Table ──────────────────────────────────────────────────────────────

@@ -23,30 +23,48 @@ export class ApiService {
   }
 
   getTransactions(opts: {
-    limit?: number;
-    offset?: number;
-    type?: 'income' | 'expense';
-    category?: string;
+    limit?:     number;
+    offset?:    number;
+    type?:      'income' | 'expense';
+    category?:  string;
+    startDate?: string;
+    endDate?:   string;
   } = {}): Observable<TransactionPage> {
     let params = new HttpParams();
-    if (opts.limit)    params = params.set('limit', opts.limit);
-    if (opts.offset)   params = params.set('offset', opts.offset);
-    if (opts.type)     params = params.set('type', opts.type);
-    if (opts.category) params = params.set('category', opts.category);
+    if (opts.limit)     params = params.set('limit',     opts.limit);
+    if (opts.offset)    params = params.set('offset',    opts.offset);
+    if (opts.type)      params = params.set('type',      opts.type);
+    if (opts.category)  params = params.set('category',  opts.category);
+    if (opts.startDate) params = params.set('startDate', opts.startDate);
+    if (opts.endDate)   params = params.set('endDate',   opts.endDate);
     return this.http.get<TransactionPage>(`${this.base}/transactions`, { params });
+  }
+
+  exportTransactions(opts: {
+    type?:      'income' | 'expense';
+    category?:  string;
+    startDate?: string;
+    endDate?:   string;
+  } = {}): Observable<Blob> {
+    let params = new HttpParams();
+    if (opts.type)      params = params.set('type',      opts.type);
+    if (opts.category)  params = params.set('category',  opts.category);
+    if (opts.startDate) params = params.set('startDate', opts.startDate);
+    if (opts.endDate)   params = params.set('endDate',   opts.endDate);
+    return this.http.get(`${this.base}/transactions/export`, { params, responseType: 'blob' });
   }
 
   getBudget(month?: number, year?: number): Observable<BudgetEntry[]> {
     let params = new HttpParams();
     if (month) params = params.set('month', month);
-    if (year)  params = params.set('year', year);
+    if (year)  params = params.set('year',  year);
     return this.http.get<BudgetEntry[]>(`${this.base}/budget`, { params });
   }
 
   getStatisticsSummary(month?: number, year?: number): Observable<MonthlySummary> {
     let params = new HttpParams();
     if (month) params = params.set('month', month);
-    if (year)  params = params.set('year', year);
+    if (year)  params = params.set('year',  year);
     return this.http.get<MonthlySummary>(`${this.base}/statistics/summary`, { params });
   }
 
@@ -57,7 +75,7 @@ export class ApiService {
   getCategoryStats(month?: number, year?: number): Observable<CategoryPoint[]> {
     let params = new HttpParams();
     if (month) params = params.set('month', month);
-    if (year)  params = params.set('year', year);
+    if (year)  params = params.set('year',  year);
     return this.http.get<CategoryPoint[]>(`${this.base}/statistics/by-category`, { params });
   }
 
