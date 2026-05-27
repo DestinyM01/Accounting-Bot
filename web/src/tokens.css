@@ -80,4 +80,10 @@
   --accent:      var(--color-accent);
   /* ── Layout (not color, still legacy) ──────────────────────────────── */
   --sidebar-w:   240px;   /* consumed by app.component.scss — safe if styles.scss :root removed */
+
+  /* ── Hallmark audit additions 2026-05-27 ──────────────────────────────── */
+  --color-surface-hover:    oklch(100%  0     0 / 6%);   /* white overlay — hover/track surfaces   */
+  --color-income-subtle-2:  oklch(81%   0.18  168 / 12%);/* income tint at 12% — icon backgrounds  */
+  --color-expense-subtle-2: oklch(72%   0.18   25 / 12%);/* expense tint at 12% — icon backgrounds */
+  --color-accent-ink-muted: oklch(98%   0.01  200 / 65%);/* subdued text on accent surface          */
 }
