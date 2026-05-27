@@ -48,6 +48,7 @@
 }
 .pill-label { font-size: 0.7rem; color: var(--text-muted); }
 .pill-val {
+  font-variant-numeric: tabular-nums; // finding #6
   font-size: 1.05rem;
   font-weight: 700;
   &.income  { color: var(--income); }
@@ -120,6 +121,7 @@
 }
 
 .savings-rate {
+  font-variant-numeric: tabular-nums; // finding #6
   font-size: 2.8rem;
   font-weight: 700;
   letter-spacing: -1.5px;
