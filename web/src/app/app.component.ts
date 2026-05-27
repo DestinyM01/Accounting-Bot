@@ -1,10 +1,11 @@
 import { Component, HostListener } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationStart } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { OAuthService } from 'angular-oauth2-oidc';
 import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from './core/services/api.service';
 import { BudgetEntry } from './core/services/api.models';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
@@ -83,7 +84,24 @@ export class AppComponent {
       : this.userName.slice(0, 2).toUpperCase();
   }
 
-  constructor(private oauthService: OAuthService, private api: ApiService) {}
+  // ── Mobile drawer ────────────────────────────────────────────────────
+  mobileOpen = false;
+
+  toggleMobile() {
+    this.mobileOpen = !this.mobileOpen;
+  }
+
+  // ── Budget notification bar color ─────────────────────────────────────
+  budgetBarBg(pct: number): string {
+    return pct >= 100 ? 'var(--color-expense)' : 'var(--color-warning)';
+  }
+
+  constructor(private oauthService: OAuthService, private api: ApiService, private router: Router) {
+    // Close mobile drawer on any navigation
+    this.router.events
+      .pipe(filter(e => e instanceof NavigationStart))
+      .subscribe(() => { this.mobileOpen = false; });
+  }
 
   logout() { this.oauthService.logOut(); }
 }
