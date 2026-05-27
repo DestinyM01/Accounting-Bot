@@ -1,0 +1,81 @@
+/* Hallmark · genre: atmospheric · macrostructure: Workbench (app)
+ * theme: custom atmospheric · anchor: oklch(70% 0.14 200) cyan-teal
+ * display: Geist 700 · body: Inter 400/500
+ * design-system: design.md · designed-as-app
+ */
+:root {
+  /* ── Surfaces ─────────────────────────────────────────────────────── */
+  --color-paper:          oklch(13%   0.03  230);
+  --color-paper-2:        oklch(16%   0.04  230);
+  --color-paper-3:        oklch(18%   0.04  230);
+  --color-paper-sidebar:  oklch(14.5% 0.035 230);
+
+  /* ── Ink ──────────────────────────────────────────────────────────── */
+  --color-ink:            oklch(90%   0.015 230);
+  --color-ink-2:          oklch(48%   0.02  230);
+  --color-rule:           oklch(100%  0     0 / 7%);
+
+  /* ── Brand accent ─────────────────────────────────────────────────── */
+  --color-accent:         oklch(70%   0.14  200);
+  --color-accent-light:   oklch(72%   0.12  230);
+  --color-accent-subtle:  oklch(70%   0.14  200 / 18%);
+  --color-accent-ink:     oklch(98%   0.01  200);
+  --color-focus:          oklch(70%   0.14  200);
+
+  /* ── Semantic ─────────────────────────────────────────────────────── */
+  --color-income:         oklch(81%   0.18  168);
+  --color-expense:        oklch(72%   0.18   25);
+  --color-net:            oklch(74%   0.15  210);
+  --color-warning:        oklch(77%   0.17   80);
+
+  /* ── Subtle tints ─────────────────────────────────────────────────── */
+  --color-expense-subtle: oklch(72%   0.18   25 / 8%);
+  --color-warning-subtle: oklch(77%   0.17   80 / 8%);
+  --color-income-subtle:  oklch(81%   0.18  168 / 6%);
+
+  /* ── Typography ───────────────────────────────────────────────────── */
+  --font-display: 'Geist', sans-serif;
+  --font-body:    'Inter', sans-serif;
+  --font-mono:    'Geist Mono', monospace;
+
+  /* ── Type scale ───────────────────────────────────────────────────── */
+  --text-xs:          0.75rem;
+  --text-sm:          0.875rem;
+  --text-md:          1rem;
+  --text-lg:          1.125rem;
+  --text-xl:          1.375rem;
+  --text-2xl:         1.75rem;
+  --text-page-title:  clamp(1.5rem, 2.5vw, 1.75rem);
+
+  /* ── Spacing (4-pt scale) ─────────────────────────────────────────── */
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs:  0.75rem;
+  --space-sm:  1rem;
+  --space-md:  1.5rem;
+  --space-lg:  2rem;
+  --space-xl:  3rem;
+  --space-2xl: 4.5rem;
+
+  /* ── Motion ───────────────────────────────────────────────────────── */
+  --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-short:  150ms;
+  --dur-base:   220ms;
+
+  /* ── Radius ───────────────────────────────────────────────────────── */
+  --radius:      14px;
+  --radius-sm:   8px;
+  --radius-pill: 20px;
+
+  /* ── Legacy aliases — existing components use these, they still work ─ */
+  --bg:          var(--color-paper);
+  --bg-card:     var(--color-paper-2);
+  --bg-card-alt: var(--color-paper-3);
+  --border:      var(--color-rule);
+  --text:        var(--color-ink);
+  --text-muted:  var(--color-ink-2);
+  --income:      var(--color-income);
+  --expense:     var(--color-expense);
+  --net:         var(--color-net);
+  --accent:      var(--color-accent);
+}
