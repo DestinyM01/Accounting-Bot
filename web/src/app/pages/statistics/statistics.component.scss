@@ -149,8 +149,8 @@
 
 .near-limit-badge {
   font-size: 0.72rem;
-  background: rgba(251,146,60,0.15);
-  color: #fb923c;
+  background: var(--color-warning-subtle);
+  color: var(--color-warning);
   padding: 3px 9px;
   border-radius: 20px;
   font-weight: 600;
