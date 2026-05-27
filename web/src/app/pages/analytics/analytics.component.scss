@@ -58,9 +58,7 @@
     outline-offset: -2px;
   }
   &.active {
-    background:   rgba(16,229,160,0.06);
-    border-left:  3px solid var(--income);
-    padding-left: 21px;
+    background: var(--color-income-subtle);
   }
 }
 
