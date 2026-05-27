@@ -1,27 +1,12 @@
-// ── CSS custom properties ──────────────────────────────────────────────
-:root {
-  --bg:          #080e1a;
-  --bg-card:     #0e1726;
-  --bg-card-alt: #111e30;
-  --border:      rgba(255,255,255,0.07);
-  --sidebar-w:   240px;
-  --text:        #e2e8f0;
-  --text-muted:  #64748b;
-  --income:      #10e5a0;
-  --expense:     #f87171;
-  --net:         #38bdf8;
-  --accent:      #3b82f6;
-  --radius:      14px;
-}
-
 * { box-sizing: border-box; }
 
 html, body {
   height: 100%;
   margin: 0;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   background: var(--bg);
   color: var(--text);
+  overflow-x: clip; // gate 62 — finding #3
 }
 
 // Make mat-icon work in our color scheme (no SASS theme needed)
@@ -39,6 +24,7 @@ mat-icon {
 .page-wrap {
   padding: 32px 36px;
   max-width: 1280px;
+  margin-inline: auto; // finding #11
 }
 
 .page-header {
@@ -93,6 +79,7 @@ mat-icon {
     font-weight: 700;
     letter-spacing: -1px;
     padding-right: 68px; // keep clear of the ghost icon (56px wide + 12px gap)
+    font-variant-numeric: tabular-nums; // finding #6
   }
   .stat-badge {
     display: inline-flex;
@@ -183,6 +170,7 @@ mat-icon {
   font-weight: 700;
   font-size: 0.95rem;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums; // finding #6
   &.income  { color: var(--income); }
   &.expense { color: var(--expense); }
 }
