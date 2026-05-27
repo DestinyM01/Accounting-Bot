@@ -9,7 +9,7 @@
 .sidebar {
   width: var(--sidebar-w);
   flex-shrink: 0;
-  background: #0a1120;
+  background: var(--color-paper-sidebar);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -66,6 +66,12 @@
   justify-content: center;
   transition: background 0.15s, color 0.15s;
   &:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+  &:focus-visible {
+    background: rgba(255,255,255,0.07);
+    color: var(--color-ink);
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
 }
 
@@ -99,11 +105,17 @@
   mat-icon { font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
 
   &:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+  &:focus-visible {
+    background: rgba(255,255,255,0.05);
+    color: var(--color-ink);
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
+  }
 
   &.active {
-    background: rgba(59,130,246,0.18);
-    color: #fff;
-    mat-icon { color: var(--accent); }
+    background: var(--color-accent-subtle);
+    color: var(--color-ink);
+    mat-icon { color: var(--color-accent); }
   }
 }
 
@@ -157,6 +169,12 @@
   border-radius: 6px;
   transition: color 0.15s;
   &:hover { color: var(--text); }
+  &:focus-visible {
+    color: var(--color-ink);
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
 }
 
@@ -201,6 +219,12 @@
   justify-content: center;
   transition: background 0.15s, color 0.15s;
   &:hover, &.active { background: rgba(255,255,255,0.06); color: var(--text); }
+  &:focus-visible {
+    background: rgba(255,255,255,0.06);
+    color: var(--color-ink);
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
 }
 
@@ -343,14 +367,97 @@
   border: none;
   color: var(--text-muted);
   font-size: 0.875rem;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   text-decoration: none;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   text-align: left;
 
   &:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+  &:focus-visible {
+    background: rgba(255,255,255,0.05);
+    color: var(--color-ink);
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
+  }
   &:last-child { margin-bottom: 4px; }
   &.danger:hover { color: var(--expense); }
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+
+// ── Hamburger button (desktop hidden, mobile visible) ──────────────────
+.hamburger-btn {
+  display: none; // hidden on desktop
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-ink-2);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  align-items: center;
+  justify-content: center;
+  transition: background var(--dur-short) var(--ease-out),
+              color var(--dur-short) var(--ease-out);
+  flex-shrink: 0;
+  margin-right: auto; // push topbar-right to far right on mobile
+  mat-icon { font-size: 22px; width: 22px; height: 22px; }
+
+  &:hover, &:focus-visible {
+    background: rgba(255,255,255,0.06);
+    color: var(--color-ink);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+}
+
+// ── Drawer backdrop ────────────────────────────────────────────────────
+.drawer-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: oklch(0% 0 0 / 50%);
+  z-index: 199;
+}
+
+// ── Mobile breakpoint ──────────────────────────────────────────────────
+@media (max-width: 768px) {
+  .hamburger-btn {
+    display: flex;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset-block: 0;
+    left: 0;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform var(--dur-base) var(--ease-out);
+    // Override desktop transition that slides on width change
+    width: var(--sidebar-w) !important;
+  }
+
+  .mobile-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .mobile-open .drawer-backdrop {
+    display: block;
+  }
+
+  .main {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .page-wrap {
+    padding: 20px 16px; // tighter padding on mobile
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+  .drawer-backdrop { transition: none; }
 }
