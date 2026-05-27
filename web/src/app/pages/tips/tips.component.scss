@@ -76,6 +76,11 @@ h1 {
 .tip-card.priority-high {
   grid-column: span 2;
 }
+@media (max-width: 640px) {
+  .tip-card.priority-high {
+    grid-column: span 1;
+  }
+}
 
 // ── Card ──────────────────────────────────────────────────────────────
 .tip-card {
