@@ -5,7 +5,7 @@
 
 .an-header {
   margin-bottom: 28px;
-  h1 { font-size: 1.75rem; font-weight: 700; color: var(--text); margin: 0 0 4px; }
+  h1 { font-size: var(--text-page-title); font-weight: 700; color: var(--text); margin: 0 0 4px; }
 }
 .an-subtitle { font-size: 0.875rem; color: var(--text-muted); margin: 0; }
 
@@ -52,6 +52,11 @@
 
   &:last-child { border-bottom: none; }
   &:hover      { background: rgba(255,255,255,0.025); }
+  &:focus-visible {
+    background: rgba(255,255,255,0.025);
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
+  }
   &.active {
     background:   rgba(16,229,160,0.06);
     border-left:  3px solid var(--income);
@@ -73,8 +78,8 @@
 }
 
 .tx-name   { font-size: 0.9rem; font-weight: 600; color: var(--text); }
-.tx-count  { font-size: 0.875rem; color: var(--text-muted); }
-.tx-amount { font-size: 0.9rem; font-weight: 700; color: var(--text); }
+.tx-count  { font-variant-numeric: tabular-nums; font-size: 0.875rem; color: var(--text-muted); }
+.tx-amount { font-variant-numeric: tabular-nums; font-size: 0.9rem; font-weight: 700; color: var(--text); }
 .align-right { text-align: right; }
 
 .empty-state-inline {

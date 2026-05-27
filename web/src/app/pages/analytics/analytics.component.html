@@ -40,7 +40,12 @@
       @for (item of top10; track item.name) {
         <div class="table-row"
              [class.active]="selectedName === item.name"
-             (click)="selectTransaction(item.name)">
+             (click)="selectTransaction(item.name)"
+             (keydown.enter)="selectTransaction(item.name)"
+             (keydown.space)="$event.preventDefault(); selectTransaction(item.name)"
+             tabindex="0"
+             role="row"
+             [attr.aria-selected]="selectedName === item.name">
           <span class="rank-badge">{{ item.rank }}</span>
           <span class="tx-name">{{ item.name | titlecase }}</span>
           <span class="tx-count">{{ item.count }}×</span>
