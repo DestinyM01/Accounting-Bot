@@ -59,7 +59,7 @@
               </div>
               <div class="prog-bar">
                 <div class="prog-fill"
-                     [style.width.%]="b.percentage"
+                     [style.transform]="'scaleX(' + b.percentage / 100 + ')'"
                      [style.background]="categoryColor(b.category)">
                 </div>
               </div>

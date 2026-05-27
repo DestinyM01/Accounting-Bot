@@ -59,7 +59,7 @@
               </div>
               <div class="dist-sub">{{ row.pct }}%</div>
               <div class="prog-bar dist-bar">
-                <div class="prog-fill" [style.width.%]="row.pct" [style.background]="row.color"></div>
+                <div class="prog-fill" [style.transform]="'scaleX(' + row.pct / 100 + ')'" [style.background]="row.color"></div>
               </div>
             </div>
           </div>

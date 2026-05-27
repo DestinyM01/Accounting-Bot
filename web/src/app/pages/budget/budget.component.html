@@ -34,7 +34,7 @@
           <span class="hero-remaining">Remaining: {{ totalRemain | currency:'USD':'symbol':'1.0-0' }}</span>
         </div>
         <div class="prog-bar hero-bar">
-          <div class="prog-fill" [style.width.%]="totalPct" [style.background]="budgetBarColor(totalPct)"></div>
+          <div class="prog-fill" [style.transform]="'scaleX(' + totalPct / 100 + ')'" [style.background]="budgetBarColor(totalPct)"></div>
         </div>
         <div class="hero-footer">
           <span class="hero-pct">{{ totalPct }}% utilized</span>
@@ -100,7 +100,7 @@
 
           <div class="prog-bar cbc-bar">
             <div class="prog-fill"
-                 [style.width.%]="b.percentage"
+                 [style.transform]="'scaleX(' + b.percentage / 100 + ')'"
                  [style.background]="budgetBarColor(b.percentage)">
             </div>
           </div>
