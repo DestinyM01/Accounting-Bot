@@ -7,7 +7,7 @@
 .rp-header {
   margin-bottom: 28px;
   h1 {
-    font-size: 1.75rem;
+    font-size: var(--text-page-title);
     font-weight: 700;
     color: var(--text);
     margin: 0 0 4px;
@@ -66,6 +66,7 @@
 }
 
 .sc-amount {
+  font-variant-numeric: tabular-nums; // finding #6
   font-size: 2rem;
   font-weight: 700;
   line-height: 1;
@@ -184,6 +185,7 @@
 .col-amt { display: flex; align-items: center; justify-content: flex-end; }
 
 .row-amount {
+  font-variant-numeric: tabular-nums; // finding #6
   font-size: 0.95rem;
   font-weight: 700;
   &.income  { color: var(--income); }
@@ -224,6 +226,7 @@
   font-weight: 600;
   cursor: pointer;
   &:hover { opacity: 0.85; }
+  &:focus-visible { opacity: 0.85; outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }
 
 // ── Skeleton ───────────────────────────────────────────────────────────
@@ -345,6 +348,7 @@
 }
 
 .upcoming-amount {
+  font-variant-numeric: tabular-nums; // finding #6
   font-size: 1.15rem;
   font-weight: 700;
   &.income  { color: var(--income); }
@@ -361,8 +365,8 @@
   color: var(--text-muted);
 
   &.today {
-    background: rgba(59,130,246,0.15);
-    color: #60a5fa;
+    background: var(--color-accent-subtle);
+    color: var(--color-accent-light);
   }
 }
 
@@ -439,6 +443,7 @@
 }
 
 .billed-amount {
+  font-variant-numeric: tabular-nums; // finding #6
   font-size: 0.875rem;
   font-weight: 700;
   flex-shrink: 0;
