@@ -25,7 +25,7 @@
 }
 
 h1 {
-  font-size: 1.5rem;
+  font-size: var(--text-page-title);
   font-weight: 700;
   color: var(--text);
   margin: 0;
@@ -53,6 +53,11 @@ h1 {
 
   &:disabled { opacity: 0.5; cursor: default; }
   &:not(:disabled):hover { opacity: 0.85; }
+  &:not(:disabled):focus-visible {
+    opacity: 0.85;
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
 
   mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
 }
@@ -67,6 +72,11 @@ h1 {
   gap: 18px;
 }
 
+// Priority-high cards span 2 columns — breaks equal-column lock (finding #7)
+.tip-card.priority-high {
+  grid-column: span 2;
+}
+
 // ── Card ──────────────────────────────────────────────────────────────
 .tip-card {
   background: var(--bg-card);
@@ -76,16 +86,17 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: background 0.15s;
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  &:hover,
+  &:focus-visible {
+    background: var(--color-paper-3);
+    outline: none;
   }
 
-  &.priority-high   { border-left: 3px solid var(--expense); }
-  &.priority-medium { border-left: 3px solid #f59e0b; }
-  &.priority-low    { border-left: 3px solid var(--income); }
+  &.priority-high   { background: var(--color-expense-subtle); }
+  &.priority-medium { background: var(--color-warning-subtle); }
+  &.priority-low    { background: var(--color-income-subtle); }
 }
 
 .tip-header {
@@ -120,7 +131,7 @@ h1 {
   border-radius: 20px;
 
   .priority-high   & { background: rgba(248,113,113,0.15); color: var(--expense); }
-  .priority-medium & { background: rgba(245,158,11,0.15);  color: #f59e0b; }
+  .priority-medium & { background: rgba(245,158,11,0.15);  color: var(--color-warning); }
   .priority-low    & { background: rgba(16,229,160,0.15);  color: var(--income); }
 }
 
