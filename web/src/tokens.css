@@ -78,4 +78,6 @@
   --expense:     var(--color-expense);
   --net:         var(--color-net);
   --accent:      var(--color-accent);
+  /* ── Layout (not color, still legacy) ──────────────────────────────── */
+  --sidebar-w:   240px;   /* consumed by app.component.scss — safe if styles.scss :root removed */
 }
