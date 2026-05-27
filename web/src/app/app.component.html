@@ -1,4 +1,5 @@
-<div class="shell" [class.sidebar-collapsed]="sidebarCollapsed">
+<div class="shell" [class.sidebar-collapsed]="sidebarCollapsed" [class.mobile-open]="mobileOpen">
+  <div class="drawer-backdrop" (click)="toggleMobile()" aria-hidden="true"></div>
   <!-- Sidebar -->
   <nav class="sidebar">
     <div class="sidebar-brand">
@@ -43,6 +44,12 @@
   <div class="main">
     <!-- Top bar -->
     <header class="topbar">
+      <button class="hamburger-btn"
+              (click)="toggleMobile()"
+              [attr.aria-expanded]="mobileOpen"
+              aria-label="Toggle navigation">
+        <mat-icon>{{ mobileOpen ? 'close' : 'menu' }}</mat-icon>
+      </button>
       <div class="topbar-right">
 
         <!-- Notifications -->
@@ -84,7 +91,7 @@
                       <div class="notif-bar">
                         <div class="notif-bar-fill"
                              [style.width.%]="b.percentage > 100 ? 100 : b.percentage"
-                             [style.background]="b.percentage >= 100 ? '#f87171' : '#fb923c'">
+                             [style.background]="budgetBarBg(b.percentage)">
                         </div>
                       </div>
                     </div>
