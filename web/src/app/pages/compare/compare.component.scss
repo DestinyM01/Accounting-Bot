@@ -5,7 +5,7 @@
 
 .cp-header {
   margin-bottom: 28px;
-  h1 { font-size: 1.75rem; font-weight: 700; color: var(--text); margin: 0 0 4px; }
+  h1 { font-size: var(--text-page-title); font-weight: 700; color: var(--text); margin: 0 0 4px; }
 }
 .cp-subtitle { font-size: 0.875rem; color: var(--text-muted); margin: 0; }
 
@@ -42,13 +42,13 @@
   border-radius: 10px;
   color: var(--text);
   font-size: 0.875rem;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   padding: 10px 16px;
   outline: none;
   cursor: pointer;
   min-width: 180px;
   transition: border-color 0.15s;
-  &:focus { border-color: var(--accent); }
+  &:focus-visible { border-color: var(--color-accent); outline: 2px solid var(--color-focus); outline-offset: -1px; }
 }
 
 .picker-vs {
@@ -69,11 +69,12 @@
   border-radius: 10px;
   font-size: 0.875rem;
   font-weight: 600;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   cursor: pointer;
   transition: opacity 0.13s;
   mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
   &:hover:not(:disabled) { opacity: 0.85; }
+  &:focus-visible:not(:disabled) { opacity: 0.85; outline: 2px solid var(--color-focus); outline-offset: 2px; }
   &:disabled { opacity: 0.4; cursor: default; }
 }
 
@@ -104,6 +105,7 @@
 .stat-label { font-size: 0.8rem; color: var(--text-muted); }
 
 .stat-value {
+  font-variant-numeric: tabular-nums; // finding #6
   font-size: 0.95rem;
   font-weight: 700;
   &.income  { color: var(--income); }
@@ -186,4 +188,5 @@
   font-weight: 600;
   cursor: pointer;
   &:hover { opacity: 0.85; }
+  &:focus-visible { opacity: 0.85; outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }
