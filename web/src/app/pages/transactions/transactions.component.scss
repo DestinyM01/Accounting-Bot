@@ -29,13 +29,13 @@
   border-radius: 10px;
   color: var(--text);
   font-size: 0.875rem;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   padding: 10px 14px 10px 40px;
   outline: none;
   transition: border-color 0.15s;
 
   &::placeholder { color: var(--text-muted); }
-  &:focus { border-color: var(--accent); }
+  &:focus-visible { border-color: var(--color-accent); outline: 2px solid var(--color-focus); outline-offset: -1px; }
 }
 
 .filter-group {
@@ -58,13 +58,13 @@
   border-radius: 10px;
   color: var(--text);
   font-size: 0.875rem;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   padding: 9px 36px 9px 14px;
   outline: none;
   cursor: pointer;
   min-width: 160px;
   transition: border-color 0.15s;
-  &:focus { border-color: var(--accent); }
+  &:focus-visible { border-color: var(--color-accent); outline: 2px solid var(--color-focus); outline-offset: -1px; }
 }
 .select-chevron {
   position: absolute;
@@ -86,12 +86,12 @@
   border-radius: 10px;
   color: var(--text);
   font-size: 0.875rem;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   padding: 9px 14px;
   outline: none;
   cursor: pointer;
   transition: border-color 0.15s;
-  &:focus { border-color: var(--accent); }
+  &:focus-visible { border-color: var(--color-accent); outline: 2px solid var(--color-focus); outline-offset: -1px; }
   &::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
 }
 
@@ -105,13 +105,14 @@
   border-radius: 10px;
   padding: 10px 18px;
   font-size: 0.875rem;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   transition: opacity 0.13s;
   mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
   &:hover { opacity: 0.85; }
+  &:focus-visible { opacity: 0.85; outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }
 
 // ── Table ──────────────────────────────────────────────────────────────
@@ -174,7 +175,7 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--text-muted);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.875rem;
   padding: 10px 24px;
   cursor: pointer;
@@ -184,6 +185,7 @@
   transition: background 0.15s, color 0.15s;
 
   &:hover:not(:disabled) { background: rgba(255,255,255,0.04); color: var(--text); }
+  &:focus-visible:not(:disabled) { background: rgba(255,255,255,0.04); color: var(--color-ink); outline: 2px solid var(--color-focus); outline-offset: 2px; }
   &:disabled { opacity: 0.5; cursor: default; }
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
 }
