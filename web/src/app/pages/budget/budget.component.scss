@@ -43,8 +43,7 @@
   position: absolute;
   right: 0; top: 0; bottom: 0;
   width: 160px;
-  opacity: 0.06;
-  background: linear-gradient(90deg, transparent, var(--accent));
+  background: var(--color-accent-subtle);
 }
 
 .hero-label  { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px; }
