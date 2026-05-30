@@ -10,7 +10,7 @@ export class Recurring extends Document {
   @Prop({ required: true }) transactionName: string;
   @Prop({ required: true, enum: TransactionType }) transactionType: TransactionType;
   @Prop({ required: true }) amount: number;
-  @Prop({ enum: Category, default: Category.OTHER }) category: Category;
+  @Prop({ default: Category.OTHER }) category: string;
   @Prop({ required: true }) dayOfMonth: number;
   @Prop({ required: true, default: true }) active: boolean;
   @Prop() lastExecutedAt: Date;

@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
-import { Category } from './category.enum';
 
 @Schema()
 export class Budget extends Document {
