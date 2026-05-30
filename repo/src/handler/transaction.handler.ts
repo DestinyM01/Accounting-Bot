@@ -9,6 +9,7 @@ import {
   CREATE_TRANSACTION_MESSAGE,
   ENTER_EXPENSE_MESSAGE,
   ENTER_INCOME_MESSAGE,
+  ERROR_MESSAGE,
   getBalanceMessage,
   INVALID_DATA_MESSAGE,
   regex,
@@ -17,7 +18,7 @@ import {
   TRANSACTION_DELETED_MESSAGE,
 } from '../constants';
 import { CustomCallbackQuery, IContext, MyMessage } from '../type/interface';
-import { actionButtonsTransaction, backTranButton, categoryButtons } from '../buttons';
+import { actionButtonsTransaction, backTranButton, categoryButtons, editFieldButtons } from '../buttons';
 import { resetSession } from '../common';
 import { WizardContext } from 'telegraf/typings/scenes';
 import { ITransactionQuery } from '../type/interface/transaction.query.interface';
@@ -95,6 +96,85 @@ export class TransactionHandler {
     }
   }
 
+  // ── Edit flow ──────────────────────────────────────────────────────────
+
+  private readonly EDIT_FIELD_MESSAGE: Record<string, string> = {
+    en: '✏️ What do you want to edit?',
+    es: '✏️ ¿Qué quieres editar?',
+    ua: '✏️ Що хочете редагувати?',
+    pl: '✏️ Co chcesz edytować?',
+  };
+
+  private readonly ENTER_NEW_NAME_MESSAGE: Record<string, string> = {
+    en: '📝 Enter the new transaction name:',
+    es: '📝 Ingresa el nuevo nombre de la transacción:',
+    ua: '📝 Введіть нову назву транзакції:',
+    pl: '📝 Wpisz nową nazwę transakcji:',
+  };
+
+  private readonly ENTER_NEW_AMOUNT_MESSAGE: Record<string, string> = {
+    en: '💰 Enter the new amount (numbers only):',
+    es: '💰 Ingresa el nuevo monto (solo números):',
+    ua: '💰 Введіть нову суму (тільки цифри):',
+    pl: '💰 Wpisz nową kwotę (tylko liczby):',
+  };
+
+  private readonly EDIT_SUCCESS_MESSAGE: Record<string, string> = {
+    en: '✅ Transaction updated.',
+    es: '✅ Transacción actualizada.',
+    ua: '✅ Транзакцію оновлено.',
+    pl: '✅ Transakcja zaktualizowana.',
+  };
+
+  @Action('edit_last')
+  async editLastCommand(ctx: IContext) {
+    this.logger.log(`user:${ctx.from.id} edit_last`);
+    ctx.session.type = 'edit_mode';
+    delete ctx.session.editTransactionId;
+    await this.transactionService.showLastNTransactionsWithEditOption(ctx, 20);
+  }
+
+  @Action(/edit_select_(.+)/)
+  async editSelectCommand(ctx: IContext) {
+    const lang = ctx.session.language || 'en';
+    const callbackData = (ctx.callbackQuery as CustomCallbackQuery).data;
+    const txId = callbackData.replace('edit_select_', '');
+    ctx.session.editTransactionId = txId;
+    this.logger.log(`user:${ctx.from.id} edit_select txId=${txId}`);
+    await ctx.editMessageText(
+      this.EDIT_FIELD_MESSAGE[lang] ?? this.EDIT_FIELD_MESSAGE['en'],
+      editFieldButtons(txId, lang),
+    );
+  }
+
+  @Action(/edit_name_(.+)/)
+  async editNameCommand(ctx: IContext) {
+    const lang = ctx.session.language || 'en';
+    const callbackData = (ctx.callbackQuery as CustomCallbackQuery).data;
+    const txId = callbackData.replace('edit_name_', '');
+    ctx.session.editTransactionId = txId;
+    ctx.session.type = 'edit_name';
+    this.logger.log(`user:${ctx.from.id} edit_name txId=${txId}`);
+    await ctx.editMessageText(
+      this.ENTER_NEW_NAME_MESSAGE[lang] ?? this.ENTER_NEW_NAME_MESSAGE['en'],
+      backTranButton(lang),
+    );
+  }
+
+  @Action(/edit_amount_(.+)/)
+  async editAmountCommand(ctx: IContext) {
+    const lang = ctx.session.language || 'en';
+    const callbackData = (ctx.callbackQuery as CustomCallbackQuery).data;
+    const txId = callbackData.replace('edit_amount_', '');
+    ctx.session.editTransactionId = txId;
+    ctx.session.type = 'edit_amount';
+    this.logger.log(`user:${ctx.from.id} edit_amount txId=${txId}`);
+    await ctx.editMessageText(
+      this.ENTER_NEW_AMOUNT_MESSAGE[lang] ?? this.ENTER_NEW_AMOUNT_MESSAGE['en'],
+      backTranButton(lang),
+    );
+  }
+
   @On('text')
   async textCommand(ctx: IContext, next: () => Promise<void>) {
     // ── Search branch ─────────────────────────────────────────────────────────
@@ -123,6 +203,59 @@ export class TransactionHandler {
       });
       const header = { en: `🔍 Results for "<b>${keyword}</b>" (top ${results.length}):`, ua: `🔍 Результати для "<b>${keyword}</b>":`, pl: `🔍 Wyniki dla "<b>${keyword}</b>":`, es: `🔍 Resultados para "<b>${keyword}</b>" (top ${results.length}):` };
       await ctx.replyWithHTML(`${header[lang] ?? header.en}\n\n${lines.join('\n')}`, backTranButton(lang));
+      return;
+    }
+
+    // ── Edit name branch ─────────────────────────────────────────────────────
+    if (ctx.session.type === 'edit_name') {
+      const lang    = ctx.session.language || 'en';
+      const txId    = ctx.session.editTransactionId;
+      const userId  = ctx.from.id;
+      const newName = ((ctx.message as MyMessage).text || '').trim();
+      if (!txId || !newName) return next();
+
+      try {
+        await this.transactionService.updateTransactionName(userId, txId, newName);
+        delete ctx.session.type;
+        delete ctx.session.editTransactionId;
+        await ctx.reply(
+          this.EDIT_SUCCESS_MESSAGE[lang] ?? this.EDIT_SUCCESS_MESSAGE['en'],
+          backTranButton(lang),
+        );
+      } catch (error) {
+        this.logger.error('Error in edit_name:', error);
+        await ctx.reply(ERROR_MESSAGE[lang] ?? ERROR_MESSAGE['en'], backTranButton(lang));
+      }
+      return;
+    }
+
+    // ── Edit amount branch ────────────────────────────────────────────────────
+    if (ctx.session.type === 'edit_amount') {
+      const lang      = ctx.session.language || 'en';
+      const txId      = ctx.session.editTransactionId;
+      const userId    = ctx.from.id;
+      const newAmount = parseFloat(((ctx.message as MyMessage).text || '').trim());
+
+      if (!txId || isNaN(newAmount) || newAmount <= 0) {
+        await ctx.reply(
+          INVALID_DATA_MESSAGE[lang] ?? INVALID_DATA_MESSAGE['en'],
+          backTranButton(lang),
+        );
+        return;
+      }
+
+      try {
+        await this.transactionService.updateTransactionAmount(userId, txId, newAmount);
+        delete ctx.session.type;
+        delete ctx.session.editTransactionId;
+        await ctx.reply(
+          this.EDIT_SUCCESS_MESSAGE[lang] ?? this.EDIT_SUCCESS_MESSAGE['en'],
+          backTranButton(lang),
+        );
+      } catch (error) {
+        this.logger.error('Error in edit_amount:', error);
+        await ctx.reply(ERROR_MESSAGE[lang] ?? ERROR_MESSAGE['en'], backTranButton(lang));
+      }
       return;
     }
 
