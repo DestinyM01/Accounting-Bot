@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Analytics } from '../mongodb/shemas/analytics.schemas';
+import { Analytics } from '../mongodb/schemas/analytics.schemas';
 import { BalanceService } from './balance.service';
 import { PremiumService } from './premium.service';
 import { AdvancedStatisticsService } from './advanced.statistics.service';

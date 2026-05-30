@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Budget } from '../mongodb/shemas/budget.shemas';
+import { Budget } from '../mongodb/schemas/budget.schemas';
 import { Transaction } from '../type/interface';
 import { Category } from '../type/enum/category.enum';
 import { TransactionType } from '../type/enum/transactionType.enam';

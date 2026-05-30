@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { BalanceHistory, BalanceChangeReason } from '../mongodb/shemas/balance-history.schemas';
+import { BalanceHistory, BalanceChangeReason } from '../mongodb/schemas/balance-history.schemas';
 
 @Injectable()
 export class BalanceHistoryService {

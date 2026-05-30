@@ -1,4 +1,4 @@
-import { Logger, Module } from '@nestjs/common';
+﻿import { Logger, Module } from '@nestjs/common';
 import { TelegrafModule } from 'nestjs-telegraf';
 import * as services from './service';
 import * as scene from './scene';
@@ -6,15 +6,15 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseConfigService } from './mongodb/mongoose-config.service';
 import * as handlers from './handler/index';
-import { Balance, BalanceSchema } from './mongodb/shemas/balance.shemas';
-import { Transaction, TransactionSchema } from './mongodb/shemas/transaction.shemas';
-import { Budget, BudgetSchema } from './mongodb/shemas/budget.shemas';
-import { Recurring, RecurringSchema } from './mongodb/shemas/recurring.shemas';
-import { BalanceHistory, BalanceHistorySchema } from './mongodb/shemas/balance-history.schemas';
+import { Balance, BalanceSchema } from './mongodb/schemas/balance.schemas';
+import { Transaction, TransactionSchema } from './mongodb/schemas/transaction.schemas';
+import { Budget, BudgetSchema } from './mongodb/schemas/budget.schemas';
+import { Recurring, RecurringSchema } from './mongodb/schemas/recurring.schemas';
+import { BalanceHistory, BalanceHistorySchema } from './mongodb/schemas/balance-history.schemas';
 import { ScheduleModule } from '@nestjs/schedule';
 import { OpenAiApiModule } from './open-ai-api/open-ai-api.module';
 import { createSessionMiddleware, errorHandlingMiddleware } from './middleware';
-import { Analytics, AnalyticsSchema } from './mongodb/shemas/analytics.schemas';
+import { Analytics, AnalyticsSchema } from './mongodb/schemas/analytics.schemas';
 import { HealthChecksController } from './api/health.checks.controller';
 
 @Module({

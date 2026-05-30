@@ -1,10 +1,10 @@
-import { Action, Update } from 'nestjs-telegraf';
+﻿import { Action, Update } from 'nestjs-telegraf';
 import { Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { OpenAiApiService } from '../open-ai-api/open-ai-api.service';
 import { CustomCallbackQuery, IContext, Transaction } from '../type/interface';
-import { Balance } from '../mongodb/shemas/balance.shemas';
+import { Balance } from '../mongodb/schemas/balance.schemas';
 import {
   actionButtonsBeckP,
   actionButtonsBeckPAndRemove,

@@ -1,4 +1,4 @@
-import { Balance } from '../mongodb/shemas/balance.shemas';
+﻿import { Balance } from '../mongodb/schemas/balance.schemas';
 import { Injectable, Logger } from '@nestjs/common';
 import { IContext } from '../type/interface';
 import { InjectModel } from '@nestjs/mongoose';
