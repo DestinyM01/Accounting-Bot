@@ -109,10 +109,16 @@ export class SetRecurringScene {
     }
     (ctx.wizard.state as any).transactionName = matches[1].trim().toLowerCase();
     (ctx.wizard.state as any).amount = Number(matches[2]);
-    const customCats = await this.customCategoryService.listCategories(ctx.from.id);
+    let customCats: { name: string; emoji: string }[] = [];
+    try {
+      const fetched = await this.customCategoryService.listCategories(ctx.from.id);
+      customCats = fetched.map((c) => ({ name: c.name, emoji: c.emoji }));
+    } catch (error) {
+      // degrade gracefully — show built-in categories only
+    }
     await ctx.replyWithHTML(
       STEP_LABELS.ask_category[lang] ?? STEP_LABELS.ask_category.en,
-      recurringCategoryButtons(customCats.map((c) => ({ name: c.name, emoji: c.emoji }))),
+      recurringCategoryButtons(customCats),
     );
     ctx.wizard.next();
   }

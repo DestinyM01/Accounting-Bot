@@ -332,13 +332,20 @@ export class TransactionHandler {
       );
 
       if (ctx.session.pendingCategoryTransactionId) {
-        const customCats = await this.customCategoryService.listCategories(ctx.from.id);
+        let customCats: { name: string; emoji: string }[] = [];
+        try {
+          const fetched = await this.customCategoryService.listCategories(ctx.from.id);
+          customCats = fetched.map((c) => ({ name: c.name, emoji: c.emoji }));
+        } catch (error) {
+          this.logger.error(`Failed to fetch custom categories for user ${ctx.from.id}:`, error);
+          // degrade gracefully — show built-in categories only
+        }
         await ctx.reply(
           SELECT_CATEGORY_MESSAGE[ctx.session.language || 'en'],
           categoryButtons(
             ctx.session.pendingCategoryTransactionId,
             ctx.session.language || 'en',
-            customCats.map((c) => ({ name: c.name, emoji: c.emoji })),
+            customCats,
           ),
         );
       }
