@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Param, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { RecurringService } from './recurring.service';
 
@@ -10,5 +10,11 @@ export class RecurringController {
   @Get()
   list() {
     return this.recurringService.list();
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  async delete(@Param('id') id: string) {
+    await this.recurringService.delete(id);
   }
 }

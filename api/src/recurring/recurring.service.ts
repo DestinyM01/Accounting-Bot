@@ -26,4 +26,11 @@ export class RecurringService {
       lastExecutedAt: r.lastExecutedAt ?? null,
     }));
   }
+
+  async delete(id: string): Promise<void> {
+    await this.model.findOneAndUpdate(
+      { _id: id, userId: this.userId },
+      { active: false },
+    );
+  }
 }
