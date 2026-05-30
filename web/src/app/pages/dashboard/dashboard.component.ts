@@ -1,8 +1,8 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
-import { forkJoin } from 'rxjs';
+import { forkJoin, timer, Subscription } from 'rxjs';
 import { Chart, registerables } from 'chart.js';
 import { ApiService } from '../../core/services/api.service';
 import {
@@ -28,7 +28,7 @@ interface StatCard {
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   @ViewChild('areaCanvas') areaCanvas!: ElementRef<HTMLCanvasElement>;
 
   balance: BalanceSummary | null = null;
@@ -39,6 +39,7 @@ export class DashboardComponent implements OnInit {
   stats: StatCard[] = [];
   loading = true;
   private chart: Chart | null = null;
+  private refreshSub: Subscription | null = null;
 
   constructor(private api: ApiService) {}
 
@@ -63,6 +64,29 @@ export class DashboardComponent implements OnInit {
       },
       error: () => { this.loading = false; },
     });
+
+    this.refreshSub = timer(60_000, 60_000).subscribe(() => {
+      forkJoin({
+        balance:      this.api.getBalance(),
+        summary:      this.api.getStatisticsSummary(),
+        transactions: this.api.getTransactions({ limit: 5 }),
+        budget:       this.api.getBudget(),
+        monthly:      this.api.getMonthlyStats(),
+      }).subscribe({
+        next: ({ balance, summary, transactions, budget, monthly }) => {
+          this.balance  = balance;
+          this.summary  = summary;
+          this.recentTx = transactions.items;
+          this.budgets  = budget;
+          this.monthly  = monthly;
+          this.buildStats(monthly);
+        },
+      });
+    });
+  }
+
+  ngOnDestroy() {
+    this.refreshSub?.unsubscribe();
   }
 
   private buildStats(monthly: MonthlyPoint[]) {
