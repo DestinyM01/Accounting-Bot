@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule, CurrencyPipe, TitleCasePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/services/api.service';
 import { BudgetEntry } from '../../core/services/api.models';
@@ -20,7 +21,7 @@ const CAT_ICONS: Record<string, string> = {
 @Component({
   selector: 'app-budget',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, TitleCasePipe, MatIconModule],
+  imports: [CommonModule, CurrencyPipe, TitleCasePipe, FormsModule, MatIconModule],
   templateUrl: './budget.component.html',
   styleUrls: ['./budget.component.scss'],
 })
@@ -29,6 +30,16 @@ export class BudgetComponent implements OnInit {
   loading = true;
   month = new Date().getMonth() + 1;
   year  = new Date().getFullYear();
+
+  showForm   = false;
+  formCat    = 'food';
+  formAmount = 0;
+  saving     = false;
+
+  readonly categories = [
+    'food', 'transport', 'housing', 'health',
+    'entertainment', 'salary', 'savings', 'other',
+  ];
 
   constructor(private api: ApiService) {}
 
@@ -65,5 +76,30 @@ export class BudgetComponent implements OnInit {
     if (pct >= 90) return '#f87171';
     if (pct >= 70) return '#fb923c';
     return '#10e5a0';
+  }
+
+  openForm()  { this.showForm = true;  this.formCat = 'food'; this.formAmount = 0; }
+  closeForm() { this.showForm = false; }
+
+  submitBudget() {
+    if (!this.formAmount || this.formAmount <= 0) return;
+    this.saving = true;
+    this.api.setBudget({
+      category:    this.formCat,
+      limitAmount: this.formAmount,
+      month:       this.month,
+      year:        this.year,
+    }).subscribe({
+      next: () => {
+        this.saving = false;
+        this.showForm = false;
+        this.loading = true;
+        this.api.getBudget(this.month, this.year).subscribe({
+          next: (data) => { this.budgets = data; this.loading = false; },
+          error: ()   => { this.loading = false; },
+        });
+      },
+      error: () => { this.saving = false; },
+    });
   }
 }

@@ -96,3 +96,10 @@ export interface ChartPoint {
   month: string;
   total: number;
 }
+
+export interface SetBudgetRequest {
+  category: string;
+  limitAmount: number;
+  month?: number;
+  year?: number;
+}

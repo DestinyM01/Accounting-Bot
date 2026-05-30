@@ -5,10 +5,29 @@
       <h1>Budget — {{ monthLabel }}</h1>
       <p>Manage your monthly allocations and track spending.</p>
     </div>
-    <button class="new-budget-btn" disabled>
+    <button class="new-budget-btn" (click)="openForm()" [disabled]="showForm">
       <mat-icon>add</mat-icon> Set New Budget
     </button>
   </div>
+
+  @if (showForm) {
+    <div class="budget-form-row card">
+      <select class="bf-select" [(ngModel)]="formCat">
+        @for (cat of categories; track cat) {
+          <option [value]="cat">{{ cat | titlecase }}</option>
+        }
+      </select>
+      <input  class="bf-input" type="number" min="1" [(ngModel)]="formAmount"
+              placeholder="Monthly limit (USD)" />
+      <button class="bf-submit" [disabled]="saving || formAmount <= 0" (click)="submitBudget()">
+        <mat-icon>{{ saving ? 'hourglass_empty' : 'check' }}</mat-icon>
+        {{ saving ? 'Saving…' : 'Set Limit' }}
+      </button>
+      <button class="bf-cancel" (click)="closeForm()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  }
 
   @if (loading) {
     <p class="loading-state">Loading…</p>

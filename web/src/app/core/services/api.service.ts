@@ -10,6 +10,7 @@ import {
   MonthlyPoint,
   MonthlySummary,
   RecurringEntry,
+  SetBudgetRequest,
   Tip,
   TopTransaction,
   TransactionPage,
@@ -62,6 +63,10 @@ export class ApiService {
     if (month) params = params.set('month', month);
     if (year)  params = params.set('year',  year);
     return this.http.get<BudgetEntry[]>(`${this.base}/budget`, { params });
+  }
+
+  setBudget(body: SetBudgetRequest): Observable<void> {
+    return this.http.post<void>(`${this.base}/budget`, body);
   }
 
   getStatisticsSummary(month?: number, year?: number): Observable<MonthlySummary> {
