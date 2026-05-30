@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import {
   BalanceSummary,
   BudgetEntry,
+  CategoryEntry,
   CategoryPoint,
   ChartPoint,
   CompareResult,
@@ -93,6 +94,18 @@ export class ApiService {
 
   deleteRecurring(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/recurring/${id}`);
+  }
+
+  getCategories(): Observable<CategoryEntry[]> {
+    return this.http.get<CategoryEntry[]>(`${this.base}/categories`);
+  }
+
+  createCategory(body: { name: string; emoji: string; color: string }): Observable<void> {
+    return this.http.post<void>(`${this.base}/categories`, body);
+  }
+
+  deleteCategory(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/categories/${id}`);
   }
 
   getTips(): Observable<Tip[]> {

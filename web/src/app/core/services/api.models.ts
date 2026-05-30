@@ -103,3 +103,11 @@ export interface SetBudgetRequest {
   month?: number;
   year?: number;
 }
+
+export interface CategoryEntry {
+  name:      string;
+  color:     string;
+  emoji:     string;
+  isBuiltIn: boolean;
+  id:        string | null;
+}
