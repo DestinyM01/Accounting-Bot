@@ -1,4 +1,5 @@
 import { Action, Ctx, On, Wizard, WizardStep } from 'nestjs-telegraf';
+import { Logger } from '@nestjs/common';
 import { WizardContext } from 'telegraf/typings/scenes';
 import { IContext, MyMessage } from '../type/interface';
 import { CustomCategoryService } from '../service';
@@ -35,10 +36,18 @@ const MSGS = {
     ua: '✅ Категорію створено!',
     pl: '✅ Kategoria utworzona!',
   },
+  error: {
+    en: '⚠️ Something went wrong. Please try again.',
+    es: '⚠️ Algo salió mal. Por favor intenta de nuevo.',
+    ua: '⚠️ Щось пішло не так. Спробуйте ще раз.',
+    pl: '⚠️ Coś poszło nie tak. Spróbuj ponownie.',
+  },
 };
 
 @Wizard('create_category')
 export class CreateCategoryScene {
+  private readonly logger = new Logger(CreateCategoryScene.name);
+
   constructor(private readonly customCategoryService: CustomCategoryService) {}
 
   @WizardStep(1)
@@ -82,17 +91,26 @@ export class CreateCategoryScene {
     const emoji = data.replace('pick_emoji:', '');
     const state = ctx.wizard.state as any;
 
-    await this.customCategoryService.createCategory(
-      ctx.from.id,
-      state.name,
-      emoji,
-      state.color,
-    );
-    await ctx.answerCbQuery();
-    await ctx.editMessageText(
-      `${emoji} <b>${state.name}</b> — ${MSGS.done[lang] ?? MSGS.done.en}`,
-      { ...backTranButton(lang), parse_mode: 'HTML' },
-    );
+    // Guard: if the wizard state is incomplete (e.g. scene re-entered), bail cleanly
+    if (!state.name || !state.color) {
+      await ctx.answerCbQuery();
+      await ctx.editMessageText(MSGS.error[lang] ?? MSGS.error.en, backTranButton(lang));
+      await ctx.scene.leave();
+      return;
+    }
+
+    try {
+      await this.customCategoryService.createCategory(ctx.from.id, state.name, emoji, state.color);
+      await ctx.answerCbQuery();
+      await ctx.editMessageText(
+        `${emoji} <b>${state.name}</b> — ${MSGS.done[lang] ?? MSGS.done.en}`,
+        { ...backTranButton(lang), parse_mode: 'HTML' },
+      );
+    } catch (error) {
+      this.logger.error(`Failed to create category for user ${ctx.from.id}:`, error);
+      await ctx.answerCbQuery();
+      await ctx.editMessageText(MSGS.error[lang] ?? MSGS.error.en, backTranButton(lang));
+    }
     await ctx.scene.leave();
   }
 }
