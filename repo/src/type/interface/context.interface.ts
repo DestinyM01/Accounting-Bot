@@ -4,7 +4,7 @@ import { ITransactionQuery } from './transaction.query.interface';
 export interface IContext extends ContextTelegraf {
   session: {
     id?: string;
-    type?: 'done' | 'edit' | 'remove' | 'income' | 'expense' | 'balance' | 'delete' | 'sendNewsAllUser' | 'search';
+    type?: 'done' | 'edit' | 'remove' | 'income' | 'expense' | 'balance' | 'delete' | 'sendNewsAllUser' | 'search' | 'edit_name' | 'edit_amount' | 'edit_mode';
     language?: string;
     currency?: string;
     group?: number[];
@@ -18,6 +18,7 @@ export interface IContext extends ContextTelegraf {
     compare?: string[];
     transactionQuery?: ITransactionQuery;
     pendingCategoryTransactionId?: string;
+    editTransactionId?: string;
     awaitingRecurring?: boolean;
     budgetCategory?: string;
   };

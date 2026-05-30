@@ -8,7 +8,7 @@ import { TransactionType } from '../type/enum/transactionType.enam';
 import { CreateTransactionDto } from '../dto/transaction.dto';
 import { IContext, Transaction } from '../type/interface';
 import { BUTTONS, DELETE_LAST_MESSAGE, DELETE_LAST_MESSAGE2, PERIOD_NULL } from '../constants';
-import { backTranButton } from '../buttons';
+import { backTranButton, editTransactionListButtons } from '../buttons';
 
 @Injectable()
 export class TransactionService {
@@ -129,5 +129,83 @@ export class TransactionService {
       this.logger.error('Error deleting all transactions for user', error);
       throw error;
     }
+  }
+
+  /** Shows last N transactions as inline buttons for editing. */
+  async showLastNTransactionsWithEditOption(ctx: IContext, count: number): Promise<void> {
+    const language = ctx.session.language || 'en';
+    const userId = ctx.from.id;
+    try {
+      const transactions = await this.transactionModel
+        .find({ userId })
+        .sort({ timestamp: -1 })
+        .limit(count)
+        .exec();
+
+      if (transactions.length === 0) {
+        await ctx.editMessageText(
+          DELETE_LAST_MESSAGE2[language] ?? DELETE_LAST_MESSAGE2['en'],
+          backTranButton(language),
+        );
+        return;
+      }
+
+      const EDIT_SELECT: Record<string, string> = {
+        en: '✏️ Select a transaction to edit:',
+        es: '✏️ Selecciona una transacción para editar:',
+        ua: '✏️ Оберіть транзакцію для редагування:',
+        pl: '✏️ Wybierz transakcję do edycji:',
+      };
+
+      await ctx.editMessageText(
+        EDIT_SELECT[language] ?? EDIT_SELECT['en'],
+        editTransactionListButtons(
+          transactions.map((t) => ({ _id: t._id, transactionName: t.transactionName, amount: t.amount })),
+          language,
+        ),
+      );
+    } catch (error) {
+      this.logger.error('Error in showLastNTransactionsWithEditOption', error);
+      throw error;
+    }
+  }
+
+  /** Fetches a single transaction (scoped to userId). Returns null if not found. */
+  async getTransactionById(userId: number, txId: string) {
+    return this.transactionModel.findOne({ _id: txId, userId }).exec();
+  }
+
+  /** Updates only the name of a transaction. No balance change needed. */
+  async updateTransactionName(userId: number, txId: string, newName: string): Promise<void> {
+    await this.transactionModel
+      .findOneAndUpdate({ _id: txId, userId }, { transactionName: newName.toLowerCase().trim() })
+      .exec();
+    this.logger.log(`Updated name for transaction ${txId} (user ${userId})`);
+  }
+
+  /**
+   * Updates the amount of a transaction and adjusts the user's balance.
+   * Reverses old balance effect, updates DB with new signed amount, reapplies new amount.
+   */
+  async updateTransactionAmount(userId: number, txId: string, newRawAmount: number): Promise<void> {
+    const tx = await this.transactionModel.findOne({ _id: txId, userId }).exec();
+    if (!tx) {
+      this.logger.warn(`Transaction ${txId} not found for user ${userId} during amount update`);
+      return;
+    }
+    // Reverse old balance effect (storedAmount has sign: expense=-n, income=+n)
+    await this.balanceService.reverseTransaction(userId, tx.amount, tx.transactionName, txId);
+
+    // New stored amount carries the sign
+    const newStoredAmount =
+      tx.transactionType === TransactionType.EXPENSE ? -Math.abs(newRawAmount) : Math.abs(newRawAmount);
+
+    // Persist the new amount
+    await this.transactionModel.findByIdAndUpdate(txId, { amount: newStoredAmount }).exec();
+
+    // Apply new positive amount to balance (updateBalance handles sign via type)
+    await this.balanceService.updateBalance(userId, newRawAmount, tx.transactionType as TransactionType, tx.transactionName, txId);
+
+    this.logger.log(`Updated amount for transaction ${txId}: ${newStoredAmount}`);
   }
 }
