@@ -3,7 +3,6 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Budget } from '../mongodb/schemas/budget.schemas';
 import { Transaction } from '../type/interface';
-import { Category } from '../type/enum/category.enum';
 import { TransactionType } from '../type/enum/transactionType.enam';
 
 @Injectable()
@@ -15,7 +14,7 @@ export class BudgetService {
     @InjectModel('Transaction') private readonly transactionModel: Model<Transaction>,
   ) {}
 
-  async setBudget(userId: number, category: Category, limitAmount: number): Promise<Budget> {
+  async setBudget(userId: number, category: string, limitAmount: number): Promise<Budget> {
     const now = new Date();
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
@@ -32,7 +31,7 @@ export class BudgetService {
     return this.budgetModel.find({ userId, month: now.getMonth() + 1, year: now.getFullYear() }).exec();
   }
 
-  async checkBudget(userId: number, category: Category): Promise<{ limit: number; spent: number; over: boolean } | null> {
+  async checkBudget(userId: number, category: string): Promise<{ limit: number; spent: number; over: boolean } | null> {
     const now = new Date();
     const month = now.getMonth() + 1;
     const year = now.getFullYear();

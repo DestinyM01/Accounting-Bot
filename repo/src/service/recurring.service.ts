@@ -6,7 +6,6 @@ import { Recurring } from '../mongodb/schemas/recurring.schemas';
 import { TransactionService } from './transaction.service';
 import { BalanceService } from './balance.service';
 import { TransactionType } from '../type/enum/transactionType.enam';
-import { Category } from '../type/enum/category.enum';
 
 @Injectable()
 export class RecurringService {
@@ -25,7 +24,7 @@ export class RecurringService {
     transactionType: TransactionType,
     amount: number,
     dayOfMonth: number,
-    category: Category = Category.OTHER,
+    category: string = 'OTHER',
   ): Promise<Recurring> {
     return this.recurringModel.create({
       userId,

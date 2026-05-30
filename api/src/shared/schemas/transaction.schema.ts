@@ -12,7 +12,7 @@ export class Transaction extends Document {
   // Expenses are stored as negative numbers. Always Math.abs() before display.
   @Prop({ required: true }) amount: number;
   @Prop({ required: true, default: Date.now }) timestamp: Date;
-  @Prop({ enum: Category, default: Category.OTHER }) category: Category;
+  @Prop({ default: Category.OTHER }) category: string;
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);

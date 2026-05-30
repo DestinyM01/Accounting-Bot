@@ -2,7 +2,6 @@ import { Action, On, Update } from 'nestjs-telegraf';
 import { Logger } from '@nestjs/common';
 import { IContext } from '../type/interface';
 import { BudgetService } from '../service';
-import { Category } from '../type/enum/category.enum';
 import { budgetCategorySelectButtons, budgetListButtons } from '../buttons';
 import { CustomCallbackQuery } from '../type/interface';
 
@@ -69,7 +68,7 @@ export class BudgetHandler {
   @Action(/budget_cat_(.+)/)
   async budgetCategorySelected(ctx: IContext) {
     const callbackData = (ctx.callbackQuery as CustomCallbackQuery).data;
-    const category = callbackData.replace('budget_cat_', '') as Category;
+    const category = callbackData.replace('budget_cat_', '') as string;
     const lang = ctx.session.language || 'en';
     ctx.session.budgetCategory = category;
     await ctx.editMessageText(`${BUDGET_ENTER_AMOUNT[lang] ?? BUDGET_ENTER_AMOUNT.en} (${category})`);
@@ -84,7 +83,7 @@ export class BudgetHandler {
     if (isNaN(amount) || amount <= 0) return;
 
     const lang = ctx.session.language || 'en';
-    const category = ctx.session.budgetCategory as Category;
+    const category = ctx.session.budgetCategory as string;
     try {
       await this.budgetService.setBudget(ctx.from.id, category, amount);
       delete ctx.session.budgetCategory;

@@ -5,7 +5,7 @@ import { Category } from './category.enum';
 @Schema()
 export class Budget extends Document {
   @Prop({ required: true }) userId: number;
-  @Prop({ required: true, enum: Category }) category: Category;
+  @Prop({ required: true }) category: string;
   @Prop({ required: true }) limitAmount: number;
   @Prop({ required: true }) month: number;
   @Prop({ required: true }) year: number;

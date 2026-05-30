@@ -20,8 +20,8 @@ export class Recurring extends Document {
   @Prop({ required: true })
   amount: number;
 
-  @Prop({ enum: Category, default: Category.OTHER })
-  category: Category;
+  @Prop({ default: Category.OTHER })
+  category: string;
 
   @Prop({ required: true, min: 1, max: 28 })
   dayOfMonth: number;

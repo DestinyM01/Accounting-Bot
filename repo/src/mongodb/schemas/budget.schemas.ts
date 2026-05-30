@@ -7,8 +7,8 @@ export class Budget extends Document {
   @Prop({ required: true })
   userId: number;
 
-  @Prop({ required: true, enum: Category })
-  category: Category;
+  @Prop({ required: true })
+  category: string;
 
   @Prop({ required: true })
   limitAmount: number;
