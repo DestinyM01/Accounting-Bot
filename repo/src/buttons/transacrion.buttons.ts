@@ -11,6 +11,7 @@ export function actionButtonsTransaction(language: string = 'en') {
       Markup.button.callback('✏️ Edit', 'edit_last'),
       Markup.button.callback(BUTTONS[lang].RECURRING, 'recurring_menu'),
       Markup.button.callback('🔍 Search', 'search_transactions'),
+      Markup.button.callback('⚙️ Categories', 'manage_categories'),
       Markup.button.callback(BUTTONS[lang].BACK, 'back'),
     ],
     { columns: 2 },

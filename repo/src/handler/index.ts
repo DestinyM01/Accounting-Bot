@@ -12,3 +12,4 @@ export * from './financial-literacy.handler';
 export * from './budget.handler';
 export * from './export.handler';
 export * from './recurring.handler';
+export * from './custom-category.handler';
