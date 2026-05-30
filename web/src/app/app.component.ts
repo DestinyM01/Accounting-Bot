@@ -1,9 +1,10 @@
-import { Component, HostListener } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationStart } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { OAuthService } from 'angular-oauth2-oidc';
 import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from './core/services/api.service';
+import { CategoryService } from './core/services/category.service';
 import { BudgetEntry } from './core/services/api.models';
 import { filter } from 'rxjs/operators';
 
@@ -14,7 +15,7 @@ import { filter } from 'rxjs/operators';
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss'],
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   navItems = [
     { label: 'Dashboard',    icon: 'dashboard',              path: '/dashboard' },
     { label: 'Transactions', icon: 'receipt_long',           path: '/transactions' },
@@ -96,11 +97,22 @@ export class AppComponent {
     return pct >= 100 ? 'var(--color-expense)' : 'var(--color-warning)';
   }
 
-  constructor(private oauthService: OAuthService, private api: ApiService, private router: Router) {
+  constructor(
+    private oauthService: OAuthService,
+    private api: ApiService,
+    private router: Router,
+    private categoryService: CategoryService,
+  ) {
     // Close mobile drawer on any navigation
     this.router.events
       .pipe(filter(e => e instanceof NavigationStart))
       .subscribe(() => { this.mobileOpen = false; });
+  }
+
+  ngOnInit() {
+    if (this.oauthService.hasValidAccessToken()) {
+      this.categoryService.load();
+    }
   }
 
   logout() { this.oauthService.logOut(); }

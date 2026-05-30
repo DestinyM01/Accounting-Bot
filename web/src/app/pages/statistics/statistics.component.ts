@@ -5,6 +5,7 @@ import { Chart, registerables } from 'chart.js';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { CategoryPoint, MonthlyPoint, MonthlySummary } from '../../core/services/api.models';
+import { CategoryService } from '../../core/services/category.service';
 
 Chart.register(...registerables);
 
@@ -15,18 +16,6 @@ interface DistRow {
   color: string;
   icon: string;
 }
-
-const CAT_COLORS: Record<string, string> = {
-  housing:'#38bdf8', food:'#10e5a0', transport:'#fb923c',
-  health:'#a78bfa', entertainment:'#f472b6', salary:'#10e5a0',
-  groceries:'#10e5a0', shopping:'#f472b6', savings:'#34d399', other:'#94a3b8',
-};
-const CAT_ICONS: Record<string, string> = {
-  housing:'home', food:'restaurant', groceries:'shopping_cart',
-  transport:'directions_car', health:'medical_services',
-  entertainment:'movie', shopping:'shopping_bag',
-  salary:'payments', savings:'savings', other:'receipt_long',
-};
 
 @Component({
   selector: 'app-statistics',
@@ -46,7 +35,7 @@ export class StatisticsComponent implements OnInit {
   private areaChart: Chart | null = null;
   private savingsChart: Chart | null = null;
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private catSvc: CategoryService) {}
 
   ngOnInit() {
     forkJoin({
@@ -65,14 +54,17 @@ export class StatisticsComponent implements OnInit {
     });
   }
 
+  catColor(cat: string) { return this.catSvc.color(cat); }
+  catIcon(cat: string)  { return this.catSvc.icon(cat);  }
+
   private buildDistribution(data: CategoryPoint[]) {
     const total = data.reduce((s, d) => s + d.total, 0);
     this.distribution = data.map(d => ({
       category: d.category,
       total:    d.total,
       pct:      total > 0 ? Math.round(d.total / total * 100) : 0,
-      color:    CAT_COLORS[d.category.toLowerCase()] ?? '#64748b',
-      icon:     CAT_ICONS[d.category.toLowerCase()]  ?? 'category',
+      color:    this.catSvc.color(d.category),
+      icon:     this.catSvc.icon(d.category),
     }));
   }
 

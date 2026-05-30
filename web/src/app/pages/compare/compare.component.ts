@@ -4,12 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/services/api.service';
 import { CompareResult } from '../../core/services/api.models';
-
-const CAT_COLORS: Record<string, string> = {
-  food: '#f59e0b', transport: '#38bdf8', housing: '#a78bfa',
-  health: '#34d399', entertainment: '#f87171',
-  salary: '#10e5a0', savings: '#3b82f6', other: '#94a3b8',
-};
+import { CategoryService } from '../../core/services/category.service';
 
 @Component({
   selector: 'app-compare',
@@ -26,7 +21,7 @@ export class CompareComponent implements OnInit {
   result:   CompareResult | null = null;
   error     = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private catSvc: CategoryService) {}
 
   ngOnInit() {
     this.api.getCompareMonths().subscribe({
@@ -58,7 +53,5 @@ export class CompareComponent implements OnInit {
       .toLocaleString('en', { month: 'long', year: 'numeric' });
   }
 
-  catColor(cat: string): string {
-    return CAT_COLORS[cat.toLowerCase()] ?? CAT_COLORS['other'];
-  }
+  catColor(cat: string): string { return this.catSvc.color(cat); }
 }

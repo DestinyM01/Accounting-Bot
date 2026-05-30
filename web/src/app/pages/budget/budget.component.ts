@@ -4,19 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/services/api.service';
 import { BudgetEntry } from '../../core/services/api.models';
-
-const CAT_COLORS: Record<string, string> = {
-  housing:'#38bdf8', food:'#10e5a0', transport:'#fb923c',
-  health:'#a78bfa', entertainment:'#f472b6', salary:'#10e5a0',
-  groceries:'#10e5a0', shopping:'#f472b6', savings:'#34d399', other:'#94a3b8',
-};
-
-const CAT_ICONS: Record<string, string> = {
-  housing:'home', food:'restaurant', groceries:'shopping_cart',
-  transport:'directions_car', health:'medical_services',
-  entertainment:'movie', shopping:'shopping_bag',
-  salary:'payments', savings:'savings', other:'receipt_long',
-};
+import { CategoryService } from '../../core/services/category.service';
 
 @Component({
   selector: 'app-budget',
@@ -36,12 +24,9 @@ export class BudgetComponent implements OnInit {
   formAmount = 0;
   saving     = false;
 
-  readonly categories = [
-    'food', 'transport', 'housing', 'health',
-    'entertainment', 'salary', 'savings', 'other',
-  ];
+  get categories(): string[] { return this.catSvc.all.map(c => c.name); }
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private catSvc: CategoryService) {}
 
   ngOnInit() {
     this.api.getBudget(this.month, this.year).subscribe({
@@ -69,8 +54,8 @@ export class BudgetComponent implements OnInit {
 
   get nearLimit(): BudgetEntry[] { return this.budgets.filter(b => b.percentage >= 80); }
 
-  catColor(cat: string) { return CAT_COLORS[cat.toLowerCase()] ?? '#64748b'; }
-  catIcon(cat: string)  { return CAT_ICONS[cat.toLowerCase()]  ?? 'category'; }
+  catColor(cat: string) { return this.catSvc.color(cat); }
+  catIcon(cat: string)  { return this.catSvc.icon(cat);  }
 
   budgetBarColor(pct: number): string {
     if (pct >= 90) return '#f87171';
