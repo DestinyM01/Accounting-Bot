@@ -28,11 +28,18 @@ function t(language: string, en: string, es: string, ua: string, pl: string) {
   return en;
 }
 
-export function budgetCategorySelectButtons(language: string) {
+export function budgetCategorySelectButtons(
+  language: string,
+  customCategories: { name: string; emoji: string }[] = [],
+) {
   const lang = safeLang(language);
-  const rows = Object.values(Category).map((cat) => [
+  const builtInRows = Object.values(Category).map((cat) => [
     { text: CATEGORY_LABELS[cat][lang], callback_data: `budget_cat_${cat}` },
   ]);
+  const customRows = customCategories.map((c) => [
+    { text: `${c.emoji} ${c.name}`, callback_data: `budget_cat_${c.name}` },
+  ]);
+  const rows = [...builtInRows, ...customRows];
   const chunked: typeof rows = [];
   for (let i = 0; i < rows.length; i += 2) {
     chunked.push([...rows[i], ...(rows[i + 1] ?? [])]);

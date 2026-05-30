@@ -1,7 +1,7 @@
 import { Action, On, Update } from 'nestjs-telegraf';
 import { Logger } from '@nestjs/common';
 import { IContext } from '../type/interface';
-import { BudgetService } from '../service';
+import { BudgetService, CustomCategoryService } from '../service';
 import { budgetCategorySelectButtons, budgetListButtons } from '../buttons';
 import { CustomCallbackQuery } from '../type/interface';
 
@@ -51,7 +51,10 @@ const NO_BUDGETS = {
 export class BudgetHandler {
   private readonly logger: Logger = new Logger(BudgetHandler.name);
 
-  constructor(private readonly budgetService: BudgetService) {}
+  constructor(
+    private readonly budgetService: BudgetService,
+    private readonly customCategoryService: CustomCategoryService,
+  ) {}
 
   @Action('budgets')
   async budgetMenu(ctx: IContext) {
@@ -62,7 +65,17 @@ export class BudgetHandler {
   @Action('budget_set')
   async budgetSet(ctx: IContext) {
     const lang = ctx.session.language || 'en';
-    await ctx.editMessageText(BUDGET_SELECT_CATEGORY[lang] ?? BUDGET_SELECT_CATEGORY.en, budgetCategorySelectButtons(lang));
+    let customCats: { name: string; emoji: string }[] = [];
+    try {
+      const fetched = await this.customCategoryService.listCategories(ctx.from.id);
+      customCats = fetched.map((c) => ({ name: c.name, emoji: c.emoji }));
+    } catch {
+      // degrade gracefully — show built-in categories only
+    }
+    await ctx.editMessageText(
+      BUDGET_SELECT_CATEGORY[lang] ?? BUDGET_SELECT_CATEGORY.en,
+      budgetCategorySelectButtons(lang, customCats),
+    );
   }
 
   @Action(/budget_cat_(.+)/)

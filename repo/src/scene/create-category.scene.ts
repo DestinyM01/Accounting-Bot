@@ -5,6 +5,11 @@ import { IContext, MyMessage } from '../type/interface';
 import { CustomCategoryService } from '../service';
 import { backTranButton, colorPickerButtons, emojiPickerButtons } from '../buttons';
 
+const BUILT_IN_NAMES = new Set([
+  'food', 'transport', 'housing', 'health',
+  'entertainment', 'salary', 'savings', 'other',
+]);
+
 const MSGS = {
   ask_name: {
     en: '🏷️ Enter a name for your category (letters, numbers, hyphens only — e.g. <b>gym</b> or <b>side-income</b>):',
@@ -42,6 +47,12 @@ const MSGS = {
     ua: '⚠️ Щось пішло не так. Спробуйте ще раз.',
     pl: '⚠️ Coś poszło nie tak. Spróbuj ponownie.',
   },
+  reserved_name: {
+    en: '⚠️ That name is a built-in category. Choose a different name:',
+    es: '⚠️ Ese nombre es una categoría predefinida. Elige otro nombre:',
+    ua: '⚠️ Ця назва вже є вбудованою категорією. Оберіть іншу:',
+    pl: '⚠️ Ta nazwa to wbudowana kategoria. Wybierz inną nazwę:',
+  },
 };
 
 @Wizard('create_category')
@@ -64,6 +75,10 @@ export class CreateCategoryScene {
     const raw = ((ctx.message as MyMessage).text || '').trim().toLowerCase();
     if (!raw || !/^[a-z0-9-]{1,20}$/.test(raw)) {
       await ctx.replyWithHTML(MSGS.invalid_name[lang] ?? MSGS.invalid_name.en);
+      return; // stay on this step
+    }
+    if (BUILT_IN_NAMES.has(raw)) {
+      await ctx.replyWithHTML(MSGS.reserved_name[lang] ?? MSGS.reserved_name.en);
       return; // stay on this step
     }
     (ctx.wizard.state as any).name = raw;
