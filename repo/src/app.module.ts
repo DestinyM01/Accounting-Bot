@@ -15,6 +15,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { OpenAiApiModule } from './open-ai-api/open-ai-api.module';
 import { createSessionMiddleware, errorHandlingMiddleware } from './middleware';
 import { Analytics, AnalyticsSchema } from './mongodb/schemas/analytics.schemas';
+import { CustomCategory, CustomCategorySchema } from './mongodb/schemas/custom-category.schema';
 import { HealthChecksController } from './api/health.checks.controller';
 
 @Module({
@@ -52,6 +53,7 @@ import { HealthChecksController } from './api/health.checks.controller';
       { name: Budget.name, schema: BudgetSchema },
       { name: Recurring.name, schema: RecurringSchema },
       { name: BalanceHistory.name, schema: BalanceHistorySchema },
+      { name: 'CustomCategory', schema: CustomCategorySchema },
     ]),
   ],
 
