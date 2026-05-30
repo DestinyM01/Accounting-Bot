@@ -113,4 +113,12 @@ export class RecurringComponent implements OnInit {
   }
 
   trackById(_: number, r: RecurringEntry) { return r.id; }
+
+  deleteItem(item: RecurringEntry) {
+    if (!window.confirm(`Delete "${item.transactionName}"? This cannot be undone.`)) return;
+    this.api.deleteRecurring(item.id).subscribe({
+      next: () => { this.items = this.items.filter(r => r.id !== item.id); },
+      error: () => { alert('Failed to delete. Please try again.'); },
+    });
+  }
 }

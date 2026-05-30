@@ -109,7 +109,7 @@
 // ── Table ──────────────────────────────────────────────────────────────
 .table-head {
   display: grid;
-  grid-template-columns: 2fr 1.2fr 1.2fr 1fr;
+  grid-template-columns: 2fr 1.2fr 1.2fr 1fr 36px;
   padding: 10px 24px;
   font-size: 0.7rem;
   font-weight: 700;
@@ -121,7 +121,7 @@
 
 .table-row {
   display: grid;
-  grid-template-columns: 2fr 1.2fr 1.2fr 1fr;
+  grid-template-columns: 2fr 1.2fr 1.2fr 1fr 36px;
   padding: 14px 24px;
   align-items: center;
   border-bottom: 1px solid var(--border);
@@ -451,4 +451,29 @@
   flex-shrink: 0;
   &.income  { color: var(--income); }
   &.expense { color: var(--expense); }
+}
+
+// ── Delete button ──────────────────────────────────────────────────────
+.col-del {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.rp-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.13s, color 0.13s;
+  mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
+
+  &:hover { background: rgba(248,113,113,0.1); color: var(--expense); }
+  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }

@@ -91,6 +91,10 @@ export class ApiService {
     return this.http.get<RecurringEntry[]>(`${this.base}/recurring`);
   }
 
+  deleteRecurring(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/recurring/${id}`);
+  }
+
   getTips(): Observable<Tip[]> {
     return this.http.get<Tip[]>(`${this.base}/tips`);
   }

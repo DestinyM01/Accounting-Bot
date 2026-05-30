@@ -73,6 +73,7 @@
           <span class="col-sched">Schedule</span>
           <span class="col-cat">Category</span>
           <span class="col-amt">Amount</span>
+          <span class="col-del"></span>
         </div>
 
         @for (item of items; track trackById($index, item)) {
@@ -100,6 +101,15 @@
             <span class="col-amt row-amount" [class.income]="item.isIncome" [class.expense]="!item.isIncome">
               {{ item.isIncome ? '+' : '-' }}{{ item.amount | currency:'USD':'symbol':'1.2-2' }}
             </span>
+
+            <!-- Delete -->
+            <div class="col-del">
+              <button class="rp-delete-btn"
+                      (click)="deleteItem(item)"
+                      [attr.aria-label]="'Delete ' + item.transactionName">
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+            </div>
           </div>
         }
       </div>
