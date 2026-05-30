@@ -3,7 +3,7 @@ import { BalanceService } from '../service';
 import { Logger } from '@nestjs/common';
 import { ERROR_MESSAGE, getBalanceMessage, SET_BALANCE_TEX } from '../constants';
 import { IContext } from '../type/interface';
-import { backStartButton, backStatisticButton, languageSet } from '../battons';
+import { backStartButton, backStatisticButton, languageSet } from '../buttons';
 import { resetSession } from '../common';
 import { WizardContext } from 'telegraf/typings/scenes';
 

@@ -19,7 +19,7 @@ import {
   infoButton,
   languageSet,
   resetButton,
-} from '../battons';
+} from '../buttons';
 import { resetSession } from '../common';
 import { WizardContext } from 'telegraf/typings/scenes';
 

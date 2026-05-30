@@ -20,7 +20,7 @@ import {
   backStartButton,
   generateCryptoButtons,
   generateCurrencyButtons,
-} from '../battons';
+} from '../buttons';
 import { resetSession } from '../common/reset.session';
 import { WizardContext } from 'telegraf/typings/scenes';
 

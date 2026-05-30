@@ -9,7 +9,7 @@ import {
   actionButtonsAdminStat,
   actionButtonsSettings,
   backStartButton,
-} from '../battons';
+} from '../buttons';
 import { resetSession } from '../common';
 import { WizardContext } from 'telegraf/typings/scenes';
 @Update()

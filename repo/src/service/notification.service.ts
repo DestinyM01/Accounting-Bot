@@ -5,7 +5,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Telegraf } from 'telegraf';
 import { InjectBot } from 'nestjs-telegraf';
-import { backStartButton, backToStartButton } from '../battons';
+import { backStartButton, backToStartButton } from '../buttons';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()

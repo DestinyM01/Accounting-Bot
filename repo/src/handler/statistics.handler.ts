@@ -21,7 +21,7 @@ import {
   categoryChartMenuButtons,
   categoryChartYearButtons,
   categoryChartMonthButtons,
-} from '../battons';
+} from '../buttons';
 import { resetSession } from '../common/reset.session';
 import { WizardContext } from 'telegraf/typings/scenes';
 import { sendSplitMessage } from '../common';

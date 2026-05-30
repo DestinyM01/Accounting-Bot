@@ -5,7 +5,7 @@ import { MessageService } from './message.service';
 import { TransactionType } from '../type/enum/transactionType.enam';
 import { PERIOD_E, PERIOD_NULL } from '../constants';
 import { IContext, Transaction } from '../type/interface';
-import { backStatisticButton } from '../battons';
+import { backStatisticButton } from '../buttons';
 import { ITransactionQuery } from '../type/interface/transaction.query.interface';
 import { message } from 'telegraf/filters';
 

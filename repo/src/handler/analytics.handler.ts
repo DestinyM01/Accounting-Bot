@@ -7,7 +7,7 @@ import {
   actionButtonsAnalytics,
   actionButtonsBackSettings,
   actionButtonsSettings,
-} from '../battons';
+} from '../buttons';
 import { AdvancedStatisticsService, AnalyticsService } from '../service';
 
 @Update()

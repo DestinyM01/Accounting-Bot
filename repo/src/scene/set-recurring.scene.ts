@@ -4,7 +4,7 @@ import { IContext, MyMessage } from '../type/interface';
 import { RecurringService } from '../service';
 import { TransactionType } from '../type/enum/transactionType.enam';
 import { Category } from '../type/enum/category.enum';
-import { backTranButton } from '../battons';
+import { backTranButton } from '../buttons';
 import { regex } from '../constants';
 import { Markup } from 'telegraf';
 

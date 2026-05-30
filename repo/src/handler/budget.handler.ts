@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import { IContext } from '../type/interface';
 import { BudgetService } from '../service';
 import { Category } from '../type/enum/category.enum';
-import { budgetCategorySelectButtons, budgetListButtons } from '../battons';
+import { budgetCategorySelectButtons, budgetListButtons } from '../buttons';
 import { CustomCallbackQuery } from '../type/interface';
 
 const BUDGET_MENU = {

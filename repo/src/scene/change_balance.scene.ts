@@ -2,7 +2,7 @@ import { Ctx, InjectBot, On, Wizard, WizardStep } from 'nestjs-telegraf';
 import { WizardContext } from 'telegraf/typings/scenes';
 import { Context, Telegraf } from 'telegraf';
 import { IContext, MyMessage } from '../type/interface';
-import { backStartButton } from '../battons';
+import { backStartButton } from '../buttons';
 import { BalanceService } from '../service';
 import { PLEASE_NUM, SET_BALANCE } from '../constants';
 

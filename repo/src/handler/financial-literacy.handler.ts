@@ -2,7 +2,7 @@ import { Action, Ctx, Update } from 'nestjs-telegraf';
 import { Logger } from '@nestjs/common';
 import { IContext } from '../type/interface';
 import { FINANCE_LITERACY_COMPOUND_INTEREST_TEX, FINANCE_LITERACY_TEXT } from '../constants';
-import { backStartButton, financialLiteracyButtons } from '../battons';
+import { backStartButton, financialLiteracyButtons } from '../buttons';
 import { WizardContext } from 'telegraf/typings/scenes';
 
 @Update()

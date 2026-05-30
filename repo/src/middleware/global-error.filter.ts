@@ -1,6 +1,6 @@
 import { IContext } from '../type/interface';
 import { Middleware } from 'telegraf';
-import { actionButtonsStart, backStartButton } from '../battons';
+import { actionButtonsStart, backStartButton } from '../buttons';
 import { MAIN_MENU } from '../constants';
 
 export function errorHandlingMiddleware(): Middleware<IContext> {

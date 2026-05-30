@@ -8,7 +8,7 @@ import { TransactionType } from '../type/enum/transactionType.enam';
 import { CreateTransactionDto } from '../dto/transaction.dto';
 import { IContext, Transaction } from '../type/interface';
 import { BUTTONS, DELETE_LAST_MESSAGE, DELETE_LAST_MESSAGE2, PERIOD_NULL } from '../constants';
-import { backTranButton } from '../battons';
+import { backTranButton } from '../buttons';
 
 @Injectable()
 export class TransactionService {

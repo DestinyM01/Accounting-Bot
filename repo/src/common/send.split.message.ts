@@ -1,5 +1,5 @@
 import { IContext } from '../type/interface';
-import { actionButtonsCompare } from '../battons';
+import { actionButtonsCompare } from '../buttons';
 
 export async function sendSplitMessage(messages: string[], ctx: IContext) {
   if (!messages?.length) return;

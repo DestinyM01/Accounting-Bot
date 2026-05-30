@@ -4,7 +4,7 @@ import { CompoundInterestData, IContext, MyMessage } from '../type/interface';
 
 import { Logger } from '@nestjs/common';
 import { FinancialLiteracyService } from '../service';
-import { backStartButton } from '../battons';
+import { backStartButton } from '../buttons';
 import { COMPOUND_INTEREST_RESULT } from '../constants';
 
 @Wizard('compound-interest')

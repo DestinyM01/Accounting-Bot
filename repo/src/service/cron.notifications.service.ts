@@ -8,7 +8,7 @@ import { Cron } from '@nestjs/schedule';
 import { CRON_NOTIFICATION } from '../constants';
 import { Telegraf } from 'telegraf';
 import { InjectBot } from 'nestjs-telegraf';
-import { backToStartButton } from '../battons';
+import { backToStartButton } from '../buttons';
 import { TransactionType } from '../type/enum/transactionType.enam';
 
 @Injectable()

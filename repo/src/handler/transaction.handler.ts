@@ -17,7 +17,7 @@ import {
   TRANSACTION_DELETED_MESSAGE,
 } from '../constants';
 import { CustomCallbackQuery, IContext, MyMessage } from '../type/interface';
-import { actionButtonsTransaction, backTranButton, categoryButtons } from '../battons';
+import { actionButtonsTransaction, backTranButton, categoryButtons } from '../buttons';
 import { resetSession } from '../common';
 import { WizardContext } from 'telegraf/typings/scenes';
 import { ITransactionQuery } from '../type/interface/transaction.query.interface';

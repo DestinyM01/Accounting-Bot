@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Telegraf } from 'telegraf';
 import { BUTTONS, FAMILY_TEXT, GROUP_INVITATION_MESSAGE, INVITATION_ACCEPTED_MESSAGE } from '../constants';
 import { CustomCallbackQuery, IContext, MyMessage } from '../type/interface';
-import { acceptButton, backFamilyButton, backStartButton, familyButton } from '../battons';
+import { acceptButton, backFamilyButton, backStartButton, familyButton } from '../buttons';
 import { resetSession } from '../common';
 import { WizardContext } from 'telegraf/typings/scenes';
 

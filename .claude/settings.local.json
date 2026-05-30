@@ -11,7 +11,25 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(npx jest *)",
-      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\(Object.keys\\(p.devDependencies||{}\\)\\)\\)\")"
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\(Object.keys\\(p.devDependencies||{}\\)\\)\\)\")",
+      "Bash(git rm *)",
+      "Bash(pnpm --version)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm approve-builds *)",
+      "Bash(pnpm run *)",
+      "Bash(npx ng *)",
+      "Bash(git commit -m 'fix\\(web\\): change service to NodePort 30300 for cloudflared LXC access *)",
+      "Bash(git commit -m 'fix\\(auth\\): disable strict discovery document validation for Authentik *)",
+      "Bash(git commit -m 'fix\\(auth\\): correct Authentik client ID \\(ambiguous chars 1/l, G/6, L/l, 0/O\\) *)",
+      "Bash(git commit -m 'fix\\(mongodb\\): explicit Kubernetes defaults to stop ArgoCD OutOfSync loop *)",
+      "Bash(node node_modules/esbuild/install.js)",
+      "Bash(node node_modules/.pnpm/esbuild@0.20.1/node_modules/esbuild/install.js)",
+      "Bash(node node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/install.js)",
+      "Bash(node_modules/.bin/ng build *)",
+      "Bash(node -e \"const f=require\\('./angular.json'\\); const o=f.projects['accounting-web'].architect.build.options; console.log\\(JSON.stringify\\(o.stylePreprocessorOptions||{}, null,2\\)\\)\")",
+      "Bash(node -e \"const f=require\\('./angular.json'\\); console.log\\(Object.keys\\(f.projects\\)\\)\")",
+      "Bash(node -e \"const f=require\\('./angular.json'\\); const o=f.projects['web'].architect.build.options; console.log\\(JSON.stringify\\(o,null,2\\)\\)\")",
+      "Bash(node_modules/.bin/nest build *)"
     ]
   }
 }

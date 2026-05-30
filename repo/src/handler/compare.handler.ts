@@ -12,7 +12,7 @@ import {
   actionButtonsPremiumMenu,
   actionButtonsStatistics,
   backStartButton,
-} from '../battons';
+} from '../buttons';
 import {
   BAY_PREMIUM_MENU,
   COMPARE_DELL,

@@ -2,7 +2,7 @@ import { Action, Update } from 'nestjs-telegraf';
 import { Logger } from '@nestjs/common';
 import { IContext } from '../type/interface';
 import { ExportService } from '../service';
-import { exportMenuButtons } from '../battons';
+import { exportMenuButtons } from '../buttons';
 
 const EXPORT_MENU = {
   en: '📤 Export your transactions as a CSV file.\nChoose a time range:',
