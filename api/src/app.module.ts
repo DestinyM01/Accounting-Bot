@@ -10,6 +10,7 @@ import { TipsModule } from './tips/tips.module';
 import { RecurringModule } from './recurring/recurring.module';
 import { CompareModule } from './compare/compare.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { CategoriesModule } from './categories/categories.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -27,6 +28,7 @@ import { HealthController } from './health/health.controller';
     RecurringModule,
     CompareModule,
     AnalyticsModule,
+    CategoriesModule,
   ],
   controllers: [HealthController],
 })
