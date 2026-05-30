@@ -11,14 +11,25 @@ const CATEGORY_LABELS: Record<Category, { en: string; ua: string; pl: string }> 
   [Category.OTHER]: { en: '📦 Other', ua: '📦 Інше', pl: '📦 Inne' },
 };
 
-export function categoryButtons(transactionId: string, language: string) {
+export function categoryButtons(
+  transactionId: string,
+  language: string,
+  customCategories: { name: string; emoji: string }[] = [],
+) {
   const lang = (language || 'ua') as 'en' | 'ua' | 'pl';
-  const rows = Object.values(Category).map((cat) => [
+  const builtInRows = Object.values(Category).map((cat) => [
     {
       text: CATEGORY_LABELS[cat][lang],
       callback_data: `cat_${cat}_${transactionId}`,
     },
   ]);
+  const customRows = customCategories.map((c) => [
+    {
+      text: `${c.emoji} ${c.name}`,
+      callback_data: `cat_${c.name}_${transactionId}`,
+    },
+  ]);
+  const rows = [...builtInRows, ...customRows];
   const chunked: typeof rows = [];
   for (let i = 0; i < rows.length; i += 2) {
     chunked.push([...rows[i], ...(rows[i + 1] ?? [])]);

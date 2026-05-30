@@ -1,8 +1,7 @@
 import { Action, Ctx, On, Update } from 'nestjs-telegraf';
-import { BudgetService, ChartService, StatisticsService, TransactionService } from '../service';
+import { BudgetService, ChartService, CustomCategoryService, StatisticsService, TransactionService } from '../service';
 import { Logger } from '@nestjs/common';
 import { BalanceService } from '../service';
-import { Category } from '../type/enum/category.enum';
 import { TransactionType } from '../type/enum/transactionType.enam';
 import {
   BALANCE_MESSAGE,
@@ -32,6 +31,7 @@ export class TransactionHandler {
     private readonly statisticsService: StatisticsService,
     private readonly chartService: ChartService,
     private readonly budgetService: BudgetService,
+    private readonly customCategoryService: CustomCategoryService,
   ) {}
 
   @Action('transactions')
@@ -332,9 +332,14 @@ export class TransactionHandler {
       );
 
       if (ctx.session.pendingCategoryTransactionId) {
+        const customCats = await this.customCategoryService.listCategories(ctx.from.id);
         await ctx.reply(
           SELECT_CATEGORY_MESSAGE[ctx.session.language || 'en'],
-          categoryButtons(ctx.session.pendingCategoryTransactionId, ctx.session.language || 'en'),
+          categoryButtons(
+            ctx.session.pendingCategoryTransactionId,
+            ctx.session.language || 'en',
+            customCats.map((c) => ({ name: c.name, emoji: c.emoji })),
+          ),
         );
       }
       this.logger.log(`user:${ctx.from.id} textCommand executed`);
@@ -358,7 +363,7 @@ export class TransactionHandler {
       // Budget check — only for expense transactions
       if (ctx.session.type === 'expense') {
         try {
-          const budgetCheck = await this.budgetService.checkBudget(ctx.from.id, category as Category);
+          const budgetCheck = await this.budgetService.checkBudget(ctx.from.id, category);
           if (budgetCheck) {
             const lang = ctx.session.language || 'en';
             const pct = Math.round((budgetCheck.spent / budgetCheck.limit) * 100);

@@ -1,7 +1,7 @@
 import { Action, Ctx, On, Wizard, WizardStep } from 'nestjs-telegraf';
 import { WizardContext } from 'telegraf/typings/scenes';
 import { IContext, MyMessage } from '../type/interface';
-import { RecurringService } from '../service';
+import { RecurringService, CustomCategoryService } from '../service';
 import { TransactionType } from '../type/enum/transactionType.enam';
 import { Category } from '../type/enum/category.enum';
 import { backTranButton } from '../buttons';
@@ -58,16 +58,22 @@ const CATEGORY_BUTTON_LABELS: Record<string, string> = {
   other: '📌 Other',
 };
 
-function recurringCategoryButtons() {
-  const buttons = Object.entries(CATEGORY_BUTTON_LABELS).map(([key, label]) =>
+function recurringCategoryButtons(customCategories: { name: string; emoji: string }[] = []) {
+  const builtIn = Object.entries(CATEGORY_BUTTON_LABELS).map(([key, label]) =>
     Markup.button.callback(label, `rec_cat:${key}`),
   );
-  return Markup.inlineKeyboard(buttons, { columns: 2 });
+  const custom = customCategories.map((c) =>
+    Markup.button.callback(`${c.emoji} ${c.name}`, `rec_cat:${c.name}`),
+  );
+  return Markup.inlineKeyboard([...builtIn, ...custom], { columns: 2 });
 }
 
 @Wizard('set_recurring')
 export class SetRecurringScene {
-  constructor(private readonly recurringService: RecurringService) {}
+  constructor(
+    private readonly recurringService: RecurringService,
+    private readonly customCategoryService: CustomCategoryService,
+  ) {}
 
   @WizardStep(1)
   async askType(@Ctx() ctx: IContext & WizardContext) {
@@ -103,9 +109,10 @@ export class SetRecurringScene {
     }
     (ctx.wizard.state as any).transactionName = matches[1].trim().toLowerCase();
     (ctx.wizard.state as any).amount = Number(matches[2]);
+    const customCats = await this.customCategoryService.listCategories(ctx.from.id);
     await ctx.replyWithHTML(
       STEP_LABELS.ask_category[lang] ?? STEP_LABELS.ask_category.en,
-      recurringCategoryButtons(),
+      recurringCategoryButtons(customCats.map((c) => ({ name: c.name, emoji: c.emoji }))),
     );
     ctx.wizard.next();
   }
@@ -115,11 +122,7 @@ export class SetRecurringScene {
   async getCategory(@Ctx() ctx: IContext & WizardContext) {
     const lang = ctx.session.language || 'en';
     const callbackData = (ctx.callbackQuery as any)?.data as string;
-    const category = callbackData?.replace('rec_cat:', '') as Category;
-    if (!Object.values(Category).includes(category)) {
-      await ctx.answerCbQuery('⚠️ Invalid category');
-      return;
-    }
+    const category = callbackData?.replace('rec_cat:', '');
     (ctx.wizard.state as any).category = category;
     await ctx.answerCbQuery(`✅ ${CATEGORY_BUTTON_LABELS[category] ?? category}`);
     await ctx.replyWithHTML(STEP_LABELS.ask_day[lang] ?? STEP_LABELS.ask_day.en);
