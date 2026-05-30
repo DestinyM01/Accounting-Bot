@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { BudgetService } from './budget.service';
 
@@ -13,5 +13,13 @@ export class BudgetController {
       month ? parseInt(month, 10) : undefined,
       year ? parseInt(year, 10) : undefined,
     );
+  }
+
+  @Post()
+  @HttpCode(204)
+  async set(
+    @Body() body: { category: string; limitAmount: number; month?: number; year?: number },
+  ) {
+    await this.budgetService.set(body.category, body.limitAmount, body.month, body.year);
   }
 }

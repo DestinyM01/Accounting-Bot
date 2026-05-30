@@ -27,7 +27,6 @@ export class BudgetService {
     const start = new Date(y, m - 1, 1);
     const end = new Date(y, m, 1);
 
-    // Fetch all expense transactions for this month once
     const expenses = await this.transactionModel
       .find({ userId: this.userId, timestamp: { $gte: start, $lt: end }, amount: { $lt: 0 } })
       .select('category amount')
@@ -48,5 +47,17 @@ export class BudgetService {
         year: y,
       };
     });
+  }
+
+  async set(category: string, limitAmount: number, month?: number, year?: number): Promise<void> {
+    const now = new Date();
+    const m = month ?? now.getMonth() + 1;
+    const y = year ?? now.getFullYear();
+
+    await this.budgetModel.findOneAndUpdate(
+      { userId: this.userId, category, month: m, year: y },
+      { limitAmount },
+      { upsert: true },
+    );
   }
 }
