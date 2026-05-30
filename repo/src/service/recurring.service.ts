@@ -24,7 +24,7 @@ export class RecurringService {
     transactionType: TransactionType,
     amount: number,
     dayOfMonth: number,
-    category: string = 'OTHER',
+    category: string = 'other',
   ): Promise<Recurring> {
     return this.recurringModel.create({
       userId,
