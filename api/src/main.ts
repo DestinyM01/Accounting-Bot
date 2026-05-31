@@ -8,7 +8,7 @@ async function bootstrap() {
   // Origin header (https://bot.andujaronline.uk) must be allowed.
   app.enableCors({
     origin: process.env.CORS_ORIGIN || 'https://bot.andujaronline.uk',
-    methods: ['GET'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Authorization', 'Content-Type'],
   });
 
