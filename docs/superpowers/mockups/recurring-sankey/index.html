@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Recurring Sankey — mockup</title>
-<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+<title>Recurring Sankey — production preview (chartjs-chart-sankey)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@0.14.1/dist/chartjs-chart-sankey.min.js"></script>
 <style>
   :root{
-    --bg:#0a0e1a; --card:#0e1422; --card-2:#111a2e; --border:#1e293b;
+    --bg:#0a0e1a; --card:#0e1422; --border:#1e293b;
     --text:#e2e8f0; --muted:#94a3b8; --income:#10e5a0; --expense:#f87171; --accent:#2dd4bf;
     --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
   }
@@ -18,121 +18,92 @@
   h1{font-size:1.6rem;font-weight:700;margin:0;}
   .sub{color:var(--muted);font-size:.85rem;margin:4px 0 22px;}
 
-  .summary{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap;}
-  .pill{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 18px;flex:1;min-width:150px;}
-  .pill .lbl{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
-  .pill .val{font-size:1.4rem;font-weight:700;font-variant-numeric:tabular-nums;margin-top:3px;}
-  .pill.in  .val{color:var(--income);}
-  .pill.out .val{color:var(--expense);}
-  .pill.net .val{color:var(--accent);}
+  .summary-row{display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;}
+  .summary-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 18px;flex:1;min-width:200px;display:flex;align-items:center;gap:14px;}
+  .sc-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+  .sc-icon.income{background:rgba(16,229,160,.12);}
+  .sc-icon.expense{background:rgba(248,113,113,.12);}
+  .sc-label{font-size:.72rem;color:var(--muted);display:block;}
+  .sc-amount{font-size:1.3rem;font-weight:700;font-variant-numeric:tabular-nums;}
+  .sc-amount.income{color:var(--income);}
+  .sc-amount.expense{color:var(--expense);}
 
-  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 14px 8px;}
-  .card-head{display:flex;justify-content:space-between;align-items:baseline;padding:0 8px 6px;}
-  .card-title{font-size:1rem;font-weight:600;}
-  .card-sub{font-size:.75rem;color:var(--muted);}
-
-  .node rect{rx:3;cursor:default;}
-  .node text{fill:var(--text);font-size:12px;font-weight:500;paint-order:stroke;}
-  .node .amt{fill:var(--muted);font-size:11px;font-weight:400;}
-  .link{fill:none;stroke-opacity:.32;transition:stroke-opacity .15s;}
-  .link:hover{stroke-opacity:.55;}
-
-  .legend{display:flex;gap:16px;flex-wrap:wrap;padding:10px 8px 4px;font-size:.72rem;color:var(--muted);}
-  .legend span{display:inline-flex;align-items:center;gap:5px;}
-  .dot{width:9px;height:9px;border-radius:3px;display:inline-block;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;}
+  .rp-flow-panel{margin-bottom:16px;padding:18px 16px 12px;}
+  .rp-flow-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;padding:0 4px;}
+  .rp-flow-title{font-size:1rem;font-weight:600;color:var(--text);}
+  .rp-flow-sub{font-size:.75rem;color:var(--muted);}
+  .rp-flow-canvas-wrap{position:relative;height:320px;width:100%;}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Recurring</h1>
-  <div class="sub">Your fixed monthly income and expenses · June 2026</div>
+  <h1>Recurring Payments</h1>
+  <div class="sub">Manage your scheduled income and expenses</div>
 
-  <div class="summary">
-    <div class="pill in">  <div class="lbl">Monthly In</div> <div class="val">$3,800</div></div>
-    <div class="pill out"> <div class="lbl">Monthly Out</div><div class="val">$1,895</div></div>
-    <div class="pill net"> <div class="lbl">Surplus → Savings</div><div class="val">$1,905</div></div>
-  </div>
-
-  <div class="card">
-    <div class="card-head">
-      <span class="card-title">Cash-flow overview</span>
-      <span class="card-sub">band width = amount</span>
+  <div class="summary-row">
+    <div class="summary-card">
+      <div class="sc-icon income">📈</div>
+      <div><span class="sc-label">Monthly Scheduled Income</span><span class="sc-amount income">$3,800.00</span></div>
     </div>
-    <svg id="sankey" width="100%" height="380"></svg>
-    <div class="legend">
-      <span><i class="dot" style="background:#10e5a0"></i>Income</span>
-      <span><i class="dot" style="background:#38bdf8"></i>Housing</span>
-      <span><i class="dot" style="background:#fb923c"></i>Transport</span>
-      <span><i class="dot" style="background:#a78bfa"></i>Health</span>
-      <span><i class="dot" style="background:#f472b6"></i>Entertainment</span>
-      <span><i class="dot" style="background:#06b6d4"></i>Gym (custom)</span>
-      <span><i class="dot" style="background:#94a3b8"></i>Other</span>
-      <span><i class="dot" style="background:#34d399"></i>Savings</span>
+    <div class="summary-card">
+      <div class="sc-icon expense">🏦</div>
+      <div><span class="sc-label">Monthly Scheduled Expenses</span><span class="sc-amount expense">$1,895.00</span></div>
     </div>
   </div>
-  <div class="sub" style="margin-top:14px;padding-left:4px;">↓ the existing recurring list (with edit / delete) stays right below this panel</div>
+
+  <div class="card rp-flow-panel">
+    <div class="rp-flow-head">
+      <span class="rp-flow-title">Cash-flow overview</span>
+      <span class="rp-flow-sub">band width = monthly amount</span>
+    </div>
+    <div class="rp-flow-canvas-wrap"><canvas id="flow"></canvas></div>
+  </div>
 </div>
 
 <script>
-const fmt = d3.format("$,.0f");
-const nodes = [
-  {name:"Salary",        col:"#10e5a0"},  // 0
-  {name:"Freelance",     col:"#34d399"},  // 1
-  {name:"Monthly Income",col:"#14b8a6"},  // 2 (hub)
-  {name:"Housing",       col:"#38bdf8"},  // 3
-  {name:"Transport",     col:"#fb923c"},  // 4
-  {name:"Health",        col:"#a78bfa"},  // 5
-  {name:"Entertainment", col:"#f472b6"},  // 6
-  {name:"Gym",           col:"#06b6d4"},  // 7 (custom)
-  {name:"Phone",         col:"#94a3b8"},  // 8
-  {name:"Savings",       col:"#34d399"},  // 9
-];
-const links = [
-  {source:0,target:2,value:3000},
-  {source:1,target:2,value:800},
-  {source:2,target:3,value:1200},
-  {source:2,target:4,value:350},
-  {source:2,target:5,value:200},
-  {source:2,target:6,value:35},
-  {source:2,target:7,value:50},
-  {source:2,target:8,value:60},
-  {source:2,target:9,value:1905},
-];
+// Mirrors the production component: namespaced in:/out: keys, hub + savings, category colors.
+const HUB='hub', SAV='sav', HUB_COLOR='#14b8a6', SAV_COLOR='#34d399';
+const catColor = { housing:'#38bdf8', transport:'#fb923c', health:'#a78bfa',
+                   entertainment:'#f472b6', salary:'#10e5a0', other:'#94a3b8', gym:'#06b6d4' };
 
-const svg = d3.select("#sankey");
-const W = svg.node().clientWidth, H = 380;
-const sankey = d3.sankey()
-  .nodeWidth(14).nodePadding(14)
-  .extent([[6,10],[W-6,H-10]]);
+const income = [
+  {id:'i1', transactionName:'salary',    category:'salary', amount:3000},
+  {id:'i2', transactionName:'freelance', category:'salary', amount:800},
+];
+const expense = [
+  {id:'e1', transactionName:'rent',            category:'housing',       amount:1200},
+  {id:'e2', transactionName:'car payment',     category:'transport',     amount:350},
+  {id:'e3', transactionName:'health insurance',category:'health',        amount:200},
+  {id:'e4', transactionName:'subscriptions',   category:'entertainment', amount:35},
+  {id:'e5', transactionName:'gym',             category:'gym',           amount:50},
+  {id:'e6', transactionName:'phone',           category:'other',         amount:60},
+];
+const titleCase = s => s.replace(/\b\w/g, c => c.toUpperCase());
+const totalIn = income.reduce((s,r)=>s+r.amount,0);
+const totalOut= expense.reduce((s,r)=>s+r.amount,0);
+const surplus = totalIn-totalOut;
 
-const graph = sankey({
-  nodes: nodes.map(d=>Object.assign({},d)),
-  links: links.map(d=>Object.assign({},d)),
+const data=[]; const labels={[HUB]:'Monthly Income',[SAV]:'Savings'}; const colors={[HUB]:HUB_COLOR,[SAV]:SAV_COLOR};
+income.forEach(r=>{const k='in:'+r.id; data.push({from:k,to:HUB,flow:r.amount}); labels[k]=titleCase(r.transactionName); colors[k]=catColor[r.category]||'#94a3b8';});
+expense.forEach(r=>{const k='out:'+r.id; data.push({from:HUB,to:k,flow:r.amount}); labels[k]=titleCase(r.transactionName); colors[k]=catColor[r.category]||'#94a3b8';});
+if(surplus>0) data.push({from:HUB,to:SAV,flow:surplus});
+const nodeColor = n => colors[n] ?? '#94a3b8';
+
+new Chart(document.getElementById('flow'), {
+  type:'sankey',
+  data:{ datasets:[{
+    data, labels,
+    colorFrom:(c)=>nodeColor(c.dataset.data[c.dataIndex].from),
+    colorTo:(c)=>nodeColor(c.dataset.data[c.dataIndex].to),
+    colorMode:'gradient', borderWidth:0, nodeWidth:14, nodePadding:14,
+  }]},
+  options:{ responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false},
+      tooltip:{ backgroundColor:'#0e1726', borderColor:'rgba(255,255,255,0.08)', borderWidth:1,
+        titleColor:'#94a3b8', bodyColor:'#e2e8f0',
+        callbacks:{ label:(ctx)=>{const d=ctx.dataset.data[ctx.dataIndex];return (labels[d.from]??d.from)+' → '+(labels[d.to]??d.to)+': $'+d.flow.toLocaleString();}}}}}
 });
-
-// links — colored by the non-hub end
-svg.append("g").selectAll("path").data(graph.links).join("path")
-  .attr("class","link")
-  .attr("d", d3.sankeyLinkHorizontal())
-  .attr("stroke", d => (d.source.name==="Monthly Income" ? d.target.col : d.source.col))
-  .attr("stroke-width", d => Math.max(1.5, d.width));
-
-const node = svg.append("g").selectAll("g").data(graph.nodes).join("g").attr("class","node");
-node.append("rect")
-  .attr("x",d=>d.x0).attr("y",d=>d.y0)
-  .attr("width",d=>d.x1-d.x0).attr("height",d=>Math.max(2,d.y1-d.y0))
-  .attr("fill",d=>d.col);
-
-node.append("text")
-  .attr("x", d => d.x0 < W/2 ? d.x1+8 : d.x0-8)
-  .attr("y", d => (d.y0+d.y1)/2 - 4)
-  .attr("text-anchor", d => d.x0 < W/2 ? "start" : "end")
-  .text(d => d.name);
-node.append("text").attr("class","amt")
-  .attr("x", d => d.x0 < W/2 ? d.x1+8 : d.x0-8)
-  .attr("y", d => (d.y0+d.y1)/2 + 9)
-  .attr("text-anchor", d => d.x0 < W/2 ? "start" : "end")
-  .text(d => fmt(d.value));
 </script>
 </body>
 </html>
