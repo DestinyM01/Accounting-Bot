@@ -21,6 +21,7 @@
     "@fontsource/geist-mono": "^5.2.8",
     "angular-oauth2-oidc": "^17.0.0",
     "chart.js": "^4.4.0",
+    "chartjs-chart-sankey": "^0.14.1",
     "ng2-charts": "^6.0.0",
     "rxjs": "^7.8.0",
     "tslib": "^2.6.0",
