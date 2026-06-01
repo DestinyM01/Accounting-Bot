@@ -49,8 +49,8 @@ export class RecurringComponent implements OnInit, OnDestroy {
   // ── Flow chart ───────────────────────────────────────────────────────
   /** Only show the flow chart when there's both income and expense to connect. */
   get showFlowChart(): boolean {
-    const hasIncome  = this.items.some(r => r.isIncome);
-    const hasExpense = this.items.some(r => !r.isIncome);
+    const hasIncome  = this.items.some(r => r.isIncome  && r.amount > 0);
+    const hasExpense = this.items.some(r => !r.isIncome && r.amount > 0);
     return hasIncome && hasExpense;
   }
 
@@ -58,14 +58,14 @@ export class RecurringComponent implements OnInit, OnDestroy {
     return s.replace(/\b\w/g, c => c.toUpperCase());
   }
 
-  buildFlowChart() {
+  private buildFlowChart() {
     if (this.flowChart) { this.flowChart.destroy(); this.flowChart = null; }
     if (!this.showFlowChart) return;
     const canvas = this.flowCanvas?.nativeElement;
     if (!canvas) return;
 
-    const income  = this.items.filter(r => r.isIncome);
-    const expense = this.items.filter(r => !r.isIncome);
+    const income  = this.items.filter(r => r.isIncome  && r.amount > 0);
+    const expense = this.items.filter(r => !r.isIncome && r.amount > 0);
     const totalIncome  = income.reduce((s, r) => s + r.amount, 0);
     const totalExpense = expense.reduce((s, r) => s + r.amount, 0);
     const surplus = totalIncome - totalExpense;
