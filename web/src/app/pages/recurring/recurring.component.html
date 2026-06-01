@@ -54,6 +54,18 @@
       </div>
     </div>
 
+    @if (showFlowChart) {
+      <div class="card rp-flow-panel">
+        <div class="rp-flow-head">
+          <span class="rp-flow-title">Cash-flow overview</span>
+          <span class="rp-flow-sub">band width = monthly amount</span>
+        </div>
+        <div class="rp-flow-canvas-wrap">
+          <canvas #flowCanvas></canvas>
+        </div>
+      </div>
+    }
+
     <!-- Scheduled Items table -->
     @if (items.length === 0) {
       <div class="empty-state">

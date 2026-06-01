@@ -477,3 +477,31 @@
   &:hover { background: rgba(248,113,113,0.1); color: var(--expense); }
   &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }
+
+// ── Cash-flow Sankey panel ─────────────────────────────────────────────
+.rp-flow-panel {
+  margin-bottom: 16px;
+  padding: 18px 16px 12px;
+}
+
+.rp-flow-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+  padding: 0 4px;
+}
+.rp-flow-title { font-size: 1rem; font-weight: 600; color: var(--text); }
+.rp-flow-sub   { font-size: 0.75rem; color: var(--text-muted); }
+
+.rp-flow-canvas-wrap {
+  position: relative;
+  height: 320px;
+  width: 100%;
+}
+
+// Sankey is unreadable on narrow screens — the summary cards above carry
+// the key numbers on mobile.
+@media (max-width: 700px) {
+  .rp-flow-panel { display: none; }
+}
