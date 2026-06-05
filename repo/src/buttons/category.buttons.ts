@@ -1,14 +1,14 @@
 import { Category } from '../type/enum/category.enum';
 
-const CATEGORY_LABELS: Record<Category, { en: string; ua: string; pl: string }> = {
-  [Category.FOOD]: { en: '🍔 Food', ua: '🍔 Їжа', pl: '🍔 Jedzenie' },
-  [Category.TRANSPORT]: { en: '🚗 Transport', ua: '🚗 Транспорт', pl: '🚗 Transport' },
-  [Category.HOUSING]: { en: '🏠 Housing', ua: '🏠 Житло', pl: '🏠 Mieszkanie' },
-  [Category.HEALTH]: { en: '💊 Health', ua: '💊 Здоров\'я', pl: '💊 Zdrowie' },
-  [Category.ENTERTAINMENT]: { en: '🎮 Entertainment', ua: '🎮 Розваги', pl: '🎮 Rozrywka' },
-  [Category.SALARY]: { en: '💼 Salary', ua: '💼 Зарплата', pl: '💼 Wynagrodzenie' },
-  [Category.SAVINGS]: { en: '💰 Savings', ua: '💰 Заощадження', pl: '💰 Oszczędności' },
-  [Category.OTHER]: { en: '📦 Other', ua: '📦 Інше', pl: '📦 Inne' },
+const CATEGORY_LABELS: Record<Category, { en: string; es: string; ua: string; pl: string }> = {
+  [Category.FOOD]:          { en: '🍔 Food',          es: '🍔 Comida',          ua: '🍔 Їжа',         pl: '🍔 Jedzenie' },
+  [Category.TRANSPORT]:     { en: '🚗 Transport',     es: '🚗 Transporte',      ua: '🚗 Транспорт',   pl: '🚗 Transport' },
+  [Category.HOUSING]:       { en: '🏠 Housing',       es: '🏠 Vivienda',        ua: '🏠 Житло',       pl: '🏠 Mieszkanie' },
+  [Category.HEALTH]:        { en: '💊 Health',        es: '💊 Salud',           ua: '💊 Здоров\'я',   pl: '💊 Zdrowie' },
+  [Category.ENTERTAINMENT]: { en: '🎮 Entertainment', es: '🎮 Entretenimiento', ua: '🎮 Розваги',     pl: '🎮 Rozrywka' },
+  [Category.SALARY]:        { en: '💼 Salary',        es: '💼 Salario',         ua: '💼 Зарплата',    pl: '💼 Wynagrodzenie' },
+  [Category.SAVINGS]:       { en: '💰 Savings',       es: '💰 Ahorros',         ua: '💰 Заощадження', pl: '💰 Oszczędności' },
+  [Category.OTHER]:         { en: '📦 Other',         es: '📦 Otro',            ua: '📦 Інше',        pl: '📦 Inne' },
 };
 
 export function categoryButtons(
@@ -16,13 +16,18 @@ export function categoryButtons(
   language: string,
   customCategories: { name: string; emoji: string }[] = [],
 ) {
-  const lang = (language || 'ua') as 'en' | 'ua' | 'pl';
-  const builtInRows = Object.values(Category).map((cat) => [
-    {
-      text: CATEGORY_LABELS[cat][lang],
-      callback_data: `cat_${cat}_${transactionId}`,
-    },
-  ]);
+  const lang = language || 'en';
+  const builtInRows = Object.values(Category).map((cat) => {
+    const labels = CATEGORY_LABELS[cat] as Record<string, string>;
+    // Fall back to English so a missing translation never yields undefined
+    // button text — Telegram rejects empty labels and the reply would throw.
+    return [
+      {
+        text: labels[lang] ?? labels.en,
+        callback_data: `cat_${cat}_${transactionId}`,
+      },
+    ];
+  });
   const customRows = customCategories.map((c) => [
     {
       text: `${c.emoji} ${c.name}`,
