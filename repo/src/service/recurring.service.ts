@@ -54,6 +54,26 @@ export class RecurringService {
     const due = await this.recurringModel.find({ dayOfMonth: today, active: true }).exec();
     for (const r of due) {
       try {
+        // lastExecutedAt was previously written but never read, so two runs on
+        // the same day created two transactions for one payment.
+        if (r.lastExecutedAt && isSameMonth(new Date(r.lastExecutedAt), new Date())) {
+          this.logger.log(`Recurring "${r.transactionName}" already executed this month — skipping`);
+          continue;
+        }
+
+        // The bank email may already have recorded this payment. The email is
+        // evidence the money moved; the rule is only a prediction.
+        const alreadyIngested = await this.transactionService.findOneByRecurringThisMonth(
+          r.userId,
+          String(r._id),
+        );
+        if (alreadyIngested) {
+          this.logger.log(`Recurring "${r.transactionName}" already satisfied by ingested mail — skipping`);
+          r.lastExecutedAt = new Date();
+          await r.save();
+          continue;
+        }
+
         const created = await this.transactionService.createTransaction({
           userId: r.userId,
           userName: r.userName,
@@ -77,4 +97,8 @@ export class RecurringService {
       }
     }
   }
+}
+
+function isSameMonth(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
 }

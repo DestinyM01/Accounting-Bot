@@ -175,6 +175,20 @@ export class TransactionService {
     return this.transactionModel.findOne({ _id: txId, userId }).exec();
   }
 
+  /**
+   * Finds an ingested transaction already recorded this month for a given
+   * recurring rule. Used to skip firing a recurring rule when the bank email
+   * has already recorded the real-world payment it predicts.
+   */
+  async findOneByRecurringThisMonth(userId: number, recurringId: string) {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return this.transactionModel
+      .findOne({ userId, recurringId, timestamp: { $gte: start, $lt: end } })
+      .exec();
+  }
+
   /** Updates only the name of a transaction. No balance change needed. */
   async updateTransactionName(userId: number, txId: string, newName: string): Promise<void> {
     await this.transactionModel
