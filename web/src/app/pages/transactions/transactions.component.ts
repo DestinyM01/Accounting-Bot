@@ -29,7 +29,9 @@ export class TransactionsComponent implements OnInit {
   typeFilter:    '' | 'income' | 'expense' = '';
   startDate      = '';
   endDate        = '';
+  needsReviewOnly = false;
   get categories(): string[] { return this.catSvc.all.map(c => c.name); }
+  get reviewCategories(): string[] { return this.catSvc.all.map(c => c.name); }
 
   private search$ = new Subject<string>();
 
@@ -46,12 +48,13 @@ export class TransactionsComponent implements OnInit {
     else        this.loading     = true;
 
     this.api.getTransactions({
-      limit:     this.limit,
-      offset:    this.offset,
-      category:  this.categoryFilter || undefined,
-      type:      (this.typeFilter as 'income' | 'expense') || undefined,
-      startDate: this.startDate || undefined,
-      endDate:   this.endDate   || undefined,
+      limit:       this.limit,
+      offset:      this.offset,
+      category:    this.categoryFilter || undefined,
+      type:        (this.typeFilter as 'income' | 'expense') || undefined,
+      startDate:   this.startDate || undefined,
+      endDate:     this.endDate   || undefined,
+      needsReview: this.needsReviewOnly || undefined,
     }).subscribe({
       next: (page: TransactionPage) => {
         this.items   = append ? [...this.items, ...page.items] : page.items;
@@ -66,6 +69,20 @@ export class TransactionsComponent implements OnInit {
   onCategoryChange() { this.offset = 0; this.load(false); }
   onTypeChange()     { this.offset = 0; this.load(false); }
   onDateChange()     { this.offset = 0; this.load(false); }
+
+  onNeedsReviewToggle() {
+    this.needsReviewOnly = !this.needsReviewOnly;
+    this.offset = 0;
+    this.load(false);
+  }
+
+  assignCategory(tx: Transaction, category: string) {
+    if (!category) return;
+    this.api.setTransactionCategory(tx._id, category).subscribe({
+      next: () => { tx.category = category; tx.categoryNeedsReview = false; },
+      error: () => { alert('Failed to set category. Please try again.'); },
+    });
+  }
 
   loadMore() { this.offset += this.limit; this.load(true); }
 

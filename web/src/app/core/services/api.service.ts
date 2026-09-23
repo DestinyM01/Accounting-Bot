@@ -28,20 +28,22 @@ export class ApiService {
   }
 
   getTransactions(opts: {
-    limit?:     number;
-    offset?:    number;
-    type?:      'income' | 'expense';
-    category?:  string;
-    startDate?: string;
-    endDate?:   string;
+    limit?:       number;
+    offset?:      number;
+    type?:        'income' | 'expense';
+    category?:    string;
+    startDate?:   string;
+    endDate?:     string;
+    needsReview?: boolean;
   } = {}): Observable<TransactionPage> {
     let params = new HttpParams();
-    if (opts.limit)     params = params.set('limit',     opts.limit);
-    if (opts.offset)    params = params.set('offset',    opts.offset);
-    if (opts.type)      params = params.set('type',      opts.type);
-    if (opts.category)  params = params.set('category',  opts.category);
-    if (opts.startDate) params = params.set('startDate', opts.startDate);
-    if (opts.endDate)   params = params.set('endDate',   opts.endDate);
+    if (opts.limit)       params = params.set('limit',       opts.limit);
+    if (opts.offset)      params = params.set('offset',      opts.offset);
+    if (opts.type)        params = params.set('type',        opts.type);
+    if (opts.category)    params = params.set('category',    opts.category);
+    if (opts.startDate)   params = params.set('startDate',   opts.startDate);
+    if (opts.endDate)     params = params.set('endDate',     opts.endDate);
+    if (opts.needsReview) params = params.set('needsReview', opts.needsReview);
     return this.http.get<TransactionPage>(`${this.base}/transactions`, { params });
   }
 
@@ -57,6 +59,10 @@ export class ApiService {
     if (opts.startDate) params = params.set('startDate', opts.startDate);
     if (opts.endDate)   params = params.set('endDate',   opts.endDate);
     return this.http.get(`${this.base}/transactions/export`, { params, responseType: 'blob' });
+  }
+
+  setTransactionCategory(id: string, category: string): Observable<void> {
+    return this.http.patch<void>(`${this.base}/transactions/${id}/category`, { category });
   }
 
   getBudget(month?: number, year?: number): Observable<BudgetEntry[]> {

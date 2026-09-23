@@ -10,6 +10,7 @@ export interface TransactionQuery {
   category?: string;
   startDate?: string;
   endDate?: string;
+  needsReview?: boolean;
 }
 
 export interface ExportQuery {
@@ -27,6 +28,9 @@ export interface TransactionItem {
   isExpense: boolean;
   timestamp: Date;
   category: string;
+  categoryNeedsReview?: boolean;
+  merchant?: string;
+  source?: string;
 }
 
 export interface TransactionPage {
@@ -44,11 +48,12 @@ export class TransactionsService {
     @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
   ) {}
 
-  private buildFilter(query: ExportQuery): Record<string, any> {
+  private buildFilter(query: ExportQuery & { needsReview?: boolean }): Record<string, any> {
     const filter: any = { userId: this.userId };
     if (query.type === 'income')  filter.amount = { $gt: 0 };
     if (query.type === 'expense') filter.amount = { $lt: 0 };
     if (query.category) filter.category = query.category;
+    if (query.needsReview) filter.categoryNeedsReview = true;
     if (query.startDate || query.endDate) {
       filter.timestamp = {};
       if (query.startDate) filter.timestamp.$gte = new Date(query.startDate);
@@ -72,7 +77,7 @@ export class TransactionsService {
         .sort({ timestamp: -1 })
         .skip(offset)
         .limit(limit)
-        .select('transactionName transactionType amount timestamp category')
+        .select('transactionName transactionType amount timestamp category categoryNeedsReview merchant source')
         .lean(),
       this.transactionModel.countDocuments(filter),
     ]);
@@ -105,5 +110,12 @@ export class TransactionsService {
     }).join('\n');
 
     return header + rows;
+  }
+
+  async setCategory(id: string, category: string): Promise<void> {
+    await this.transactionModel.findOneAndUpdate(
+      { _id: id, userId: this.userId },
+      { category, categoryNeedsReview: false },
+    );
   }
 }

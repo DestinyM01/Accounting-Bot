@@ -13,6 +13,9 @@ export interface Transaction {
   isExpense: boolean;
   timestamp: string;
   category: string;
+  categoryNeedsReview?: boolean;
+  merchant?: string;
+  source?: string;
 }
 
 export interface TransactionPage {
