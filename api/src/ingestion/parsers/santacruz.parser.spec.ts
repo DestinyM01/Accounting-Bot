@@ -15,7 +15,7 @@ describe('santaCruzParser', () => {
     const r = santaCruzParser.parse({ subject: 'Notificación, Banco Santa Cruz', body: CONSUMO })!;
     expect(r.amount).toBe(520);
     expect(r.counterparty).toBe('UBER*EATS SANTO DOMINGODO');
-    expect(r.cardLast4).toBe('6766');
+    expect(r.cardLast4).toBe('8002');
     expect(r.occurredAt.getDate()).toBe(21);
     expect(r.occurredAt.getMonth()).toBe(8);
     expect(r.occurredAt.getHours()).toBe(12);

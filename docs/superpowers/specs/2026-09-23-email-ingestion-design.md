@@ -76,7 +76,7 @@ Subject: `Recibo de la transacción`. Wire/ACH transfer receipts — occasional,
 | Origen: |
 | CARLOS MANUEL PEREZ SANTOS, CuentaAhorro DOP ** - 4500 |
 | Destino: |
-| JUAN ANTONIO RIVERA MARTE, CuentaAhorro DOP ** - 0010 |
+| JUAN ANTONIO RIVERA MARTE, CuentaAhorro DOP ** - 2002 |
 | Fecha de transacción: |
 | 18 de Septiembre 2026 - 11:52 AM |
 | Impuestos: |

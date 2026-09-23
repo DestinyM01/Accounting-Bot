@@ -9,7 +9,7 @@ const INCOMING = `| ¡Transacción realizada! |
 | Origen: |
 | CARLOS MANUEL PEREZ SANTOS, CuentaAhorro DOP ** - 4500 |
 | Destino: |
-| JUAN ANTONIO RIVERA MARTE, CuentaAhorro DOP ** - 0010 |
+| JUAN ANTONIO RIVERA MARTE, CuentaAhorro DOP ** - 2002 |
 | Fecha de transacción: |
 | 18 de Septiembre 2026 - 11:52 AM |
 | Impuestos: |
@@ -24,7 +24,7 @@ const OUTGOING = `| ¡Transacción realizada! |
 | Transacción: |
 | Transferencia ACH |
 | Origen: |
-| JUAN ANTONIO RIVERA MARTE, CuentaAhorro DOP ** - 0010 |
+| JUAN ANTONIO RIVERA MARTE, CuentaAhorro DOP ** - 2002 |
 | Destino: |
 | ALGUIEN MAS, CuentaAhorro DOP ** - 9999 |
 | Fecha de transacción: |
@@ -81,7 +81,7 @@ describe('banreservasParser', () => {
   });
 
   it('does not treat a longer account number as our own (digit-boundary match)', () => {
-    const nearMiss = INCOMING.replace('** - 0010', '** - 32002');
+    const nearMiss = INCOMING.replace('** - 2002', '** - 32002');
     expect(
       banreservasParser.parse({ subject: 'x', body: nearMiss, ownIdentifiers: ['2002'] }),
     ).toBeNull();

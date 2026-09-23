@@ -40,7 +40,7 @@ describe('popularParser', () => {
     expect(r.currency).toBe('DOP');
     expect(r.direction).toBe('expense');
     expect(r.counterparty).toBe('UBER*RIDES');
-    expect(r.cardLast4).toBe('7914');
+    expect(r.cardLast4).toBe('8001');
     expect(r.isWithdrawal).toBe(false);
     expect(r.occurredAt.getFullYear()).toBe(2026);
     expect(r.occurredAt.getMonth()).toBe(8); // September

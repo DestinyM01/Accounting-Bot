@@ -22,9 +22,10 @@ They are separate task groups in the plan. They are not separate releases.
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Own-product BHD transfers | **Ingest as `unresolved`** | The destination may be a loan (real expense) or a savings account (internal). The email cannot distinguish them, so the user does. |
-| Unresolved balance impact | **None until classified** | We do not know whether money left the user's net worth, so we do not assert that it did. |
-| Cross-bank own transfers | **Recorded, tagged `internal`, excluded from expenses and budgets** | Keeps the money trail auditable without inflating spending. Balance impact is zero by definition. |
+| Internal vs expense | **Decided solely by destination account** | Subject lines lie; a transfer titled "a otros Bancos" was observed moving money between two of the user's own accounts. |
+| Beneficiary name | **Never used for the internal test** | The loan payment carries the user's own name; a name-based rule would erase it. |
+| Own transfers | **Recorded, tagged `internal`, excluded from expenses and budgets** | Keeps the money trail auditable without inflating spending. Balance impact is zero by definition. |
+| Unparseable destination | **`unresolved`, no balance impact until classified** | We do not know whether money left the user's net worth, so we do not assert that it did. |
 | Recurring vs email | **Bidirectional auto-match, exact amount** | Either side can arrive first. Exact-amount matching avoids false positives on fixed payments. |
 | Salary (`Depósito de Nómina`) | **Recurring income rule, confirmed by the email** | The email carries no amount, so it cannot create a transaction. It can confirm one. |
 | Marketing mail | **Explicitly recognised and skipped** | Known non-transactional subjects must not be counted as parse failures. |
@@ -49,7 +50,7 @@ Every sample below is real, pulled from `juan.rivera@gmail.com`. They are the pa
 
 Both subjects arrive from `Alertas@bhd.com.do`. **Both are pipe-delimited label/value rows**, unlike the v1 BHD card table.
 
-**`Transacciones entre productos BHD y a otros Bancos`** — transfer out:
+**`Transacciones entre productos BHD y a otros Bancos`** — this subject does **not** mean the money left the user. See the discriminator warning below.
 
 ```
 | Producto origen: | DO94BCBH000000000XXXXXXX2002 |
@@ -71,6 +72,19 @@ Both subjects arrive from `Alertas@bhd.com.do`. **Both are pipe-delimited label/
 | Fecha y hora de la transacción: | 24/08/2026 - 2:51 PM |
 | Tipo de transacción: | Transacciones entre mis productos |
 ```
+
+A third real sample — **same subject as the first**, but the destination is the user's own Santa Cruz account:
+
+```
+| Producto origen: | DO94BCBH000000000XXXXXXX2002 |
+| Producto destino: | XXXXXXXXXX2003 |
+| Monto: | RD$ 1,000.00 |
+| Beneficiario: | JUAN ANTONIO RIVERA MARTE |
+| Fecha y hora de la transacción: | 02/09/2026 - 11:07 AM |
+| Tipo de transacción: | Transacciones entre productos BHD y a otros Bancos |
+```
+
+> **Discriminator warning.** `Tipo de transacción` and the subject are **not** reliable indicators of whether money left the user. The sample above reads "a otros Bancos" while moving money between two of the user's own accounts. Classifying on subject would book a phantom RD$1,000 expense. **Only `Producto destino` decides.**
 
 Notes:
 - Date format `DD/MM/YYYY - h:mm AM/PM` — **a fourth BHD-family date shape**, distinct from the v1 card format.
@@ -132,13 +146,35 @@ Observed on 28 August 2026:
 | Bank | Amount | Beneficiario | Account |
 |---|---|---|---|
 | Popular | RD$ 20,000.00 | JUAN ANTONIO RIVERA MART (the user) | `******_2002` |
-| BHD | RD$ 20,000.00 | MARIA ALTAGRACIA GOMEZ REYES | `…0010` → `XXXXXX4400` |
+| BHD | RD$ 20,000.00 | MARIA ALTAGRACIA GOMEZ REYES | `…2002` → `XXXXXX4400` |
 
-One RD$20,000 housing payment. The user moved their own money Popular → their BHD account `0010`, then BHD → Maria. Ingesting both as expenses records RD$40,000.
+One RD$20,000 housing payment. The user moved their own money Popular → their BHD account `2002`, then BHD → Maria. Ingesting both as expenses records RD$40,000.
 
-**Rule:** a transfer whose beneficiary *and* destination account both match the user's own identifiers is a funding move, not an expense. Contrast 5 July 2026, where the beneficiary was `PEDRO NUNEZ` — a different party, and a genuine expense.
+**Rule:** a transfer is internal **if and only if its destination account is one of the user's own cash accounts.** Nothing else participates in the decision.
 
-Detection reuses the `matchesOwn` helper from `banreservas.parser.ts`, including its digit-boundary rule for numeric identifiers.
+The user holds exactly three savings/checking accounts, and internal money movement happens only between these:
+
+| Bank | Last 4 |
+|---|---|
+| Popular | `2001` |
+| BHD | `2002` |
+| Banco Santa Cruz | `2003` |
+
+**The beneficiary name must never be used for this decision.** The monthly loan payment to `…3050` carries `Beneficiario: JUAN RIVERA` — the user's own name. A name-based rule would classify it as internal and silently erase a real RD$1,942.10 monthly expense. Ownership of the *counterparty name* and ownership of the *destination as a cash account* are different questions, and only the second one decides.
+
+Applying the rule to every observed transfer:
+
+| Destino | One of the three? | Result |
+|---|---|---|
+| `…2003` (×2) | yes — Santa Cruz | `internal` |
+| `…_2002` (Popular → BHD) | yes — BHD | `internal` |
+| `…4400` | no — third party | `external` (housing) |
+| `…3050` (×2) | no — a loan, not a cash account | `external` (loan) |
+| `…2004`, `…2007` | no | `external` |
+
+Detection reuses the `matchesOwn` helper from `banreservas.parser.ts`, including its digit-boundary rule — which matters here, because `2002`, `2004` and `2007` differ only in the final digit and all appear inside long IBAN-style strings.
+
+**Match the parsed `Producto destino` field, never the whole body.** The BHD origin account is always `…2002`, so a body-wide search would report every BHD email as internal.
 
 ### 2. Recurring rules vs email
 
@@ -158,9 +194,11 @@ transferKind?: 'external' | 'internal' | 'unresolved';
 
 | Kind | Counts as expense | Moves balance | Visible | Set when |
 |---|---|---|---|---|
-| `external` | yes | yes | yes | Counterparty is a third party |
-| `internal` | no | no | yes, tagged | Beneficiary **and** account both match own identifiers |
-| `unresolved` | no | no | yes, flagged | Own-product transfer whose destination could be a loan |
+| `external` | yes | yes | yes | Destination is **not** one of the three cash accounts |
+| `internal` | no | no | yes, tagged | Destination **is** one of the three cash accounts |
+| `unresolved` | no | no | yes, flagged | `Producto destino` could not be parsed at all |
+
+`unresolved` is a safety net, not a routine state. Every format observed in the live mailbox resolves deterministically to `internal` or `external`, so the user is not asked to classify anything by hand. It exists so that a template change which breaks destination parsing degrades into "ask the human" rather than "guess and move the balance".
 
 Absent field means an ordinary card transaction — unchanged v1 behaviour.
 
@@ -223,14 +261,42 @@ Aggregation sites that must exclude `internal` and `unresolved` from expense tot
 
 ---
 
+## Configuration
+
+One new variable:
+
+```
+OWN_CASH_ACCOUNTS=2001,2002,2003
+```
+
+The user's savings/checking accounts — Popular, BHD and Santa Cruz respectively. Internal money movement happens only between these.
+
+**This is deliberately separate from the existing `OWN_ACCOUNT_IDENTIFIERS`.** The two answer different questions:
+
+| Variable | Question | Contains | Used by |
+|---|---|---|---|
+| `OWN_ACCOUNT_IDENTIFIERS` | "Is this party me?" | account digits **and name fragments** | Banreservas income/expense direction |
+| `OWN_CASH_ACCOUNTS` | "Is this one of my cash accounts?" | account digits **only** | internal-transfer detection |
+
+Merging them would let a name fragment satisfy the internal-transfer test, which is exactly the bug that erases the loan payment. Keeping them apart makes that mistake impossible rather than merely discouraged.
+
+If `OWN_CASH_ACCOUNTS` is empty, no transfer is ever classified `internal` — transfers are then treated as expenses, which over-reports rather than silently losing money, and is visible in the ledger.
+
+---
+
 ## Testing
 
 Each new format gets a parser spec built on the verbatim fixtures above, asserting field extraction and its own date shape. Beyond that:
 
 - `Actualización de Límite` yields `null` — the phantom-RD$25,000 case, asserted explicitly rather than left to the `Aprobada` guard by luck
 - `Depósito de Nómina` yields `null` and is classified as *known-skip*, not *failed*
-- Popular transfer with own beneficiary + own account → `internal`; with a third-party beneficiary → `external`
-- BHD `entre mis productos` → `unresolved`, and asserts **balance is untouched**
+- BHD transfer to `…2003` with subject `…y a otros Bancos` → **`internal`** despite the subject, and asserts **balance is untouched**. This is the phantom-RD$1,000 case.
+- BHD transfer to `…3050` with `Beneficiario: JUAN RIVERA` → **`external`**. This is the regression test for the name-based rule that would erase the loan payment.
+- BHD transfer to `…4400` (third party) → `external`
+- Popular `Pagos al Instante` to `…_2002` → `internal`; to `PEDRO NUÑEZ` → `external`
+- `matchesOwn` does not confuse `2002` with `2004` or `2007` inside an IBAN-style string
+- Internal detection reads the parsed destination field only — a BHD email whose **origin** is `…2002` and whose destination is a third party is `external`, not `internal`
+- A transfer whose destination cannot be parsed → `unresolved`, balance untouched
 - Resolving `unresolved` → `external` applies balance exactly once and writes exactly one history entry
 - Reconciliation: email-first, cron-first, amount mismatch (no match), date outside window (no match), and a genuine second same-amount payment in one month (**not** swallowed)
 - `processRecurring()` run twice in a day creates one transaction

@@ -317,7 +317,7 @@
       expect(r.currency).toBe('DOP');
       expect(r.direction).toBe('expense');
       expect(r.counterparty).toBe('UBER*RIDES');
-      expect(r.cardLast4).toBe('7914');
+      expect(r.cardLast4).toBe('8001');
       expect(r.isWithdrawal).toBe(false);
       expect(r.occurredAt.getFullYear()).toBe(2026);
       expect(r.occurredAt.getMonth()).toBe(8); // September
@@ -498,7 +498,7 @@
       const r = santaCruzParser.parse({ subject: 'Notificación, Banco Santa Cruz', body: CONSUMO })!;
       expect(r.amount).toBe(520);
       expect(r.counterparty).toBe('UBER*EATS SANTO DOMINGODO');
-      expect(r.cardLast4).toBe('6766');
+      expect(r.cardLast4).toBe('8002');
       expect(r.occurredAt.getDate()).toBe(21);
       expect(r.occurredAt.getMonth()).toBe(8);
       expect(r.occurredAt.getHours()).toBe(12);
@@ -623,7 +623,7 @@
   | Origen: |
   | CARLOS MANUEL PEREZ SANTOS, CuentaAhorro DOP ** - 4500 |
   | Destino: |
-  | JUAN ANTONIO RIVERA MARTE, CuentaAhorro DOP ** - 0010 |
+  | JUAN ANTONIO RIVERA MARTE, CuentaAhorro DOP ** - 2002 |
   | Fecha de transacción: |
   | 18 de Septiembre 2026 - 11:52 AM |
   | Impuestos: |
@@ -651,8 +651,8 @@
 
     it('books an outgoing wire as an expense', () => {
       const outgoing = RECEIPT
-        .replace('CARLOS MANUEL PEREZ SANTOS, CuentaAhorro DOP ** - 4500', 'JUAN ANTONIO RIVERA MARTE, CuentaAhorro DOP ** - 0010')
-        .replace('JUAN ANTONIO RIVERA MARTE, CuentaAhorro DOP ** - 0010 |\n  | Fecha', 'ALGUIEN MAS, CuentaAhorro DOP ** - 9999 |\n  | Fecha');
+        .replace('CARLOS MANUEL PEREZ SANTOS, CuentaAhorro DOP ** - 4500', 'JUAN ANTONIO RIVERA MARTE, CuentaAhorro DOP ** - 2002')
+        .replace('JUAN ANTONIO RIVERA MARTE, CuentaAhorro DOP ** - 2002 |\n  | Fecha', 'ALGUIEN MAS, CuentaAhorro DOP ** - 9999 |\n  | Fecha');
       const r = banreservasParser.parse({ subject: 'x', body: outgoing, ownIdentifiers: OWN })!;
       expect(r.direction).toBe('expense');
     });
