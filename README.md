@@ -155,6 +155,24 @@ The web app expects the API at `/api` (proxied in `angular.json` or via nginx in
 | `AUTHENTIK_JWKS_URI` | JWKS endpoint for JWT validation |
 | `CORS_ORIGIN` | Allowed CORS origin for the web app |
 | `PORT` | API port (default: `4000`) |
+| `GMAIL_USER` | Gmail address to read from (default: none — ingestion disabled) |
+| `GMAIL_APP_PASSWORD` | Google App Password, not the account password (default: none — ingestion disabled) |
+| `INGEST_MAILBOX` | Mailbox/label to read (default: `INBOX`) |
+| `INGEST_POLL_CRON` | Poll schedule, cron expression (default: `*/10 * * * *`, every 10 min) |
+| `INGEST_START_AT` | Forward-only watermark, ISO date; mail older than this is never ingested (default: 24 hours ago) |
+| `OWN_ACCOUNT_IDENTIFIERS` | Comma-separated own account last-4s and/or name fragment, used to decide transfer direction (default: empty — Banreservas transfers all skipped) |
+| `USD_DOP_RATE` | Fallback USD→DOP rate when the live FX lookup fails (default: `60`) |
+
+**Email ingestion setup notes:**
+
+1. `GMAIL_APP_PASSWORD` is a Google **App Password**, not your account password. Generate one under Google Account → Security → 2-Step Verification → App passwords (requires 2-Step Verification to be enabled).
+2. **Recommended security posture:** create a Gmail filter that applies a label (e.g. `bank-alerts`) to mail from these four senders, then set `INGEST_MAILBOX` to that label so the ingester reads only that label instead of the whole mailbox — this significantly reduces the blast radius of the credential:
+   - `notificaciones@popularenlinea.com` (Banco Popular)
+   - `alertas@bhd.com.do` (BHD)
+   - `notificaciones@bsc.com.do` (Banco Santa Cruz)
+   - `notificacionestubancoapp@banreservas.com` (Banreservas)
+3. `INGEST_START_AT` should be set to roughly when you switch ingestion on — it's the forward-only guard that stops historical mail being ingested and double-counting against your current balance.
+4. If `OWN_ACCOUNT_IDENTIFIERS` is unset, Banreservas transfers are skipped entirely — the direction can't be determined, and the system refuses to guess.
 
 ---
 
