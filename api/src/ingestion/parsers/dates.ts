@@ -20,6 +20,19 @@ export function parseDdMmYyyy12h(s: string): Date | null {
   return new Date(+m[3], +m[2] - 1, +m[1], hour, +m[5]);
 }
 
+/**
+ * BHD transfers: "28/08/2026 - 8:33 AM".
+ *
+ * A dash separates date from time, so parseDdMmYyyy12h's `\s+` does not match.
+ */
+export function parseDdMmYyyyDash12h(s: string): Date | null {
+  const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!m) return parseDdMmYyyy(s);
+  let hour = +m[4] % 12;
+  if (m[6].toUpperCase() === 'PM') hour += 12;
+  return new Date(+m[3], +m[2] - 1, +m[1], hour, +m[5]);
+}
+
 /** Santa Cruz: "21/9/2026 12:32:21" (unpadded, 24-hour) */
 export function parseDMyHms(s: string): Date | null {
   const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})/);
