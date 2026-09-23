@@ -82,4 +82,22 @@ describe('TransactionsService.exportCsv', () => {
     const csv = await service.exportCsv({});
     expect(csv).toContain('"He said, ""lunch"""');
   });
+
+  it('excludes internal and unresolved transfers from expense queries', async () => {
+    await service.findAll({ type: 'expense' });
+    expect(mockModel.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transferKind: { $nin: ['internal', 'unresolved'] },
+      }),
+    );
+  });
+
+  it('excludes them from CSV export too', async () => {
+    await service.exportCsv({ type: 'expense' });
+    expect(mockModel.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transferKind: { $nin: ['internal', 'unresolved'] },
+      }),
+    );
+  });
 });

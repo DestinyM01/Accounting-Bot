@@ -50,6 +50,11 @@ export class TransactionsService {
 
   private buildFilter(query: ExportQuery & { needsReview?: boolean }): Record<string, any> {
     const filter: any = { userId: this.userId };
+    // Internal transfers move money between the user's own accounts and
+    // unresolved ones have not been asserted, so neither is spending.
+    // $nin also matches documents where the field is absent, which is what
+    // every ordinary card transaction looks like.
+    filter.transferKind = { $nin: ['internal', 'unresolved'] };
     if (query.type === 'income')  filter.amount = { $gt: 0 };
     if (query.type === 'expense') filter.amount = { $lt: 0 };
     if (query.category) filter.category = query.category;
