@@ -50,14 +50,24 @@ export class IngestionService {
 
     let created = 0, skipped = 0, failed = 0;
     const ownIdentifiers = (process.env.OWN_ACCOUNT_IDENTIFIERS || '').split(',').filter(Boolean);
+    const ownCashAccounts = (process.env.OWN_CASH_ACCOUNTS || '').split(',').map((s) => s.trim()).filter(Boolean);
 
     for (const mail of mails) {
       const parser = this.parsers.find((p) => p.senders.includes(mail.sender));
       if (!parser) { skipped++; continue; }
 
+      // Recognised and deliberately ignored — not a failure, so it must not
+      // reach the "unusable mail" warning below. Payroll notices arrive monthly
+      // and marketing more often; logging them as failures would bury the real
+      // failures under routine noise.
+      if (parser.isNonTransactional?.({ subject: mail.subject, body: mail.body })) {
+        skipped++;
+        continue;
+      }
+
       let parsed: ParsedTransaction | null = null;
       try {
-        parsed = parser.parse({ subject: mail.subject, body: mail.body, ownIdentifiers });
+        parsed = parser.parse({ subject: mail.subject, body: mail.body, ownIdentifiers, ownCashAccounts });
       } catch (err) {
         this.logger.error(`Parser ${parser.bank} threw on ${mail.messageId}`, String(err));
       }
@@ -127,7 +137,14 @@ export class IngestionService {
         originalCurrency,
         isWithdrawal: p.isWithdrawal,
         externalRef: p.externalRef,
+        transferKind: p.transferKind,
       });
+      // Only external transfers and ordinary card transactions move money.
+      // An internal transfer nets to zero against the single Balance document,
+      // and an unresolved one has not been asserted yet.
+      if (p.transferKind === 'internal' || p.transferKind === 'unresolved') {
+        return 'created';
+      }
       await this.applyBalance(p, amount, String(doc._id));
       return 'created';
     } catch (err: any) {

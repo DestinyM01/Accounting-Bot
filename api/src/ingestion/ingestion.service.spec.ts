@@ -267,4 +267,53 @@ describe('IngestionService', () => {
     expect(result).toEqual({ created: 0, skipped: 1, failed: 0 });
     expect(parserParseMock).not.toHaveBeenCalled();
   });
+
+  it('does not move the balance for an internal transfer', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed({ transferKind: 'internal' }));
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.transferKind).toBe('internal');
+    expect(balanceDoc.save).not.toHaveBeenCalled();
+    expect(historyModel.create).not.toHaveBeenCalled();
+  });
+
+  it('does not move the balance for an unresolved transfer', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed({ transferKind: 'unresolved' }));
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.transferKind).toBe('unresolved');
+    expect(balanceDoc.save).not.toHaveBeenCalled();
+    expect(historyModel.create).not.toHaveBeenCalled();
+  });
+
+  it('still moves the balance for an external transfer', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed({ transferKind: 'external' }));
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(balanceDoc.save).toHaveBeenCalled();
+  });
+
+  it('counts a non-transactional email as skipped, not failed, and does not warn', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    (popularParser as any).isNonTransactional = jest.fn().mockReturnValue(true);
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 0, skipped: 1, failed: 0 });
+    expect(parserParseMock).not.toHaveBeenCalled();
+    expect(loggerWarnSpy).not.toHaveBeenCalled();
+
+    delete (popularParser as any).isNonTransactional;
+  });
 });
