@@ -16,7 +16,7 @@ import { popularParser } from './parsers/popular.parser';
 import { bhdParser } from './parsers/bhd.parser';
 import { santaCruzParser } from './parsers/santacruz.parser';
 import { banreservasParser } from './parsers/banreservas.parser';
-import { matchesRule } from './reconciliation.service';
+import { matchedPeriod } from './reconciliation.service';
 
 const BUILT_IN = ['food','transport','housing','health','entertainment','salary','savings','other'];
 
@@ -121,24 +121,30 @@ export class IngestionService {
     const signed = p.direction === 'expense' ? -Math.abs(amount) : Math.abs(amount);
 
     let recurringId: string | undefined;
+    let recurringPeriod: string | undefined;
 
     const rules = await this.recurringModel.find({ userId: this.userId, active: true }).lean();
-    const rule = rules.find((r) =>
-      matchesRule(r as any, {
+    let rule: (typeof rules)[number] | undefined;
+    let period: string | null = null;
+    for (const r of rules) {
+      const matched = matchedPeriod(r as any, {
         userId: this.userId,
         amount: signed,
         timestamp: p.occurredAt,
         transferKind: p.transferKind,
-      }),
-    );
+      });
+      if (matched) {
+        rule = r;
+        period = matched;
+        break;
+      }
+    }
 
-    if (rule) {
-      const monthStart = new Date(p.occurredAt.getFullYear(), p.occurredAt.getMonth(), 1);
-      const monthEnd = new Date(p.occurredAt.getFullYear(), p.occurredAt.getMonth() + 1, 1);
+    if (rule && period) {
       const predicted = await this.txModel.findOne({
         userId: this.userId,
         recurringId: String(rule._id),
-        timestamp: { $gte: monthStart, $lt: monthEnd },
+        recurringPeriod: period,
       });
 
       if (predicted && !predicted.sourceMessageId) {
@@ -149,6 +155,7 @@ export class IngestionService {
           predicted.merchant = p.counterparty;
           predicted.externalRef = p.externalRef;
           predicted.timestamp = p.occurredAt;
+          if (!predicted.recurringPeriod) predicted.recurringPeriod = period;
           await predicted.save();
         } catch (err: any) {
           if (err?.code === 11000) return 'duplicate';
@@ -159,14 +166,15 @@ export class IngestionService {
       }
 
       if (predicted) {
-        // Already reconciled this month — a genuine second payment of the same
+        // Already reconciled this period — a genuine second payment of the same
         // amount, not a duplicate. Record it normally, unlinked.
         this.logger.log(
-          `Rule ${String(rule._id)} already matched this month; recording ${messageId} separately`,
+          `Rule ${String(rule._id)} already matched for ${period}; recording ${messageId} separately`,
         );
       } else {
         recurringId = String(rule._id);
-        this.logger.log(`Linking mail ${messageId} to recurring rule ${String(rule._id)}`);
+        recurringPeriod = period;
+        this.logger.log(`Linking mail ${messageId} to recurring rule ${String(rule._id)} for ${period}`);
       }
     }
 
@@ -192,6 +200,7 @@ export class IngestionService {
         externalRef: p.externalRef,
         transferKind: p.transferKind,
         recurringId,
+        recurringPeriod,
       });
       // Only external transfers and ordinary card transactions move money.
       // An internal transfer nets to zero against the single Balance document,

@@ -51,6 +51,7 @@ export class RecurringService {
     const today = new Date().getDate();
     this.logger.log(`Processing recurring transactions for day ${today}`);
 
+    const period = currentPeriodKey();
     const due = await this.recurringModel.find({ dayOfMonth: today, active: true }).exec();
     for (const r of due) {
       try {
@@ -62,10 +63,14 @@ export class RecurringService {
         }
 
         // The bank email may already have recorded this payment. The email is
-        // evidence the money moved; the rule is only a prediction.
-        const alreadyIngested = await this.transactionService.findOneByRecurringThisMonth(
+        // evidence the money moved; the rule is only a prediction. Looked up
+        // by the same recurringPeriod stamp the ingestion side writes, not a
+        // date range, so a payment posted near a month boundary is still found
+        // regardless of which calendar month its own timestamp falls in.
+        const alreadyIngested = await this.transactionService.findOneByRecurringPeriod(
           r.userId,
           String(r._id),
+          period,
         );
         if (alreadyIngested) {
           this.logger.log(`Recurring "${r.transactionName}" already satisfied by ingested mail — skipping`);
@@ -82,6 +87,7 @@ export class RecurringService {
           amount: r.amount,
           category: r.category,
           recurringId: String(r._id),
+          recurringPeriod: period,
         });
         await this.balanceService.updateBalance(
           r.userId,
@@ -102,4 +108,18 @@ export class RecurringService {
 
 function isSameMonth(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+}
+
+/**
+ * The calendar month "now" belongs to, as 'YYYY-MM'.
+ *
+ * Must stay in sync with api's reconciliation.service.ts periodKey() format —
+ * repo/ cannot import from api/, so this is a small local re-implementation.
+ * Both sides stamp and query this same string so a recurring rule and the
+ * bank email that satisfies it agree on which occurrence they're talking
+ * about, even when the payment posts right at a month boundary.
+ */
+function currentPeriodKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }

@@ -465,4 +465,79 @@ describe('IngestionService', () => {
     const created = txModel.create.mock.calls[0][0];
     expect(created.recurringId).toBeUndefined();
   });
+
+  it('stamps recurringPeriod alongside recurringId', async () => {
+    const rule = {
+      _id: 'rule-1',
+      userId: 999,
+      amount: 100,
+      dayOfMonth: 1,
+      active: true,
+      transactionType: TransactionType.EXPENSE,
+    };
+    recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([rule]) });
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(
+      makeParsed({ direction: 'expense', amount: 100, currency: 'DOP', occurredAt: new Date(2026, 0, 1) }),
+    );
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.recurringId).toBe(String(rule._id));
+    expect(created.recurringPeriod).toBe('2026-01');
+  });
+
+  // The old query derived a month range from the mail's own occurredAt
+  // (August, for a payment posted Aug 31), while the prediction the cron
+  // created lives in September (the occurrence the payment actually
+  // satisfies). A timestamp-range lookup rooted in the wrong month would
+  // never find it, so the mail would create a second, duplicate row. The
+  // period-based lookup finds it regardless of which calendar month either
+  // side's timestamp falls in.
+  it('finds the predicted transaction by period, not by timestamp range', async () => {
+    const rule = {
+      _id: 'rule-1',
+      userId: 999,
+      amount: 100,
+      dayOfMonth: 1,
+      active: true,
+      transactionType: TransactionType.EXPENSE,
+    };
+    recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([rule]) });
+
+    const predicted: any = {
+      _id: 'predicted-id',
+      recurringId: String(rule._id),
+      recurringPeriod: '2026-09',
+      // Dated in September — outside an August-derived month range — yet it
+      // must still be found because it shares the same recurringPeriod.
+      timestamp: new Date(2026, 8, 1),
+      sourceMessageId: undefined,
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    txModel.findOne.mockImplementation((query: any) => {
+      const matches =
+        query.recurringId === String(rule._id) &&
+        query.recurringPeriod === '2026-09' &&
+        query.timestamp === undefined;
+      return Promise.resolve(matches ? predicted : null);
+    });
+
+    mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'msg-42' })]);
+    // Posted Aug 31 — 1 day before the rule's Sep 1 occurrence, so it
+    // satisfies the '2026-09' period even though its own calendar month is
+    // August.
+    parserParseMock.mockReturnValue(
+      makeParsed({ direction: 'expense', amount: 100, currency: 'DOP', occurredAt: new Date(2026, 7, 31) }),
+    );
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(predicted.save).toHaveBeenCalled();
+    expect(predicted.sourceMessageId).toBe('msg-42');
+    expect(txModel.create).not.toHaveBeenCalled();
+  });
 });

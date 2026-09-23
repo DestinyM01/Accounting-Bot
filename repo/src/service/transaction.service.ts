@@ -35,6 +35,7 @@ export class TransactionService {
         amount,
         category: createTransactionDto.category,
         recurringId: createTransactionDto.recurringId,
+        recurringPeriod: createTransactionDto.recurringPeriod,
       });
       const createdTransaction = await transaction.save();
       this.logger.log(`Created transaction for user ${createTransactionDto.userId}`);
@@ -177,17 +178,17 @@ export class TransactionService {
   }
 
   /**
-   * Finds an ingested transaction already recorded this month for a given
-   * recurring rule. Used to skip firing a recurring rule when the bank email
-   * has already recorded the real-world payment it predicts.
+   * Finds an ingested transaction already recorded for a given recurring rule
+   * and period. Used to skip firing a recurring rule when the bank email has
+   * already recorded the real-world payment it predicts.
+   *
+   * Queries the explicit recurringPeriod stamp rather than a timestamp range:
+   * a payment posted near a month boundary can carry a timestamp in a
+   * different calendar month than the occurrence it actually satisfies, so a
+   * date-range lookup could miss it and record the same payment twice.
    */
-  async findOneByRecurringThisMonth(userId: number, recurringId: string) {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    return this.transactionModel
-      .findOne({ userId, recurringId, timestamp: { $gte: start, $lt: end } })
-      .exec();
+  async findOneByRecurringPeriod(userId: number, recurringId: string, period: string) {
+    return this.transactionModel.findOne({ userId, recurringId, recurringPeriod: period }).exec();
   }
 
   /** Updates only the name of a transaction. No balance change needed. */

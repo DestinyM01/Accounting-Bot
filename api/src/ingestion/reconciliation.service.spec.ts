@@ -1,4 +1,4 @@
-import { matchesRule } from './reconciliation.service';
+import { matchesRule, matchedPeriod } from './reconciliation.service';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 
 const rule = {
@@ -89,5 +89,75 @@ describe('matchesRule', () => {
     expect(
       matchesRule(rule, { userId: 1, amount: -1942.1, timestamp: new Date(2026, 7, 24) }),
     ).toBe(true);
+  });
+});
+
+describe('matchedPeriod', () => {
+  const rentRule = {
+    _id: 'rent-1',
+    userId: 1,
+    amount: 1942.1,
+    dayOfMonth: 1,
+    active: true,
+    transactionType: TransactionType.EXPENSE,
+  };
+
+  // Must fail before the fix: pure day-number subtraction gives
+  // |31 - 1| = 30, far outside the +/-3 day window, even though the payment
+  // is really only one day away from the 1st of the following month.
+  it('matches a payment on the 31st against a rule for the 1st of the next month', () => {
+    expect(
+      matchedPeriod(rentRule, { userId: 1, amount: -1942.1, timestamp: new Date(2026, 7, 31) }),
+    ).toBe('2026-09');
+  });
+
+  it('matches a payment on the 2nd against a rule for the 1st', () => {
+    expect(
+      matchedPeriod(rentRule, { userId: 1, amount: -1942.1, timestamp: new Date(2026, 8, 2) }),
+    ).toBe('2026-09');
+  });
+
+  // With MATCH_WINDOW_DAYS fixed at 3, no two of the three candidate months
+  // (previous/current/next) can ever both fall within the window of the same
+  // payment — real calendar months are always at least 28 days apart, far
+  // more than the 6-day span two 3-day windows could jointly cover. So this
+  // exercises the same "nearest occurrence wins" contract from the other
+  // side of a boundary: a payment that trails the previous month's occurrence
+  // most closely, rather than leading the next one.
+  it('returns the nearest period when two are in range', () => {
+    // Rule for the 28th; February (28 days) needs no clamping, so its
+    // occurrence lands exactly on Feb 28. A payment on Mar 1 is 1 day past
+    // that occurrence, and 27+ days from both March's and January's — the
+    // previous month's occurrence is unambiguously nearest.
+    const rule = { ...rentRule, dayOfMonth: 28 };
+    expect(
+      matchedPeriod(rule, { userId: 1, amount: -1942.1, timestamp: new Date(2026, 2, 1) }),
+    ).toBe('2026-02');
+  });
+
+  it('clamps a rule day beyond the month length', () => {
+    const rule = { ...rentRule, dayOfMonth: 31 };
+    // 2026 is not a leap year, so February has 28 days: dayOfMonth 31 clamps
+    // to Feb 28, and a payment that day matches exactly.
+    expect(
+      matchedPeriod(rule, { userId: 1, amount: -1942.1, timestamp: new Date(2026, 1, 28) }),
+    ).toBe('2026-02');
+  });
+
+  it('still returns null for an amount mismatch', () => {
+    expect(
+      matchedPeriod(rentRule, { userId: 1, amount: -1942.11, timestamp: new Date(2026, 7, 31) }),
+    ).toBeNull();
+  });
+
+  it('still returns null for an internal transfer', () => {
+    expect(
+      matchedPeriod(rentRule, {
+        userId: 1,
+        amount: -1942.1,
+        timestamp: new Date(2026, 7, 31),
+        transferKind: 'internal',
+      }),
+    ).toBeNull();
   });
 });

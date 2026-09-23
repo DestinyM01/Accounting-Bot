@@ -3,6 +3,11 @@ import { TransactionType } from '../type/enum/transactionType.enam';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Must stay in sync with api's reconciliation.service.ts periodKey() format. */
+function periodKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 /** Builds a mock Recurring document (plain object + a jest.fn() save, as Mongoose docs behave). */
 function makeRule(overrides: Partial<any> = {}) {
   return {
@@ -35,7 +40,7 @@ describe('RecurringService', () => {
 
     mockTransactionService = {
       createTransaction: jest.fn().mockResolvedValue({ _id: 'tx1' }),
-      findOneByRecurringThisMonth: jest.fn().mockResolvedValue(null),
+      findOneByRecurringPeriod: jest.fn().mockResolvedValue(null),
     };
 
     mockBalanceService = {
@@ -83,7 +88,7 @@ describe('RecurringService', () => {
   it('skips a rule already satisfied by an ingested transaction this month', async () => {
     const rule = makeRule({ lastExecutedAt: undefined });
     mockRecurringModel.find = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([rule]) });
-    mockTransactionService.findOneByRecurringThisMonth = jest.fn().mockResolvedValue({ _id: 'existingTx' });
+    mockTransactionService.findOneByRecurringPeriod = jest.fn().mockResolvedValue({ _id: 'existingTx' });
 
     await service.processRecurring();
 
@@ -105,5 +110,35 @@ describe('RecurringService', () => {
     expect(mockTransactionService.createTransaction).toHaveBeenCalledWith(
       expect.objectContaining({ recurringId: String(rule._id) }),
     );
+  });
+
+  // Without a canonical period stamp, ingestion (which buckets by the payment's
+  // own occurredAt month) and the cron (which used to bucket by "now") could
+  // land in different months for the same payment near a month boundary, and
+  // neither side's lookup would ever find the other's row.
+  it('stamps the current period on the transaction it creates', async () => {
+    const rule = makeRule({ _id: 'r1', lastExecutedAt: undefined });
+    mockRecurringModel.find = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([rule]) });
+
+    await service.processRecurring();
+
+    expect(mockTransactionService.createTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ recurringPeriod: periodKey(new Date()) }),
+    );
+  });
+
+  it('skips a rule already satisfied for this period', async () => {
+    const rule = makeRule({ _id: 'r1', lastExecutedAt: undefined });
+    mockRecurringModel.find = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([rule]) });
+    mockTransactionService.findOneByRecurringPeriod = jest.fn().mockResolvedValue({ _id: 'existingTx' });
+
+    await service.processRecurring();
+
+    expect(mockTransactionService.findOneByRecurringPeriod).toHaveBeenCalledWith(
+      rule.userId,
+      String(rule._id),
+      periodKey(new Date()),
+    );
+    expect(mockTransactionService.createTransaction).not.toHaveBeenCalled();
   });
 });

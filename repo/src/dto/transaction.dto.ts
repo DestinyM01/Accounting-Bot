@@ -8,4 +8,6 @@ export class CreateTransactionDto {
   amount: number;
   category?: string;
   recurringId?: string;
+  /** The scheduled occurrence this satisfies, as 'YYYY-MM'. Set with recurringId. */
+  recurringPeriod?: string;
 }

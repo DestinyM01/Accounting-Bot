@@ -58,6 +58,10 @@ export class Transaction extends Document {
 
   @Prop()
   recurringId?: string;
+
+  /** The scheduled occurrence this satisfies, as 'YYYY-MM'. Set with recurringId. */
+  @Prop()
+  recurringPeriod?: string;
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
