@@ -48,6 +48,9 @@ export class BudgetService {
         category,
         transactionType: TransactionType.EXPENSE,
         timestamp: { $gte: startOfMonth, $lte: endOfMonth },
+        // Internal transfers move money between the user's own accounts and
+        // unresolved ones have not been asserted, so neither is spending.
+        transferKind: { $nin: ['internal', 'unresolved'] },
       })
       .exec();
 

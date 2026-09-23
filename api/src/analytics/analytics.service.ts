@@ -25,7 +25,14 @@ export class AnalyticsService {
 
   async getTop10(): Promise<TopTransaction[]> {
     const results = await this.txModel.aggregate([
-      { $match: { userId: this.userId } },
+      {
+        $match: {
+          userId: this.userId,
+          // Internal transfers move money between the user's own accounts and
+          // unresolved ones have not been asserted, so neither is spending.
+          transferKind: { $nin: ['internal', 'unresolved'] },
+        },
+      },
       {
         $group: {
           _id:         '$transactionName',
@@ -50,7 +57,13 @@ export class AnalyticsService {
       return [];
     }
     const txs = await this.txModel
-      .find({ userId: this.userId, transactionName: name })
+      .find({
+        userId: this.userId,
+        transactionName: name,
+        // Internal transfers move money between the user's own accounts and
+        // unresolved ones have not been asserted, so neither is spending.
+        transferKind: { $nin: ['internal', 'unresolved'] },
+      })
       .select('timestamp amount')
       .lean();
 

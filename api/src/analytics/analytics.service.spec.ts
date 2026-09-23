@@ -57,6 +57,16 @@ describe('AnalyticsService', () => {
       const result = await service.getTop10();
       expect(result[0].totalAmount).toBe(120);
     });
+
+    it('excludes internal and unresolved transfers from the match stage', async () => {
+      await service.getTop10();
+      const pipeline = mockModel.aggregate.mock.calls[0][0];
+      expect(pipeline[0].$match).toEqual(
+        expect.objectContaining({
+          transferKind: { $nin: ['internal', 'unresolved'] },
+        }),
+      );
+    });
   });
 
   describe('getTransactionChart', () => {
@@ -80,6 +90,15 @@ describe('AnalyticsService', () => {
     it('uses absolute amounts', async () => {
       const result = await service.getTransactionChart('Netflix');
       result.forEach(p => expect(p.total).toBeGreaterThan(0));
+    });
+
+    it('excludes internal and unresolved transfers from the chart query', async () => {
+      await service.getTransactionChart('Netflix');
+      expect(mockModel.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          transferKind: { $nin: ['internal', 'unresolved'] },
+        }),
+      );
     });
   });
 });

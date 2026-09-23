@@ -28,7 +28,14 @@ export class BudgetService {
     const end = new Date(y, m, 1);
 
     const expenses = await this.transactionModel
-      .find({ userId: this.userId, timestamp: { $gte: start, $lt: end }, amount: { $lt: 0 } })
+      .find({
+        userId: this.userId,
+        timestamp: { $gte: start, $lt: end },
+        amount: { $lt: 0 },
+        // Internal transfers move money between the user's own accounts and
+        // unresolved ones have not been asserted, so neither is spending.
+        transferKind: { $nin: ['internal', 'unresolved'] },
+      })
       .select('category amount')
       .lean();
 

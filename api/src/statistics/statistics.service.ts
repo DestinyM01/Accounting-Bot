@@ -20,7 +20,13 @@ export class StatisticsService {
     const end = new Date(y, m, 1);
 
     const txs = await this.transactionModel
-      .find({ userId: this.userId, timestamp: { $gte: start, $lt: end } })
+      .find({
+        userId: this.userId,
+        timestamp: { $gte: start, $lt: end },
+        // Internal transfers move money between the user's own accounts and
+        // unresolved ones have not been asserted, so neither is spending.
+        transferKind: { $nin: ['internal', 'unresolved'] },
+      })
       .select('amount')
       .lean();
 
@@ -48,7 +54,13 @@ export class StatisticsService {
       const end = new Date(d.getFullYear(), d.getMonth() + 1, 1);
 
       const txs = await this.transactionModel
-        .find({ userId: this.userId, timestamp: { $gte: start, $lt: end } })
+        .find({
+          userId: this.userId,
+          timestamp: { $gte: start, $lt: end },
+          // Internal transfers move money between the user's own accounts and
+          // unresolved ones have not been asserted, so neither is spending.
+          transferKind: { $nin: ['internal', 'unresolved'] },
+        })
         .select('amount')
         .lean();
 
@@ -74,7 +86,14 @@ export class StatisticsService {
     const end = new Date(y, m, 1);
 
     const txs = await this.transactionModel
-      .find({ userId: this.userId, timestamp: { $gte: start, $lt: end }, amount: { $lt: 0 } })
+      .find({
+        userId: this.userId,
+        timestamp: { $gte: start, $lt: end },
+        amount: { $lt: 0 },
+        // Internal transfers move money between the user's own accounts and
+        // unresolved ones have not been asserted, so neither is spending.
+        transferKind: { $nin: ['internal', 'unresolved'] },
+      })
       .select('amount category')
       .lean();
 

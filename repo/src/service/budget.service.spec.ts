@@ -105,6 +105,20 @@ describe('BudgetService', () => {
       expect(txQuery.category).toBe(Category.TRANSPORT);
     });
 
+    it('excludes internal and unresolved transfers from the spent calculation', async () => {
+      mockBudgetModel.findOne = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({ limitAmount: 500 }) });
+      mockTransactionModel.find = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+
+      await service.checkBudget(1, Category.FOOD);
+
+      const txQuery = mockTransactionModel.find.mock.calls[0][0];
+      expect(txQuery.transferKind).toEqual({ $nin: ['internal', 'unresolved'] });
+    });
+
     it('returns spent=0 and over=false when there are no transactions this month', async () => {
       mockBudgetModel.findOne = jest
         .fn()
