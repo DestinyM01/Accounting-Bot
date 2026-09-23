@@ -90,7 +90,7 @@
                       </div>
                       <div class="notif-bar">
                         <div class="notif-bar-fill"
-                             [style.width.%]="b.percentage > 100 ? 100 : b.percentage"
+                             [style.transform]="'scaleX(' + budgetBarScale(b.percentage) + ')'"
                              [style.background]="budgetBarBg(b.percentage)">
                         </div>
                       </div>

@@ -336,7 +336,8 @@
   background: var(--color-surface-hover);
   border-radius: 2px;
   overflow: hidden;
-  .notif-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+  // Full width, scaled via transform instead of animating width/layout.
+  .notif-bar-fill { height: 100%; width: 100%; border-radius: 2px; transform-origin: left; transition: transform 0.3s; }
 }
 
 // ── Settings panel ─────────────────────────────────────────────────────

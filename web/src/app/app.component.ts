@@ -97,6 +97,11 @@ export class AppComponent implements OnInit {
     return pct >= 100 ? 'var(--color-expense)' : 'var(--color-warning)';
   }
 
+  // Compositor-friendly fill: scaleX(0..1) instead of animating width.
+  budgetBarScale(pct: number): number {
+    return (pct > 100 ? 100 : pct) / 100;
+  }
+
   constructor(
     private oauthService: OAuthService,
     private api: ApiService,
