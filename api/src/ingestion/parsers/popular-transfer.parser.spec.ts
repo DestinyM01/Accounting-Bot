@@ -17,6 +17,29 @@ const SENT_TO_THIRD_PARTY = `| Estimado (a) SR JUAN ANTONIO RIVERA MARTE |
 | Monto: RD$ 3,500.00 |
 | Fecha: 5/7/2026 |`;
 
+// "Monto 2:" shares the "Monto" prefix with the real "Monto:" row and appears
+// first. An unanchored regex would match "Monto" inside "Monto 2:" and
+// capture "2: RD$ 300.00" — parseFloat then stops at the colon, so the
+// amount would silently become 2 instead of 20,000.
+const MONTO_PREFIX_COLLISION = `| Estimado (a) SR JUAN ANTONIO RIVERA MARTE |
+| Le informamos que su transacción por pagos al instante fue enviada satisfactoriamente. |
+| Beneficiario: JUAN ANTONIO RIVERA MART |
+| Cuenta o Producto:******_2002 |
+| Monto 2: RD$ 300.00 |
+| Monto: RD$ 20,000.00 |
+| Fecha: 28/8/2026 |`;
+
+// "Fecha y hora de la transacción:" shares the "Fecha" prefix with the real
+// "Fecha:" row and appears first. An unanchored regex would match "Fecha"
+// inside the longer label and pull the wrong (or unparseable) date.
+const FECHA_PREFIX_COLLISION = `| Estimado (a) SR JUAN ANTONIO RIVERA MARTE |
+| Le informamos que su transacción por pagos al instante fue enviada satisfactoriamente. |
+| Beneficiario: PEDRO NUNEZ |
+| Cuenta o Producto:******_9911 |
+| Monto: RD$ 3,500.00 |
+| Fecha y hora de la transacción: 1/1/2020 |
+| Fecha: 5/7/2026 |`;
+
 const RECEIVED = `| Estimado(a) ANTONIO RIVERA JUAN Le informamos los detalles de la transacción de transferencia recibida en su cuenta terminada en 2001 : |
 | Monto | Fecha | Canal |
 |---|---|---|
@@ -55,6 +78,26 @@ describe('parsePopularTransfer — sent', () => {
     })!;
     expect(r.occurredAt.getDate()).toBe(5);
     expect(r.occurredAt.getMonth()).toBe(6);
+  });
+
+  it('is not fooled by a longer label sharing a prefix', () => {
+    const r = parsePopularTransfer({
+      subject: 'Notificaciones Pagos al Instante transferencia enviada',
+      body: MONTO_PREFIX_COLLISION,
+      ownCashAccounts: OWN_CASH,
+    })!;
+    expect(r.amount).toBe(20000);
+  });
+
+  it('does not confuse Fecha with Fecha y hora', () => {
+    const r = parsePopularTransfer({
+      subject: 'Notificaciones Pagos al Instante transferencia enviada',
+      body: FECHA_PREFIX_COLLISION,
+      ownCashAccounts: OWN_CASH,
+    })!;
+    expect(r.occurredAt.getFullYear()).toBe(2026);
+    expect(r.occurredAt.getMonth()).toBe(6);
+    expect(r.occurredAt.getDate()).toBe(5);
   });
 });
 

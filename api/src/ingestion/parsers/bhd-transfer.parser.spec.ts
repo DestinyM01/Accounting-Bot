@@ -32,6 +32,18 @@ const TO_OWN_LOAN = `| |
 | Fecha y hora de la transacción: | 24/08/2026 - 2:51 PM |
 | Tipo de transacción: | Transacciones entre mis productos |`;
 
+// "Monto ITBIS:" shares the "Monto" prefix with the real "Monto:" row and
+// appears first. A prefix-matching parser would report the ITBIS tax amount
+// (RD$300) as the transfer amount instead of the real RD$20,000.
+const MONTO_PREFIX_COLLISION = `| |
+| Producto origen: | DO94BCBH000000000XXXXXXX2002 |
+| Producto destino: | XXXXXX4400 |
+| Monto ITBIS: | RD$ 300.00 |
+| Monto: | RD$ 20,000.00 |
+| Beneficiario: | MARIA ALTAGRACIA GOMEZ REYES |
+| Fecha y hora de la transacción: | 28/08/2026 - 8:33 AM |
+| Tipo de transacción: | Transacciones entre productos BHD y a otros Bancos |`;
+
 describe('parseBhdTransfer', () => {
   it('classifies a third-party transfer as external', () => {
     const r = parseBhdTransfer({ subject: '', body: TO_THIRD_PARTY, ownCashAccounts: OWN_CASH })!;
@@ -85,5 +97,13 @@ describe('parseBhdTransfer', () => {
   it('treats an empty ownCashAccounts as nothing being internal', () => {
     const r = parseBhdTransfer({ subject: '', body: TO_OWN_OTHER_BANK, ownCashAccounts: [] })!;
     expect(r.transferKind).toBe('external');
+  });
+
+  // A prefix-matching label lookup would return the first row whose label
+  // STARTS WITH "Monto" — here that's "Monto ITBIS:", which appears above the
+  // real "Monto:" row — silently booking RD$300 instead of RD$20,000.
+  it('is not fooled by a longer label sharing a prefix', () => {
+    const r = parseBhdTransfer({ subject: '', body: MONTO_PREFIX_COLLISION, ownCashAccounts: OWN_CASH })!;
+    expect(r.amount).toBe(20000);
   });
 });

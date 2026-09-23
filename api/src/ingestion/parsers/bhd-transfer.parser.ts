@@ -2,15 +2,24 @@ import { ParseInput, ParsedTransaction, toAmount } from './types';
 import { parseDdMmYyyyDash12h } from './dates';
 import { matchesOwn } from './own-party';
 
+/** Strips a trailing colon and surrounding whitespace, for exact label comparison. */
+function normaliseLabel(cell: string): string {
+  return cell.trim().replace(/:\s*$/, '').toLowerCase();
+}
+
 /**
  * BHD transfer emails are pipe-delimited label/value rows:
  *   | Producto destino: | XXXXXX4400 |
  * Label and value are separate cells on the SAME line.
+ *
+ * The label cell must match EXACTLY (after stripping the trailing colon), not
+ * merely start with `label` — otherwise a longer label sharing a prefix (e.g.
+ * "Monto ITBIS:" vs "Monto:") can silently win and produce a wrong amount.
  */
 function fieldValue(body: string, label: string): string | null {
   for (const line of body.split('\n')) {
     const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
-    if (cells.length >= 2 && cells[0].toLowerCase().startsWith(label.toLowerCase())) {
+    if (cells.length >= 2 && normaliseLabel(cells[0]) === normaliseLabel(label)) {
       return cells[1] || null;
     }
   }

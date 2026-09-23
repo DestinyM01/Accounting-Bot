@@ -2,9 +2,16 @@ import { ParseInput, ParsedTransaction, toAmount } from './types';
 import { parseDdMmYyyy } from './dates';
 import { matchesOwn } from './own-party';
 
-/** Popular puts label and value on the SAME line: "Monto: RD$ 20,000.00". */
+/**
+ * Popular puts label and value on the SAME line: "Monto: RD$ 20,000.00".
+ *
+ * The label is anchored to the start of a line or a "|" cell, and the colon
+ * is required (not optional) so a longer label sharing a prefix cannot match
+ * — e.g. "Monto 2:" must not satisfy a lookup for "Monto", and "Fecha y hora
+ * de la transacción:" must not satisfy a lookup for "Fecha".
+ */
 function inlineValue(body: string, label: string): string | null {
-  const re = new RegExp(`${label}\\s*:?\\s*([^|\\n]+)`, 'i');
+  const re = new RegExp(`(?:^|\\|)\\s*${label}\\s*:\\s*([^|\\n]+)`, 'im');
   const m = body.match(re);
   return m ? m[1].trim() : null;
 }
