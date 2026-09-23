@@ -92,4 +92,18 @@ describe('RecurringService', () => {
     expect(rule.save).toHaveBeenCalled();
     expect(rule.lastExecutedAt).toBeInstanceOf(Date);
   });
+
+  // Without this, the ingestion-side reconciliation query ({ recurringId, timestamp })
+  // can never find the transaction the cron created, so a payment recorded by the
+  // cron gets recorded a second time when the bank email arrives.
+  it('stamps the recurring rule id on the transaction it creates', async () => {
+    const rule = makeRule({ _id: 'r1', lastExecutedAt: undefined });
+    mockRecurringModel.find = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([rule]) });
+
+    await service.processRecurring();
+
+    expect(mockTransactionService.createTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ recurringId: String(rule._id) }),
+    );
+  });
 });

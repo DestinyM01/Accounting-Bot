@@ -34,6 +34,7 @@ export class TransactionService {
         transactionType,
         amount,
         category: createTransactionDto.category,
+        recurringId: createTransactionDto.recurringId,
       });
       const createdTransaction = await transaction.save();
       this.logger.log(`Created transaction for user ${createTransactionDto.userId}`);

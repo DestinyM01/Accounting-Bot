@@ -7,4 +7,5 @@ export class CreateTransactionDto {
   transactionType: TransactionType;
   amount: number;
   category?: string;
+  recurringId?: string;
 }

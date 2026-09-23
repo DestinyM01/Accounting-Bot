@@ -81,6 +81,7 @@ export class RecurringService {
           transactionType: r.transactionType,
           amount: r.amount,
           category: r.category,
+          recurringId: String(r._id),
         });
         await this.balanceService.updateBalance(
           r.userId,

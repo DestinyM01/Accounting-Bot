@@ -109,6 +109,48 @@ describe('TransactionService', () => {
         }),
       ).rejects.toThrow('DB error');
     });
+
+    // Without this, the cron-created transaction never carries the rule id, so
+    // the ingestion reconciliation query can never find it and the same
+    // payment gets recorded twice when the bank email arrives.
+    it('persists recurringId when provided', async () => {
+      const savedDoc = { _id: 'exp2', amount: -800, recurringId: 'rule-1' };
+      const mockSave = jest.fn().mockResolvedValue(savedDoc);
+      mockTransactionModel.mockImplementation(() => ({ save: mockSave }));
+
+      await service.createTransaction({
+        userId: 1,
+        userName: 'Bob',
+        transactionName: 'rent',
+        transactionType: TransactionType.EXPENSE,
+        amount: 800,
+        recurringId: 'rule-1',
+      });
+
+      expect(mockTransactionModel).toHaveBeenCalledWith(
+        expect.objectContaining({ recurringId: 'rule-1' }),
+      );
+    });
+
+    // Guards against stamping every manual transaction with a recurringId
+    // it was never given.
+    it('leaves recurringId undefined when not provided', async () => {
+      const savedDoc = { _id: 'exp3', amount: -800 };
+      const mockSave = jest.fn().mockResolvedValue(savedDoc);
+      mockTransactionModel.mockImplementation(() => ({ save: mockSave }));
+
+      await service.createTransaction({
+        userId: 1,
+        userName: 'Bob',
+        transactionName: 'rent',
+        transactionType: TransactionType.EXPENSE,
+        amount: 800,
+      });
+
+      expect(mockTransactionModel).toHaveBeenCalledWith(
+        expect.objectContaining({ recurringId: undefined }),
+      );
+    });
   });
 
   // ── deleteTransactionById ──────────────────────────────────────────────────
