@@ -48,6 +48,28 @@ spec:
                 secretKeyRef:
                   name: accounting-bot-secret
                   key: MISTRAL_API_KEY
+            - name: GMAIL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: accounting-bot-secret
+                  key: GMAIL_USER
+                  optional: true
+            - name: GMAIL_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: accounting-bot-secret
+                  key: GMAIL_APP_PASSWORD
+                  optional: true
+            - name: INGEST_MAILBOX
+              value: "INBOX"
+            - name: INGEST_POLL_CRON
+              value: "*/10 * * * *"
+            - name: INGEST_START_AT
+              value: ""
+            - name: OWN_ACCOUNT_IDENTIFIERS
+              value: ""
+            - name: USD_DOP_RATE
+              value: "60"
           resources:
             requests:
               memory: 128Mi
