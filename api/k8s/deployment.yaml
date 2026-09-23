@@ -68,6 +68,8 @@ spec:
               value: ""
             - name: OWN_ACCOUNT_IDENTIFIERS
               value: ""
+            - name: OWN_CASH_ACCOUNTS
+              value: ""
             - name: USD_DOP_RATE
               value: "60"
           resources:

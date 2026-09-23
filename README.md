@@ -161,6 +161,7 @@ The web app expects the API at `/api` (proxied in `angular.json` or via nginx in
 | `INGEST_POLL_CRON` | Poll schedule, cron expression (default: `*/10 * * * *`, every 10 min) |
 | `INGEST_START_AT` | Forward-only watermark, ISO date; mail older than this is never ingested (default: 24 hours ago) |
 | `OWN_ACCOUNT_IDENTIFIERS` | Comma-separated own account last-4s and/or name fragment, used to decide transfer direction (default: empty — Banreservas transfers all skipped) |
+| `OWN_CASH_ACCOUNTS` | Comma-separated last-4s of your own savings/checking accounts; transfers to these are internal, not expenses (default: empty — no transfer is treated as internal) |
 | `USD_DOP_RATE` | Fallback USD→DOP rate when the live FX lookup fails (default: `60`) |
 
 **Email ingestion setup notes:**
