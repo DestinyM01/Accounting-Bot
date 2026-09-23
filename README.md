@@ -166,7 +166,7 @@ The web app expects the API at `/api` (proxied in `angular.json` or via nginx in
 **Email ingestion setup notes:**
 
 1. `GMAIL_APP_PASSWORD` is a Google **App Password**, not your account password. Generate one under Google Account → Security → 2-Step Verification → App passwords (requires 2-Step Verification to be enabled).
-2. **Recommended security posture:** create a Gmail filter that applies a label (e.g. `bank-alerts`) to mail from these four senders, then set `INGEST_MAILBOX` to that label so the ingester reads only that label instead of the whole mailbox — this significantly reduces the blast radius of the credential:
+2. **Recommended security posture:** create a Gmail filter that applies a label to mail from these four senders, then set `INGEST_MAILBOX` to that label (this account uses `Banks`) so the ingester reads only that label instead of the whole mailbox — this significantly reduces the blast radius of the credential:
    - `notificaciones@popularenlinea.com` (Banco Popular)
    - `alertas@bhd.com.do` (BHD)
    - `notificaciones@bsc.com.do` (Banco Santa Cruz)
