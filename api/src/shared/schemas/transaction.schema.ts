@@ -22,6 +22,12 @@ export class Transaction extends Document {
   @Prop() originalCurrency?: string;
   @Prop() isWithdrawal?: boolean;
   @Prop() externalRef?: string;
+
+  /** 'external' | 'internal' | 'unresolved'. Absent for ordinary card transactions. */
+  @Prop() transferKind?: string;
+
+  /** The recurring rule this transaction satisfies, when reconciled. */
+  @Prop() recurringId?: string;
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);

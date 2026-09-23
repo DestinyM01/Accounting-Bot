@@ -52,6 +52,12 @@ export class Transaction extends Document {
 
   @Prop()
   externalRef?: string;
+
+  @Prop()
+  transferKind?: string;
+
+  @Prop()
+  recurringId?: string;
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
