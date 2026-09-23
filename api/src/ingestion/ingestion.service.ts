@@ -6,6 +6,7 @@ import { Transaction } from '../shared/schemas/transaction.schema';
 import { Balance } from '../shared/schemas/balance.schema';
 import { BalanceHistory } from '../shared/schemas/balance-history.schema';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
+import { Recurring } from '../shared/schemas/recurring.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { MailClient } from './mail.client';
 import { CategorizerService } from './categorizer.service';
@@ -15,6 +16,7 @@ import { popularParser } from './parsers/popular.parser';
 import { bhdParser } from './parsers/bhd.parser';
 import { santaCruzParser } from './parsers/santacruz.parser';
 import { banreservasParser } from './parsers/banreservas.parser';
+import { matchesRule } from './reconciliation.service';
 
 const BUILT_IN = ['food','transport','housing','health','entertainment','salary','savings','other'];
 
@@ -29,6 +31,7 @@ export class IngestionService {
     @InjectModel(Balance.name) private readonly balanceModel: Model<Balance>,
     @InjectModel(BalanceHistory.name) private readonly historyModel: Model<BalanceHistory>,
     @InjectModel(CustomCategory.name) private readonly categoryModel: Model<CustomCategory>,
+    @InjectModel(Recurring.name) private readonly recurringModel: Model<Recurring>,
     private readonly mail: MailClient,
     private readonly categorizer: CategorizerService,
     private readonly fx: FxService,
@@ -117,6 +120,51 @@ export class IngestionService {
 
     const signed = p.direction === 'expense' ? -Math.abs(amount) : Math.abs(amount);
 
+    let recurringId: string | undefined;
+
+    const rules = await this.recurringModel.find({ userId: this.userId, active: true }).lean();
+    const rule = rules.find((r) =>
+      matchesRule(r as any, { userId: this.userId, amount: signed, timestamp: p.occurredAt }),
+    );
+
+    if (rule) {
+      const monthStart = new Date(p.occurredAt.getFullYear(), p.occurredAt.getMonth(), 1);
+      const monthEnd = new Date(p.occurredAt.getFullYear(), p.occurredAt.getMonth() + 1, 1);
+      const predicted = await this.txModel.findOne({
+        userId: this.userId,
+        recurringId: String(rule._id),
+        timestamp: { $gte: monthStart, $lt: monthEnd },
+      });
+
+      if (predicted && !predicted.sourceMessageId) {
+        // The cron fired first. Confirm the prediction in place: no second row,
+        // and no second balance movement — the prediction already moved it.
+        try {
+          predicted.sourceMessageId = messageId;
+          predicted.merchant = p.counterparty;
+          predicted.externalRef = p.externalRef;
+          predicted.timestamp = p.occurredAt;
+          await predicted.save();
+        } catch (err: any) {
+          if (err?.code === 11000) return 'duplicate';
+          throw err;
+        }
+        this.logger.log(`Confirmed recurring ${String(rule._id)} from mail ${messageId}`);
+        return 'created';
+      }
+
+      if (predicted) {
+        // Already reconciled this month — a genuine second payment of the same
+        // amount, not a duplicate. Record it normally, unlinked.
+        this.logger.log(
+          `Rule ${String(rule._id)} already matched this month; recording ${messageId} separately`,
+        );
+      } else {
+        recurringId = String(rule._id);
+        this.logger.log(`Linking mail ${messageId} to recurring rule ${String(rule._id)}`);
+      }
+    }
+
     try {
       const doc = await this.txModel.create({
         userId: this.userId,
@@ -138,6 +186,7 @@ export class IngestionService {
         isWithdrawal: p.isWithdrawal,
         externalRef: p.externalRef,
         transferKind: p.transferKind,
+        recurringId,
       });
       // Only external transfers and ordinary card transactions move money.
       // An internal transfer nets to zero against the single Balance document,

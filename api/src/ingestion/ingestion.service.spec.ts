@@ -26,6 +26,7 @@ import { Transaction } from '../shared/schemas/transaction.schema';
 import { Balance } from '../shared/schemas/balance.schema';
 import { BalanceHistory } from '../shared/schemas/balance-history.schema';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
+import { Recurring } from '../shared/schemas/recurring.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { MailClient, FetchedMail } from './mail.client';
 import { CategorizerService } from './categorizer.service';
@@ -62,10 +63,11 @@ function makeMail(overrides: Partial<FetchedMail> = {}): FetchedMail {
 
 describe('IngestionService', () => {
   let service: IngestionService;
-  let txModel: { create: jest.Mock };
+  let txModel: { create: jest.Mock; findOne: jest.Mock };
   let balanceModel: { findOne: jest.Mock; create: jest.Mock };
   let historyModel: { create: jest.Mock };
   let categoryModel: { find: jest.Mock };
+  let recurringModel: { find: jest.Mock };
   let mail: { fetchSince: jest.Mock };
   let categorizer: { categorize: jest.Mock };
   let fx: { usdToDop: jest.Mock };
@@ -85,6 +87,7 @@ describe('IngestionService', () => {
 
     txModel = {
       create: jest.fn().mockImplementation((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc })),
+      findOne: jest.fn().mockResolvedValue(null),
     };
     balanceModel = {
       findOne: jest.fn().mockResolvedValue(balanceDoc),
@@ -92,6 +95,9 @@ describe('IngestionService', () => {
     };
     historyModel = { create: jest.fn().mockResolvedValue({}) };
     categoryModel = {
+      find: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
+    };
+    recurringModel = {
       find: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
     };
 
@@ -106,6 +112,7 @@ describe('IngestionService', () => {
         { provide: getModelToken(Balance.name), useValue: balanceModel },
         { provide: getModelToken(BalanceHistory.name), useValue: historyModel },
         { provide: getModelToken(CustomCategory.name), useValue: categoryModel },
+        { provide: getModelToken(Recurring.name), useValue: recurringModel },
         { provide: MailClient, useValue: mail },
         { provide: CategorizerService, useValue: categorizer },
         { provide: FxService, useValue: fx },
@@ -315,5 +322,93 @@ describe('IngestionService', () => {
     expect(loggerWarnSpy).not.toHaveBeenCalled();
 
     delete (popularParser as any).isNonTransactional;
+  });
+
+  it('links an ingested transaction to the recurring rule it satisfies', async () => {
+    const rule = { _id: 'rule-1', userId: 999, amount: 100, dayOfMonth: 1, active: true };
+    recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([rule]) });
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(
+      // Local-time constructor deliberately, not an ISO string: matchesRule()
+      // compares tx.timestamp.getDate() (local) against rule.dayOfMonth, and
+      // an ISO string parses as UTC midnight, which shifts a day in
+      // timezones behind UTC.
+      makeParsed({ direction: 'expense', amount: 100, currency: 'DOP', occurredAt: new Date(2026, 0, 1) }),
+    );
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.recurringId).toBe(String(rule._id));
+  });
+
+  it('upgrades an existing predicted transaction instead of creating a second one', async () => {
+    const rule = { _id: 'rule-1', userId: 999, amount: 100, dayOfMonth: 1, active: true };
+    recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([rule]) });
+    const predicted: any = {
+      _id: 'predicted-id',
+      recurringId: String(rule._id),
+      sourceMessageId: undefined,
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    txModel.findOne.mockResolvedValue(predicted);
+    mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'msg-42' })]);
+    parserParseMock.mockReturnValue(
+      makeParsed({
+        direction: 'expense',
+        amount: 100,
+        currency: 'DOP',
+        occurredAt: new Date(2026, 0, 1),
+        counterparty: 'Landlord',
+        externalRef: 'ref-abc',
+      }),
+    );
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(predicted.save).toHaveBeenCalled();
+    expect(predicted.sourceMessageId).toBe('msg-42');
+    expect(predicted.merchant).toBe('Landlord');
+    expect(predicted.externalRef).toBe('ref-abc');
+    expect(txModel.create).not.toHaveBeenCalled();
+    // The prediction already moved the balance when it was created by the cron;
+    // confirming it in place must not move it a second time.
+    expect(balanceDoc.save).not.toHaveBeenCalled();
+    expect(historyModel.create).not.toHaveBeenCalled();
+  });
+
+  it('does not swallow a genuine second payment of the same amount in one month', async () => {
+    const rule = { _id: 'rule-1', userId: 999, amount: 100, dayOfMonth: 1, active: true };
+    recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([rule]) });
+    txModel.findOne.mockResolvedValue({
+      _id: 'existing-id',
+      recurringId: String(rule._id),
+      sourceMessageId: 'msg-earlier',
+      save: jest.fn(),
+    });
+    mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'msg-2' })]);
+    parserParseMock.mockReturnValue(
+      makeParsed({ direction: 'expense', amount: 100, currency: 'DOP', occurredAt: new Date(2026, 0, 2) }),
+    );
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(txModel.create).toHaveBeenCalledTimes(1);
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.recurringId).toBeUndefined();
+  });
+
+  it('leaves an unmatched transaction unlinked', async () => {
+    recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([]) });
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed());
+
+    await service.run();
+
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.recurringId).toBeUndefined();
   });
 });
