@@ -325,7 +325,14 @@ describe('IngestionService', () => {
   });
 
   it('links an ingested transaction to the recurring rule it satisfies', async () => {
-    const rule = { _id: 'rule-1', userId: 999, amount: 100, dayOfMonth: 1, active: true };
+    const rule = {
+      _id: 'rule-1',
+      userId: 999,
+      amount: 100,
+      dayOfMonth: 1,
+      active: true,
+      transactionType: TransactionType.EXPENSE,
+    };
     recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([rule]) });
     mail.fetchSince.mockResolvedValue([makeMail()]);
     parserParseMock.mockReturnValue(
@@ -344,7 +351,14 @@ describe('IngestionService', () => {
   });
 
   it('upgrades an existing predicted transaction instead of creating a second one', async () => {
-    const rule = { _id: 'rule-1', userId: 999, amount: 100, dayOfMonth: 1, active: true };
+    const rule = {
+      _id: 'rule-1',
+      userId: 999,
+      amount: 100,
+      dayOfMonth: 1,
+      active: true,
+      transactionType: TransactionType.EXPENSE,
+    };
     recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([rule]) });
     const predicted: any = {
       _id: 'predicted-id',
@@ -380,7 +394,14 @@ describe('IngestionService', () => {
   });
 
   it('does not swallow a genuine second payment of the same amount in one month', async () => {
-    const rule = { _id: 'rule-1', userId: 999, amount: 100, dayOfMonth: 1, active: true };
+    const rule = {
+      _id: 'rule-1',
+      userId: 999,
+      amount: 100,
+      dayOfMonth: 1,
+      active: true,
+      transactionType: TransactionType.EXPENSE,
+    };
     recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([rule]) });
     txModel.findOne.mockResolvedValue({
       _id: 'existing-id',
@@ -397,6 +418,39 @@ describe('IngestionService', () => {
 
     expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
     expect(txModel.create).toHaveBeenCalledTimes(1);
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.recurringId).toBeUndefined();
+  });
+
+  // A same-amount internal transfer moves no money and must never be treated
+  // as the real-world payment a recurring rule predicts. If it were linked,
+  // the cron would later find it and skip the rule, and the genuine expense
+  // (should the external leg fail to parse or arrive late) would be recorded
+  // nowhere.
+  it('does not link an internal transfer to a recurring rule', async () => {
+    const rule = {
+      _id: 'rule-1',
+      userId: 999,
+      amount: 100,
+      dayOfMonth: 1,
+      active: true,
+      transactionType: TransactionType.EXPENSE,
+    };
+    recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([rule]) });
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(
+      makeParsed({
+        direction: 'expense',
+        amount: 100,
+        currency: 'DOP',
+        occurredAt: new Date(2026, 0, 1),
+        transferKind: 'internal',
+      }),
+    );
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
     const created = txModel.create.mock.calls[0][0];
     expect(created.recurringId).toBeUndefined();
   });

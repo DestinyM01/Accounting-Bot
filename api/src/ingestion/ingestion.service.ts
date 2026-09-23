@@ -124,7 +124,12 @@ export class IngestionService {
 
     const rules = await this.recurringModel.find({ userId: this.userId, active: true }).lean();
     const rule = rules.find((r) =>
-      matchesRule(r as any, { userId: this.userId, amount: signed, timestamp: p.occurredAt }),
+      matchesRule(r as any, {
+        userId: this.userId,
+        amount: signed,
+        timestamp: p.occurredAt,
+        transferKind: p.transferKind,
+      }),
     );
 
     if (rule) {
