@@ -266,6 +266,23 @@ describe('IngestionService', () => {
     expect(txModel.create).toHaveBeenCalledTimes(1);
   });
 
+  // OWN_CASH_ACCOUNTS was already trimmed per entry; OWN_ACCOUNT_IDENTIFIERS
+  // was not, so "2001, 2002" (spacing that's easy to type in an env file)
+  // produced [" 2002"] instead of ["2002"] — a leading-space entry that would
+  // never match anything in matchesOwn(). Both lists must be parsed the same way.
+  it('trims OWN_ACCOUNT_IDENTIFIERS entries and drops empties, same as OWN_CASH_ACCOUNTS', async () => {
+    process.env.OWN_ACCOUNT_IDENTIFIERS = '2001, 2002,  , JUAN RIVERA ';
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed());
+
+    await service.run();
+
+    const callArgs = parserParseMock.mock.calls[0][0];
+    expect(callArgs.ownIdentifiers).toEqual(['2001', '2002', 'JUAN RIVERA']);
+
+    delete process.env.OWN_ACCOUNT_IDENTIFIERS;
+  });
+
   it('skips (without a matching parser) a mail whose sender is not registered to any parser', async () => {
     mail.fetchSince.mockResolvedValue([makeMail({ sender: 'unknown@nowhere.com' })]);
 

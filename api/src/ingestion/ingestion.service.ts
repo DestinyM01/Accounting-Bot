@@ -52,7 +52,7 @@ export class IngestionService {
     const mails = await this.mail.fetchSince(since, senders);
 
     let created = 0, skipped = 0, failed = 0;
-    const ownIdentifiers = (process.env.OWN_ACCOUNT_IDENTIFIERS || '').split(',').filter(Boolean);
+    const ownIdentifiers = (process.env.OWN_ACCOUNT_IDENTIFIERS || '').split(',').map((s) => s.trim()).filter(Boolean);
     const ownCashAccounts = (process.env.OWN_CASH_ACCOUNTS || '').split(',').map((s) => s.trim()).filter(Boolean);
 
     for (const mail of mails) {
