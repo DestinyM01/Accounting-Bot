@@ -17,6 +17,7 @@ export class TransactionsController {
     @Query('startDate')   startDate?: string,
     @Query('endDate')     endDate?: string,
     @Query('needsReview') needsReview?: string,
+    @Query('transferKind') transferKind?: string,
   ): Promise<TransactionPage> {
     return this.transactionsService.findAll({
       limit:       limit  ? parseInt(limit, 10)  : undefined,
@@ -26,6 +27,7 @@ export class TransactionsController {
       startDate,
       endDate,
       needsReview: needsReview === 'true',
+      transferKind,
     });
   }
 

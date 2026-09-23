@@ -100,4 +100,24 @@ describe('TransactionsService.exportCsv', () => {
       }),
     );
   });
+
+  it('includes internal transfers in an unfiltered listing', async () => {
+    await service.findAll({});
+    const [filter] = mockModel.find.mock.calls[0] as any[];
+    expect(filter).not.toHaveProperty('transferKind');
+  });
+
+  it('can list only unresolved transfers', async () => {
+    await service.findAll({ transferKind: 'unresolved' });
+    expect(mockModel.find).toHaveBeenCalledWith(
+      expect.objectContaining({ transferKind: 'unresolved' }),
+    );
+  });
+
+  it('selects transferKind so the UI can display it', async () => {
+    await service.findAll({});
+    expect(mockModel.select).toHaveBeenCalledWith(
+      expect.stringContaining('transferKind'),
+    );
+  });
 });
