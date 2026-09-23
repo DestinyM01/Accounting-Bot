@@ -63,3 +63,40 @@ describe('popularParser', () => {
     expect(popularParser.parse({ subject: 'Notificación de Consumo', body: DECLINADA })).toBeNull();
   });
 });
+
+describe('popularParser — known non-transactional mail', () => {
+  // This arrives from an allow-listed sender and is tab-delimited with RD$
+  // amounts, exactly the shape the consumption parser hunts for. Ingesting it
+  // would invent a RD$25,000 expense out of a marketing message.
+  const LIMIT_INCREASE = `Estimado (a) JUAN ANTONIO RIVERA MARTE
+
+¡Hemos aplicado un aumento de límite a tu tarjeta!
+
+TARJETA\t LÍMITE ANTERIOR\tNUEVO LÍMITE\t
+VISA ISI\tRD$25,000\tRD$50,000\t`;
+
+  const NOMINA = `Estimado(a): ANTONIO RIVERA JUAN No. de identificación XXX-XXXX-0000
+Le informamos que ha sido acreditado el pago de su nómina en su cuenta terminada en 2001.`;
+
+  it('flags a limit-increase notice as non-transactional', () => {
+    expect(popularParser.isNonTransactional!({ subject: 'Actualización de Límite', body: LIMIT_INCREASE })).toBe(true);
+  });
+
+  it('flags a payroll notice as non-transactional, since it carries no amount', () => {
+    expect(popularParser.isNonTransactional!({ subject: 'Notificación Depósito de Nómina', body: NOMINA })).toBe(true);
+  });
+
+  // Belt and braces: even if the orchestrator forgot the predicate, parse()
+  // must not invent a RD$25,000 expense out of a marketing table.
+  it('never parses a transaction out of a limit-increase notice', () => {
+    expect(popularParser.parse({ subject: 'Actualización de Límite', body: LIMIT_INCREASE })).toBeNull();
+  });
+
+  it('never parses a transaction out of a payroll notice', () => {
+    expect(popularParser.parse({ subject: 'Notificación Depósito de Nómina', body: NOMINA })).toBeNull();
+  });
+
+  it('does not flag a real consumption email as non-transactional', () => {
+    expect(popularParser.isNonTransactional!({ subject: 'Notificación de Consumo', body: '' })).toBe(false);
+  });
+});

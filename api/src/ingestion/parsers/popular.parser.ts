@@ -1,11 +1,40 @@
 import { BankParser, ParseInput, ParsedTransaction, toAmount } from './types';
 import { parseDdMmYyyy } from './dates';
+import { parsePopularTransfer } from './popular-transfer.parser';
+
+/**
+ * Subjects that arrive from the transaction sender but carry no transaction.
+ * They must be recognised explicitly: counting them as parse failures would
+ * bury the real failures under monthly noise.
+ */
+const KNOWN_NON_TRANSACTIONAL = [
+  'actualización de límite',
+  'actualizacion de limite',
+  'depósito de nómina',
+  'deposito de nomina',
+];
+
+function isNonTransactionalSubject(subject: string): boolean {
+  const s = subject.toLowerCase();
+  return KNOWN_NON_TRANSACTIONAL.some((k) => s.includes(k));
+}
 
 export const popularParser: BankParser = {
   bank: 'popular',
   senders: ['notificaciones@popularenlinea.com'],
 
-  parse({ subject, body }: ParseInput): ParsedTransaction | null {
+  isNonTransactional: ({ subject }: ParseInput) => isNonTransactionalSubject(subject),
+
+  parse(input: ParseInput): ParsedTransaction | null {
+    // Defence in depth: even reached directly, these must never yield a
+    // transaction. The limit-increase mail is tab-delimited with RD$ amounts,
+    // which is exactly the shape the consumption branch below hunts for.
+    if (isNonTransactionalSubject(input.subject)) return null;
+
+    const transfer = parsePopularTransfer(input);
+    if (transfer) return transfer;
+
+    const { subject, body } = input;
     // Declined mail reuses the "Notificación de Consumo" subject — bail hard.
     if (/declinad/i.test(body)) return null;
 
