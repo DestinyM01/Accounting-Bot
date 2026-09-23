@@ -1,11 +1,21 @@
 import { BankParser, ParseInput, ParsedTransaction, toAmount } from './types';
 import { parseDdMmYyyy12h } from './dates';
+import { parseBhdTransfer } from './bhd-transfer.parser';
 
 export const bhdParser: BankParser = {
   bank: 'bhd',
   senders: ['alertas@bhd.com.do'],
 
-  parse({ body }: ParseInput): ParsedTransaction | null {
+  parse(input: ParseInput): ParsedTransaction | null {
+    // Discriminate on format BEFORE falling back to the card-table heuristic.
+    // That heuristic scans for "any pipe row containing a date", which a
+    // transfer email also satisfies — it is rejected today only because the
+    // matched row happens to have too few cells. That is an accident, not a
+    // decision.
+    const transfer = parseBhdTransfer(input);
+    if (transfer) return transfer;
+
+    const { body } = input;
     // The data row is the pipe row containing a date (the header row has none).
     const row = body
       .split('\n')
