@@ -76,7 +76,15 @@ describe('RecurringService', () => {
 
   it('fires again the following month', async () => {
     const now = new Date();
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    // Anchored to day 15, which exists in every month, so this can never
+    // overflow into the current month. Deriving the day from `now` instead
+    // (new Date(y, m - 1, now.getDate())) breaks whenever the previous month
+    // is shorter than today's day-of-month: e.g. on 31 Mar,
+    // new Date(y, 1, 31) overflows February and lands on 2/3 Mar — the SAME
+    // month as "now" — so isSameMonth() would (wrongly) call the rule already
+    // executed this month and this test would fail. Also correct across a
+    // year boundary: new Date(y, -1, 15) normalises to December of y - 1.
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 15);
     const rule = makeRule({ lastExecutedAt: lastMonth });
     mockRecurringModel.find = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([rule]) });
 
