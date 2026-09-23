@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
 import { BalanceModule } from './balance/balance.module';
 import { TransactionsModule } from './transactions/transactions.module';
@@ -11,6 +12,7 @@ import { RecurringModule } from './recurring/recurring.module';
 import { CompareModule } from './compare/compare.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { CategoriesModule } from './categories/categories.module';
+import { IngestionModule } from './ingestion/ingestion.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -19,6 +21,7 @@ import { HealthController } from './health/health.controller';
     MongooseModule.forRoot(
       process.env.MONGO_URI || 'mongodb://mongodb-svc:27017/accbot',
     ),
+    ScheduleModule.forRoot(),
     AuthModule,
     BalanceModule,
     TransactionsModule,
@@ -29,6 +32,7 @@ import { HealthController } from './health/health.controller';
     CompareModule,
     AnalyticsModule,
     CategoriesModule,
+    IngestionModule,
   ],
   controllers: [HealthController],
 })
