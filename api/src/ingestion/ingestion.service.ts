@@ -69,8 +69,10 @@ export class IngestionService {
         continue;
       }
 
-      const ok = await this.persist(parsed, mail.messageId);
-      if (ok) created++; else skipped++;
+      const result = await this.persist(parsed, mail.messageId);
+      if (result === 'created') created++;
+      else if (result === 'duplicate') skipped++;
+      else failed++;
     }
 
     this.logger.log(`Ingestion run: created=${created} skipped=${skipped} failed=${failed}`);
@@ -84,7 +86,7 @@ export class IngestionService {
     return isNaN(start.getTime()) ? new Date(Date.now() - 24 * 3600_000) : start;
   }
 
-  private async persist(p: ParsedTransaction, messageId: string): Promise<boolean> {
+  private async persist(p: ParsedTransaction, messageId: string): Promise<'created' | 'duplicate' | 'failed'> {
     // Convert USD at ingest; keep the original for traceability.
     let amount = p.amount;
     let originalAmount: number | undefined;
@@ -127,14 +129,14 @@ export class IngestionService {
         externalRef: p.externalRef,
       });
       await this.applyBalance(p, amount, String(doc._id));
-      return true;
+      return 'created';
     } catch (err: any) {
       if (err?.code === 11000) {
         // Unique index on sourceMessageId — already ingested. Expected, not an error.
-        return false;
+        return 'duplicate';
       }
       this.logger.error(`Failed to persist ${messageId}`, err instanceof Error ? err.stack : String(err));
-      return false;
+      return 'failed';
     }
   }
 
