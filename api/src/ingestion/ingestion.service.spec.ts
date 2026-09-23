@@ -1,0 +1,270 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { getModelToken } from '@nestjs/mongoose';
+import { Logger } from '@nestjs/common';
+
+// @nestjs/schedule ships ESM-only and isn't part of what this unit test
+// exercises (no cron scheduler runs in a unit test) — stub the decorator so
+// Jest never has to transform that package.
+jest.mock('@nestjs/schedule', () => ({
+  Cron: () => () => undefined,
+}));
+
+// Only the popular parser is mocked — it stands in for "the matched parser" in
+// every test. The other three parsers are left as their real implementations;
+// their real sender addresses never collide with the fake one used below, so
+// they never match a mail in these tests.
+jest.mock('./parsers/popular.parser', () => ({
+  popularParser: {
+    bank: 'popular',
+    senders: ['popular@bank.com'],
+    parse: jest.fn(),
+  },
+}));
+
+import { IngestionService } from './ingestion.service';
+import { Transaction } from '../shared/schemas/transaction.schema';
+import { Balance } from '../shared/schemas/balance.schema';
+import { BalanceHistory } from '../shared/schemas/balance-history.schema';
+import { CustomCategory } from '../shared/schemas/custom-category.schema';
+import { TransactionType } from '../shared/schemas/transaction-type.enum';
+import { MailClient, FetchedMail } from './mail.client';
+import { CategorizerService } from './categorizer.service';
+import { FxService } from './fx.service';
+import { popularParser } from './parsers/popular.parser';
+import { ParsedTransaction } from './parsers/types';
+
+const parserParseMock = popularParser.parse as jest.Mock;
+
+function makeParsed(overrides: Partial<ParsedTransaction> = {}): ParsedTransaction {
+  return {
+    bank: 'popular',
+    direction: 'expense',
+    amount: 100,
+    currency: 'DOP',
+    occurredAt: new Date('2026-01-01'),
+    counterparty: 'Test Merchant',
+    isWithdrawal: false,
+    approved: true,
+    ...overrides,
+  };
+}
+
+function makeMail(overrides: Partial<FetchedMail> = {}): FetchedMail {
+  return {
+    messageId: 'msg-1',
+    sender: 'popular@bank.com',
+    subject: 'Test subject',
+    body: 'Test body',
+    receivedAt: new Date('2026-01-01'),
+    ...overrides,
+  };
+}
+
+describe('IngestionService', () => {
+  let service: IngestionService;
+  let txModel: { create: jest.Mock };
+  let balanceModel: { findOne: jest.Mock; create: jest.Mock };
+  let historyModel: { create: jest.Mock };
+  let categoryModel: { find: jest.Mock };
+  let mail: { fetchSince: jest.Mock };
+  let categorizer: { categorize: jest.Mock };
+  let fx: { usdToDop: jest.Mock };
+  let balanceDoc: { balance: number; lastActivity?: Date; save: jest.Mock };
+  let loggerErrorSpy: jest.SpyInstance;
+  let loggerWarnSpy: jest.SpyInstance;
+
+  beforeEach(async () => {
+    jest.resetAllMocks();
+    process.env.BOSS_USER_ID = '999';
+
+    loggerErrorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    loggerWarnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+
+    balanceDoc = { balance: 0, save: jest.fn().mockResolvedValue(undefined) };
+
+    txModel = {
+      create: jest.fn().mockImplementation((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc })),
+    };
+    balanceModel = {
+      findOne: jest.fn().mockResolvedValue(balanceDoc),
+      create: jest.fn().mockResolvedValue(balanceDoc),
+    };
+    historyModel = { create: jest.fn().mockResolvedValue({}) };
+    categoryModel = {
+      find: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
+    };
+
+    mail = { fetchSince: jest.fn().mockResolvedValue([]) };
+    categorizer = { categorize: jest.fn().mockResolvedValue({ category: 'food', needsReview: false }) };
+    fx = { usdToDop: jest.fn().mockImplementation((amt: number) => Promise.resolve(amt * 60)) };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        IngestionService,
+        { provide: getModelToken(Transaction.name), useValue: txModel },
+        { provide: getModelToken(Balance.name), useValue: balanceModel },
+        { provide: getModelToken(BalanceHistory.name), useValue: historyModel },
+        { provide: getModelToken(CustomCategory.name), useValue: categoryModel },
+        { provide: MailClient, useValue: mail },
+        { provide: CategorizerService, useValue: categorizer },
+        { provide: FxService, useValue: fx },
+      ],
+    }).compile();
+
+    service = module.get<IngestionService>(IngestionService);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('records an expense as a negative signed amount with TransactionType.EXPENSE', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed({ direction: 'expense', amount: 100, currency: 'DOP' }));
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.amount).toBe(-100);
+    expect(created.transactionType).toBe(TransactionType.EXPENSE);
+  });
+
+  it('records income as a positive signed amount with TransactionType.INCOME', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed({ direction: 'income', amount: 500, currency: 'DOP' }));
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.amount).toBe(500);
+    expect(created.transactionType).toBe(TransactionType.INCOME);
+  });
+
+  it('stores transactionType via the TransactionType enum (legacy Russian strings), never an english literal', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed({ direction: 'expense' }));
+
+    await service.run();
+
+    const created = txModel.create.mock.calls[0][0];
+    // The enum's real values are the legacy Russian strings — assert against
+    // the enum member, not a literal, so a hardcoded 'expense'/'income' string
+    // would fail this test even though it "looks" plausible.
+    expect(created.transactionType).toBe(TransactionType.EXPENSE);
+    expect(created.transactionType).toBe('Расход');
+    expect(created.transactionType).not.toBe('expense');
+  });
+
+  it('counts a Mongo duplicate-key error as skipped, not failed, and does not log an error', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed());
+    txModel.create.mockRejectedValue({ code: 11000 });
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 0, skipped: 1, failed: 0 });
+    expect(loggerErrorSpy).not.toHaveBeenCalled();
+  });
+
+  it('counts a non-duplicate persist error as failed and logs an error (not skipped)', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed());
+    txModel.create.mockRejectedValue(new Error('Mongo connection reset'));
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 0, skipped: 0, failed: 1 });
+    expect(loggerErrorSpy).toHaveBeenCalled();
+  });
+
+  it('forces income to category "other" with categoryNeedsReview true and never consults the categorizer', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed({ direction: 'income', counterparty: 'Some Wire Transfer' }));
+
+    await service.run();
+
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.category).toBe('other');
+    expect(created.categoryNeedsReview).toBe(true);
+    expect(categorizer.categorize).not.toHaveBeenCalled();
+  });
+
+  it('converts a USD transaction via FxService and preserves the original USD amount/currency', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed({ direction: 'expense', amount: 10, currency: 'USD' }));
+    fx.usdToDop.mockResolvedValue(600);
+
+    await service.run();
+
+    expect(fx.usdToDop).toHaveBeenCalledWith(10);
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.amount).toBe(-600);
+    expect(created.originalAmount).toBe(10);
+    expect(created.originalCurrency).toBe('USD');
+  });
+
+  it('applies the balance delta as an unsigned decrease for an expense while the transaction stores the signed amount', async () => {
+    balanceDoc.balance = 1000;
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed({ direction: 'expense', amount: 150, currency: 'DOP' }));
+
+    await service.run();
+
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.amount).toBe(-150);
+    // A double-negation bug (negating an already-negative signed amount again)
+    // would drive the balance to 1150 instead of 850 — this must be 850.
+    expect(balanceDoc.balance).toBe(850);
+    expect(balanceDoc.save).toHaveBeenCalled();
+  });
+
+  it('applies the balance delta as an unsigned increase for income while the transaction stores the signed amount', async () => {
+    balanceDoc.balance = 1000;
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed({ direction: 'income', amount: 150, currency: 'DOP' }));
+
+    await service.run();
+
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.amount).toBe(150);
+    expect(balanceDoc.balance).toBe(1150);
+    expect(balanceDoc.save).toHaveBeenCalled();
+  });
+
+  it('increments failed and logs a warning when the matched parser cannot parse the mail (never silently dropped)', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(null);
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 0, skipped: 0, failed: 1 });
+    expect(loggerWarnSpy).toHaveBeenCalled();
+    expect(txModel.create).not.toHaveBeenCalled();
+  });
+
+  it('does not abort the run when a parser throws; remaining mails are still processed', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'm1' }), makeMail({ messageId: 'm2' })]);
+    parserParseMock
+      .mockImplementationOnce(() => {
+        throw new Error('parser exploded');
+      })
+      .mockImplementationOnce(() => makeParsed());
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 1, skipped: 0, failed: 1 });
+    expect(txModel.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips (without a matching parser) a mail whose sender is not registered to any parser', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail({ sender: 'unknown@nowhere.com' })]);
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 0, skipped: 1, failed: 0 });
+    expect(parserParseMock).not.toHaveBeenCalled();
+  });
+});
