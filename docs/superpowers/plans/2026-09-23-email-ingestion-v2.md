@@ -49,14 +49,14 @@ Read these before starting. Each one is a trap that has already bitten this code
 
 | File | Change |
 |---|---|
-| `api/src/ingestion/parsers/types.ts` | Add `transferKind`, `ownCashAccounts`, `SKIP` sentinel, `ParseResult` |
+| `api/src/ingestion/parsers/types.ts` | Add `transferKind`, `ownCashAccounts`, optional `isNonTransactional` |
 | `api/src/ingestion/parsers/dates.ts` | Add `parseDdMmYyyyDash12h` |
 | `api/src/ingestion/parsers/banreservas.parser.ts` | Import `matchesOwn` instead of defining it |
 | `api/src/ingestion/parsers/bhd.parser.ts` | Become a dispatcher |
 | `api/src/ingestion/parsers/popular.parser.ts` | Become a dispatcher, add known-skip list |
 | `api/src/shared/schemas/transaction.schema.ts` | Add `transferKind`, `recurringId` |
 | `repo/src/mongodb/schemas/transaction.schemas.ts` | Mirror the same two fields |
-| `api/src/ingestion/ingestion.service.ts` | Honour `transferKind` and `SKIP`; call reconciliation |
+| `api/src/ingestion/ingestion.service.ts` | Honour `transferKind` and `isNonTransactional`; call reconciliation |
 | `api/src/transactions/transactions.service.ts` | Exclude `internal`/`unresolved` from expense totals |
 | `repo/src/service/recurring.service.ts` | Skip months already fulfilled; fix idempotency |
 
@@ -258,7 +258,15 @@ git commit -m "feat(ingestion): add BHD transfer date format parser"
 
 No test of its own — this is a type-only change exercised by Tasks 4–7. It must compile.
 
-- [ ] **Step 1: Add the transfer kind and skip sentinel**
+> **Why it is shaped this way.** An earlier revision of this plan made `parse`
+> return `ParsedTransaction | typeof SKIP | null`. That broke the build in 42
+> places: all four parser specs do `const r = parser.parse(...)!` and then read
+> `r.amount`, and `!` strips only `null`, not a sentinel. Because every parser is
+> declared `export const x: BankParser`, TypeScript types `.parse` by the
+> interface, so widening the interface widened every call site. The separate
+> predicate below avoids that entirely.
+
+- [ ] **Step 1: Add the transfer kind and the non-transactional predicate**
 
 Edit `api/src/ingestion/parsers/types.ts`. Add to `ParsedTransaction`, after `externalRef`:
 
@@ -285,29 +293,31 @@ Add to `ParseInput`, after `ownIdentifiers`:
   ownCashAccounts?: string[];
 ```
 
-Add at the end of the file:
+Add to the `BankParser` interface, after `parse`:
 
 ```typescript
-/** A recognised, deliberately non-transactional email (marketing, receipts with no amount). */
-export const SKIP = Symbol('known-non-transactional');
-
-/**
- * null  — could not parse; log loudly, count as failed
- * SKIP  — recognised and deliberately ignored; count as skipped, stay quiet
- */
-export type ParseResult = ParsedTransaction | typeof SKIP | null;
+  /**
+   * True when this email is recognised and deliberately carries no transaction
+   * — marketing, or a receipt that states no amount.
+   *
+   * Deliberately NOT folded into parse()'s return type. "Is this a transaction
+   * email?" and "parse this transaction" are different questions, and a union
+   * return would force every caller and every test to narrow the result before
+   * touching a field. The casts that would require could later hide a parser
+   * wrongly reporting a real transaction as non-transactional.
+   *
+   * The orchestrator calls this BEFORE parse(). If it is ever forgotten, the
+   * mail is merely logged as an unusable parse failure — noisy, but safe.
+   */
+  readonly isNonTransactional?: (input: ParseInput) => boolean;
 ```
 
-Change the `BankParser` interface's `parse` signature to:
-
-```typescript
-  parse(input: ParseInput): ParseResult;
-```
+**Do not change `parse`'s return type.** It stays `ParsedTransaction | null`.
 
 - [ ] **Step 2: Verify it compiles**
 
 Run: `cd api && pnpm run build`
-Expected: clean. Existing parsers return `ParsedTransaction | null`, which is assignable to `ParseResult`.
+Expected: clean. `parse` keeps its existing return type, and `isNonTransactional` is optional, so no existing parser or spec changes.
 
 - [ ] **Step 3: Run the suite to confirm nothing broke**
 
@@ -318,7 +328,7 @@ Expected: PASS, 74 tests
 
 ```bash
 git add api/src/ingestion/parsers/types.ts
-git commit -m "feat(ingestion): add transferKind, ownCashAccounts and SKIP to the parser contract"
+git commit -m "feat(ingestion): add transferKind, ownCashAccounts and isNonTransactional to the parser contract"
 ```
 
 ---
@@ -514,7 +524,7 @@ import { parseBhdTransfer } from './bhd-transfer.parser';
 Then make `parse` try the transfer format first, before the card-table heuristic:
 
 ```typescript
-  parse(input: ParseInput): ParseResult {
+  parse(input: ParseInput): ParsedTransaction | null {
     // Discriminate on format BEFORE falling back to the card-table heuristic.
     // That heuristic scans for "any pipe row containing a date", which a
     // transfer email also satisfies — it is rejected today only because the
@@ -527,7 +537,7 @@ Then make `parse` try the transfer format first, before the card-table heuristic
     // ...existing card-table body unchanged...
 ```
 
-Update the import line in that file to pull `ParseResult` from `./types`.
+No import change is needed — `parse` keeps its existing return type.
 
 - [ ] **Step 6: Run the whole suite**
 
@@ -774,7 +784,7 @@ git commit -m "feat(ingestion): add Popular sent and received transfer parsers"
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `api/src/ingestion/parsers/popular.parser.spec.ts` (add `SKIP` to the existing import from `./types`):
+Append to `api/src/ingestion/parsers/popular.parser.spec.ts`:
 
 ```typescript
 describe('popularParser — known non-transactional mail', () => {
@@ -791,17 +801,26 @@ VISA ISI\tRD$25,000\tRD$50,000\t`;
   const NOMINA = `Estimado(a): ANTONIO RIVERA JUAN No. de identificación XXX-XXXX-0000
 Le informamos que ha sido acreditado el pago de su nómina en su cuenta terminada en 2001.`;
 
-  it('skips a limit-increase notice rather than inventing an expense', () => {
-    expect(popularParser.parse({ subject: 'Actualización de Límite', body: LIMIT_INCREASE })).toBe(SKIP);
+  it('flags a limit-increase notice as non-transactional', () => {
+    expect(popularParser.isNonTransactional!({ subject: 'Actualización de Límite', body: LIMIT_INCREASE })).toBe(true);
   });
 
-  it('skips a payroll notice, which carries no amount at all', () => {
-    expect(popularParser.parse({ subject: 'Notificación Depósito de Nómina', body: NOMINA })).toBe(SKIP);
+  it('flags a payroll notice as non-transactional, since it carries no amount', () => {
+    expect(popularParser.isNonTransactional!({ subject: 'Notificación Depósito de Nómina', body: NOMINA })).toBe(true);
   });
 
-  it('never returns a transaction for a payroll notice', () => {
-    const r = popularParser.parse({ subject: 'Notificación Depósito de Nómina', body: NOMINA });
-    expect(r).not.toHaveProperty('amount');
+  // Belt and braces: even if the orchestrator forgot the predicate, parse()
+  // must not invent a RD$25,000 expense out of a marketing table.
+  it('never parses a transaction out of a limit-increase notice', () => {
+    expect(popularParser.parse({ subject: 'Actualización de Límite', body: LIMIT_INCREASE })).toBeNull();
+  });
+
+  it('never parses a transaction out of a payroll notice', () => {
+    expect(popularParser.parse({ subject: 'Notificación Depósito de Nómina', body: NOMINA })).toBeNull();
+  });
+
+  it('does not flag a real consumption email as non-transactional', () => {
+    expect(popularParser.isNonTransactional!({ subject: 'Notificación de Consumo', body: '' })).toBe(false);
   });
 });
 ```
@@ -809,14 +828,14 @@ Le informamos que ha sido acreditado el pago de su nómina en su cuenta terminad
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd api && pnpm test popular.parser`
-Expected: FAIL — received `null`, expected the `SKIP` symbol
+Expected: FAIL — `popularParser.isNonTransactional` is not a function
 
 - [ ] **Step 3: Implement the dispatcher**
 
 Edit `api/src/ingestion/parsers/popular.parser.ts`. Replace the imports and the opening of `parse`:
 
 ```typescript
-import { BankParser, ParseInput, ParseResult, SKIP, toAmount } from './types';
+import { BankParser, ParseInput, ParsedTransaction, toAmount } from './types';
 import { parseDdMmYyyy } from './dates';
 import { parsePopularTransfer } from './popular-transfer.parser';
 
@@ -836,9 +855,16 @@ export const popularParser: BankParser = {
   bank: 'popular',
   senders: ['notificaciones@popularenlinea.com'],
 
-  parse(input: ParseInput): ParseResult {
-    const subject = input.subject.toLowerCase();
-    if (KNOWN_NON_TRANSACTIONAL.some((s) => subject.includes(s))) return SKIP;
+  isNonTransactional({ subject }: ParseInput): boolean {
+    const s = subject.toLowerCase();
+    return KNOWN_NON_TRANSACTIONAL.some((k) => s.includes(k));
+  },
+
+  parse(input: ParseInput): ParsedTransaction | null {
+    // Defence in depth: even reached directly, these must never yield a
+    // transaction. The limit-increase mail is tab-delimited with RD$ amounts,
+    // which is exactly the shape the consumption branch below hunts for.
+    if (this.isNonTransactional!(input)) return null;
 
     const transfer = parsePopularTransfer(input);
     if (transfer) return transfer;
@@ -913,7 +939,7 @@ git commit -m "feat(schemas): add transferKind and recurringId to both services"
 
 ---
 
-### Task 8: Orchestrator honours transferKind and SKIP
+### Task 8: Orchestrator honours transferKind and skips non-transactional mail
 
 **Files:**
 - Modify: `api/src/ingestion/ingestion.service.ts`
@@ -948,9 +974,9 @@ Add two more in the same style:
     // Same shape; transferKind: 'unresolved', balance untouched.
   });
 
-  it('counts a SKIP result as skipped and does not warn', async () => {
-    // Parser returns SKIP; expect result.skipped === 1, result.failed === 0,
-    // and logger.warn not called.
+  it('counts a non-transactional email as skipped, not failed, and does not warn', async () => {
+    // Parser's isNonTransactional returns true; expect result.skipped === 1,
+    // result.failed === 0, logger.warn not called, and parse() never invoked.
   });
 ```
 
@@ -963,9 +989,7 @@ Expected: FAIL — balance is currently applied for every parsed transaction
 
 In `api/src/ingestion/ingestion.service.ts`:
 
-Import `SKIP` from `./parsers/types`.
-
-In `run()`, read the new config and handle `SKIP` before the `!parsed` branch:
+In `run()`, read the new config and check the predicate **before calling `parse`**:
 
 ```typescript
     const ownCashAccounts = (process.env.OWN_CASH_ACCOUNTS || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -976,12 +1000,17 @@ Pass it into every `parser.parse({ ... })` call alongside `ownIdentifiers`.
 Then:
 
 ```typescript
-      if (parsed === SKIP) {
-        // Recognised and deliberately ignored — not a failure, stays quiet.
+      // Recognised and deliberately ignored — not a failure, so it must not
+      // reach the "unusable mail" warning below. Payroll notices arrive monthly
+      // and marketing more often; logging them as failures would bury the real
+      // failures under routine noise.
+      if (parser.isNonTransactional?.({ subject: mail.subject, body: mail.body })) {
         skipped++;
         continue;
       }
 ```
+
+Place this immediately after the parser is resolved and **before** the `parser.parse(...)` call.
 
 In `persist()`, carry the field onto the document:
 
@@ -1478,8 +1507,8 @@ git commit -m "docs: document OWN_CASH_ACCOUNTS"
 | Genuine second same-amount payment not swallowed | 12 |
 | `OWN_CASH_ACCOUNTS` documented | 13 |
 
-**Gaps deliberately deferred:** the web UI for resolving an `unresolved` transfer. Every format observed in the live mailbox classifies deterministically, so `unresolved` is a safety net that should never fire in practice. Building UI for a state that does not occur is speculative; when one does appear it will be visible in the logs and in the transactions list, and the UI can follow. Salary as recurring income needs no code — the user creates an ordinary recurring income rule and Task 11's skip logic plus Task 6's `SKIP` handle the rest.
+**Gaps deliberately deferred:** the web UI for resolving an `unresolved` transfer. Every format observed in the live mailbox classifies deterministically, so `unresolved` is a safety net that should never fire in practice. Building UI for a state that does not occur is speculative; when one does appear it will be visible in the logs and in the transactions list, and the UI can follow. Salary as recurring income needs no code — the user creates an ordinary recurring income rule and Task 11's skip logic plus Task 6's `isNonTransactional` handle the rest.
 
 **Placeholder scan:** Tasks 8, 11 and 12 describe test bodies rather than spelling out every mock. That is deliberate — those specs must match the mocking harness already present in `ingestion.service.spec.ts` and the implementer should read it first. Every assertion to make is stated explicitly. No step says "add error handling" or "write tests for the above".
 
-**Type consistency:** `matchesOwn(value, ownIdentifiers)` is used with that signature in Tasks 1, 4 and 5. `transferKind` is the same string union in Tasks 3, 4, 5, 7, 8 and 9. `matchesRule(rule, tx)` is defined in Task 10 and used in Task 12. `parseDdMmYyyyDash12h` is defined in Task 2 and used in Task 4. `SKIP` is defined in Task 3, returned in Task 6, handled in Task 8.
+**Type consistency:** `matchesOwn(value, ownIdentifiers)` is used with that signature in Tasks 1, 4 and 5. `transferKind` is the same string union in Tasks 3, 4, 5, 7, 8 and 9. `matchesRule(rule, tx)` is defined in Task 10 and used in Task 12. `parseDdMmYyyyDash12h` is defined in Task 2 and used in Task 4. `isNonTransactional` is declared in Task 3, implemented in Task 6, called in Task 8; `parse` keeps returning `ParsedTransaction | null` throughout, so no existing call site changes.
