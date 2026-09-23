@@ -25,6 +25,33 @@ export class Transaction extends Document {
 
   @Prop({ default: Category.OTHER })
   category: string;
+
+  @Prop({ index: { unique: true, sparse: true } })
+  sourceMessageId?: string;
+
+  @Prop()
+  source?: string;
+
+  @Prop()
+  categoryNeedsReview?: boolean;
+
+  @Prop()
+  merchant?: string;
+
+  @Prop()
+  cardLast4?: string;
+
+  @Prop()
+  originalAmount?: number;
+
+  @Prop()
+  originalCurrency?: string;
+
+  @Prop()
+  isWithdrawal?: boolean;
+
+  @Prop()
+  externalRef?: string;
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
