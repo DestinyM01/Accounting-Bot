@@ -79,4 +79,21 @@ describe('banreservasParser', () => {
     const r = banreservasParser.parse({ subject: 'x', body: INCOMING, ownIdentifiers: OWN })!;
     expect(r.counterparty).not.toContain('#concept#');
   });
+
+  it('does not treat a longer account number as our own (digit-boundary match)', () => {
+    const nearMiss = INCOMING.replace('** - 0010', '** - 32002');
+    expect(
+      banreservasParser.parse({ subject: 'x', body: nearMiss, ownIdentifiers: ['2002'] }),
+    ).toBeNull();
+  });
+
+  it('still matches a name fragment by substring', () => {
+    const r = banreservasParser.parse({
+      subject: 'x',
+      body: INCOMING,
+      ownIdentifiers: ['JUAN ANTONIO RIVERA MARTE'],
+    })!;
+    expect(r).not.toBeNull();
+    expect(r.direction).toBe('income');
+  });
 });

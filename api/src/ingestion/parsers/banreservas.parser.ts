@@ -12,7 +12,17 @@ function valueAfter(lines: string[], label: string): string | null {
 function matchesOwn(value: string | null, ownIdentifiers: string[]): boolean {
   if (!value) return false;
   const hay = value.toLowerCase();
-  return ownIdentifiers.some((id) => id.trim() && hay.includes(id.trim().toLowerCase()));
+  return ownIdentifiers.some((raw) => {
+    const id = raw.trim().toLowerCase();
+    if (!id) return false;
+    // Numeric identifiers (account last-4) must match on a digit boundary, so
+    // '2002' does not match an unrelated account ending '32002'. Getting this
+    // wrong silently flips the income/expense direction.
+    if (/^\d+$/.test(id)) {
+      return new RegExp(`(?<!\\d)${id}(?!\\d)`).test(hay);
+    }
+    return hay.includes(id);
+  });
 }
 
 export const banreservasParser: BankParser = {
