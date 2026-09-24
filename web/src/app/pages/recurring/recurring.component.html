@@ -11,14 +11,15 @@
 
   @if (showForm) {
     <div class="rp-form-row card">
-      <select class="rf-input" [(ngModel)]="fType"><option value="expense">Expense</option><option value="income">Income</option></select>
-      <input class="rf-input" type="number" min="0.01" step="0.01" [(ngModel)]="fAmount" placeholder="Amount" />
-      <input class="rf-input" type="text" [(ngModel)]="fName" placeholder="Name (e.g. salary, rent)" />
-      <select class="rf-input" [(ngModel)]="fCategory">@for (c of categories; track c) { <option [value]="c">{{ c | titlecase }}</option> }</select>
-      <input class="rf-input rf-day" type="number" min="1" max="28" [(ngModel)]="fDay" placeholder="Day" />
+      <select class="rf-input" aria-label="Type" [(ngModel)]="fType"><option value="expense">Expense</option><option value="income">Income</option></select>
+      <input class="rf-input" type="number" min="0.01" step="0.01" [(ngModel)]="fAmount" placeholder="Amount" aria-label="Amount" />
+      <input class="rf-input" type="text" [(ngModel)]="fName" placeholder="Name (e.g. salary, rent)" aria-label="Name (e.g. salary, rent)" />
+      <select class="rf-input" aria-label="Category" [(ngModel)]="fCategory">@for (c of categories; track c) { <option [value]="c">{{ c | titlecase }}</option> }</select>
+      <input class="rf-input rf-day" type="number" min="1" max="28" [(ngModel)]="fDay" placeholder="Day" aria-label="Day" />
       <button class="rf-submit" [disabled]="!formValid || saving" (click)="submitForm()">
         <mat-icon>{{ saving ? 'hourglass_empty' : 'check' }}</mat-icon> {{ saving ? 'Saving…' : 'Create' }}
       </button>
+      @if (formError) { <p class="rf-error" role="alert">{{ formError }}</p> }
     </div>
   }
 
@@ -85,7 +86,7 @@
       <div class="empty-state">
         <mat-icon class="empty-icon">event_repeat</mat-icon>
         <p>No recurring transactions yet.</p>
-        <p class="empty-hint">Add them via the Telegram bot → Transactions → Recurring.</p>
+        <p class="empty-hint">Use "New Rule" above to add one.</p>
       </div>
     } @else {
       <div class="items-panel">

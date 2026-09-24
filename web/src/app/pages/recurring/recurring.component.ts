@@ -24,16 +24,21 @@ export class RecurringComponent implements OnInit, OnDestroy {
 
   showForm = false; saving = false;
   fType: 'income' | 'expense' = 'expense'; fAmount: number | null = null; fName = ''; fCategory = 'other'; fDay = 1;
+  formError = '';
   get categories(): string[] { return this.catSvc.all.map(c => c.name); }
-  get formValid() { return !!this.fAmount && this.fAmount > 0 && !!this.fName.trim() && this.fDay >= 1 && this.fDay <= 28; }
+  get formValid() { return !!this.fAmount && this.fAmount > 0 && !!this.fName.trim() && Number.isInteger(this.fDay) && this.fDay >= 1 && this.fDay <= 28; }
 
   submitForm() {
     if (!this.formValid || this.saving) return;
     this.saving = true;
+    this.formError = '';
     this.api.createRecurring({ type: this.fType, amount: this.fAmount!, name: this.fName, category: this.fCategory, dayOfMonth: this.fDay })
       .subscribe({
         next: () => { this.saving = false; this.showForm = false; this.fAmount = null; this.fName = ''; this.load(); },
-        error: () => { this.saving = false; this.error = 'Could not create the rule.'; },
+        error: (e: { status?: number; error?: { message?: string } }) => {
+          this.saving = false;
+          this.formError = e?.error?.message ?? 'Could not create the rule.';
+        },
       });
   }
 

@@ -45,6 +45,8 @@
 }
 .rf-day { width: 80px; }
 
+.rf-error { margin: 0; color: var(--expense); font-size: 0.8rem; }
+
 .rf-submit {
   display: flex; align-items: center; gap: 6px;
   background: var(--accent); color: var(--color-accent-ink); border: none; border-radius: 10px;
