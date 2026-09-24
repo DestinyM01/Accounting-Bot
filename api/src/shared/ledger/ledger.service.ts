@@ -6,8 +6,8 @@ import { BalanceChangeReason, BalanceHistory } from '../schemas/balance-history.
 
 /**
  * The only code in api/ that moves the user's balance. Every write path —
- * ingestion, manual create, edit, delete, resolution — goes through here so
- * the balance and its history can never disagree about what happened.
+ * ingestion, manual create, edit, delete, resolution — must go through here
+ * so the balance and its history can never disagree about what happened.
  */
 @Injectable()
 export class LedgerService {
@@ -26,21 +26,22 @@ export class LedgerService {
     transactionName?: string,
     transactionId?: string,
   ): Promise<{ previousBalance: number; newBalance: number }> {
-    const balance =
-      (await this.balanceModel.findOne({ userId: this.userId })) ??
-      (await this.balanceModel.create({ userId: this.userId, balance: 0 }));
-
-    const previousBalance = balance.balance;
-    balance.balance += delta;
-    balance.lastActivity = new Date();
-    await balance.save();
+    // A single atomic $inc: concurrent writers (the ingestion poll and the web)
+    // can never lose each other's update the way a read-modify-write can.
+    const updated = await this.balanceModel.findOneAndUpdate(
+      { userId: this.userId },
+      { $inc: { balance: delta }, $set: { lastActivity: new Date() } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+    const newBalance = updated.balance;
+    const previousBalance = newBalance - delta;
 
     // History failure must never break the movement that already happened.
     try {
       await this.historyModel.create({
         userId: this.userId,
         previousBalance,
-        newBalance: balance.balance,
+        newBalance,
         delta,
         reason,
         transactionName,
@@ -49,14 +50,18 @@ export class LedgerService {
     } catch (err) {
       this.logger.error('Failed to record balance history', String(err));
     }
-    return { previousBalance, newBalance: balance.balance };
+    return { previousBalance, newBalance };
   }
 
   /**
    * Undo a stored amount. Works for both signs: a stored expense of -300
    * reverses as +300, a stored income of +500 reverses as -500.
    */
-  reverse(storedAmount: number, transactionName?: string, transactionId?: string) {
+  reverse(
+    storedAmount: number,
+    transactionName?: string,
+    transactionId?: string,
+  ): Promise<{ previousBalance: number; newBalance: number }> {
     return this.apply(-storedAmount, 'delete', transactionName, transactionId);
   }
 }
