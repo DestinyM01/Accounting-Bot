@@ -7,6 +7,8 @@ import {
   BalanceSummary,
   BudgetEntry,
   CategoryEntry,
+  CategoryInput,
+  CategoryOverview,
   CategoryPoint,
   ChartPoint,
   CompareResult,
@@ -130,12 +132,26 @@ export class ApiService {
     return this.http.get<CategoryEntry[]>(`${this.base}/categories`);
   }
 
-  createCategory(body: { name: string; emoji: string; color: string }): Observable<void> {
-    return this.http.post<void>(`${this.base}/categories`, body);
+  getCategoryOverview(): Observable<CategoryOverview> {
+    return this.http.get<CategoryOverview>(`${this.base}/categories/overview`);
   }
 
-  deleteCategory(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.base}/categories/${id}`);
+  createCategory(body: { name: string; emoji: string; color: string }): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>(`${this.base}/categories`, body);
+  }
+
+  updateCategory(id: string, body: CategoryInput): Observable<{ id: string }> {
+    return this.http.patch<{ id: string }>(`${this.base}/categories/${id}`, body);
+  }
+
+  /** `moveTo` is required by the api while the category is in use. */
+  deleteCategory(id: string, moveTo?: string): Observable<void> {
+    const params = moveTo ? new HttpParams().set('moveTo', moveTo) : undefined;
+    return this.http.delete<void>(`${this.base}/categories/${id}`, { params });
+  }
+
+  finishCategoryMove(id: string): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>(`${this.base}/categories/${id}/finish`, {});
   }
 
   getTips(): Observable<Tip[]> {

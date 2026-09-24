@@ -165,3 +165,32 @@ export interface SetBalanceResult {
   newBalance: number;
   delta: number;
 }
+
+export interface CategoryUsage {
+  transactions: number;
+  recurring: number;
+  budgets: number;
+}
+
+export interface CategoryOverviewItem {
+  id: string | null;
+  name: string;
+  emoji: string;
+  color: string;
+  isBuiltIn: boolean;
+  active: boolean;
+  usage: CategoryUsage;
+  pending: { from: string; to: string } | null;
+}
+
+export interface CategoryOverview {
+  categories: CategoryOverviewItem[];
+  palette: { label: string; hex: string }[];
+  emojis: string[];
+}
+
+export interface CategoryInput {
+  name?: string;
+  emoji?: string;
+  color?: string;
+}
