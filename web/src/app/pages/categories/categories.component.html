@@ -1,0 +1,201 @@
+<div class="page-wrap">
+  <div class="cat-header">
+    <div>
+      <h1>Categories</h1>
+      <p class="cat-muted">Your own categories for transactions, budgets and recurring rules.</p>
+    </div>
+    <button
+      id="new-category"
+      type="button"
+      class="fc-btn fc-btn--primary"
+      [disabled]="loading || !!loadError || busy || mode.kind !== 'none'"
+      (click)="openCreate()"
+    >
+      <mat-icon>add</mat-icon> New category
+    </button>
+  </div>
+
+  @if (loading) {
+    <p class="cat-muted">Loading…</p>
+  } @else if (loadError) {
+    <p class="fc-error" role="alert">{{ loadError }}</p>
+  } @else {
+    @if (mode.kind === 'create') {
+      <section class="card cat-section" aria-labelledby="cat-new-title">
+        <h2 id="cat-new-title">New category</h2>
+        <ng-container *ngTemplateOutlet="categoryForm" />
+      </section>
+    }
+
+    <section class="card cat-section" aria-labelledby="cat-custom-title">
+      <h2 id="cat-custom-title">Your categories</h2>
+      @if (custom.length === 0) {
+        <p class="cat-muted">No custom categories yet.</p>
+      }
+      <ul class="cat-list">
+        @for (c of custom; track c.id) {
+          <li class="cat-row">
+            @if (mode.kind === 'edit' && mode.id === c.id) {
+              <ng-container *ngTemplateOutlet="categoryForm" />
+            } @else {
+              <div class="cat-main">
+                <span class="cat-swatch" [style.background]="c.color" aria-hidden="true"></span>
+                <span class="cat-emoji" aria-hidden="true">{{ c.emoji }}</span>
+                <div class="cat-text">
+                  <span class="cat-name">{{ c.name }}</span>
+                  <span class="cat-usage">{{ usageText(c.usage) }}</span>
+                </div>
+              </div>
+
+              @if (c.pending) {
+                <div class="cat-pending">
+                  <p>Moving {{ c.pending.from }} to {{ c.pending.to }} didn't finish.</p>
+                  <button type="button" class="fc-btn fc-btn--primary" [disabled]="busy" (click)="finish(c)">
+                    Finish move
+                  </button>
+                  @if (finishError?.id === c.id) {
+                    <p class="fc-error" role="alert">{{ finishError!.message }}</p>
+                  }
+                </div>
+              } @else if (mode.kind === 'delete' && mode.id === c.id) {
+                <div class="cat-delete">
+                  @if (inUse(c)) {
+                    <label class="fc-field">
+                      <span>Move its {{ usageSentence(c.usage) }} to</span>
+                      <select #firstField class="fc-input" [(ngModel)]="moveTo" name="moveTo">
+                        <option value="" disabled>Choose a category</option>
+                        @for (t of moveTargets(c); track t.name) {
+                          <option [value]="t.name">{{ t.name }}</option>
+                        }
+                      </select>
+                    </label>
+                  } @else {
+                    <p>Delete {{ c.name }}?</p>
+                  }
+                  @if (actionError) {
+                    <p class="fc-error" role="alert">{{ actionError }}</p>
+                  }
+                  <div class="cat-actions">
+                    <button type="button" class="fc-btn fc-btn--ghost" [disabled]="busy" (click)="close()">Cancel</button>
+                    @if (inUse(c)) {
+                      <button
+                        type="button"
+                        class="fc-btn cat-danger"
+                        [disabled]="busy || !moveTo"
+                        (click)="confirmDelete(c)"
+                      >
+                        {{ busy ? 'Moving…' : 'Delete and move' }}
+                      </button>
+                    } @else {
+                      <button #firstField type="button" class="fc-btn cat-danger" [disabled]="busy" (click)="confirmDelete(c)">
+                        {{ busy ? 'Deleting…' : 'Delete' }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              } @else {
+                <div class="cat-row-actions">
+                  <button
+                    [id]="'edit-' + c.id"
+                    type="button"
+                    class="fc-btn fc-btn--ghost"
+                    [disabled]="busy || mode.kind !== 'none'"
+                    [attr.aria-label]="'Edit ' + c.name"
+                    (click)="openEdit(c)"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button
+                    [id]="'delete-' + c.id"
+                    type="button"
+                    class="fc-btn fc-btn--ghost"
+                    [disabled]="busy || mode.kind !== 'none'"
+                    [attr.aria-label]="'Delete ' + c.name"
+                    (click)="openDelete(c)"
+                  >
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                </div>
+              }
+            }
+          </li>
+        }
+      </ul>
+    </section>
+
+    <section class="card cat-section" aria-labelledby="cat-builtin-title">
+      <h2 id="cat-builtin-title">Built-in</h2>
+      <p class="cat-muted">Built-in categories can't be changed.</p>
+      <ul class="cat-list">
+        @for (c of builtIns; track c.name) {
+          <li class="cat-row">
+            <div class="cat-main">
+              <span class="cat-swatch" [style.background]="c.color" aria-hidden="true"></span>
+              <span class="cat-emoji" aria-hidden="true">{{ c.emoji }}</span>
+              <div class="cat-text">
+                <span class="cat-name">{{ c.name }}</span>
+                <span class="cat-usage">{{ usageText(c.usage) }}</span>
+              </div>
+            </div>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+</div>
+
+<ng-template #categoryForm>
+  <form class="cat-form" (ngSubmit)="save()">
+    <label class="fc-field">
+      <span>Name</span>
+      <input #firstField class="fc-input" type="text" maxlength="40" autocomplete="off" [(ngModel)]="name" name="name" />
+    </label>
+    <p class="cat-hint" aria-live="polite">{{ nameCheck }}</p>
+
+    <div class="cat-picker" role="group" aria-label="Emoji">
+      @for (e of overview!.emojis; track e) {
+        <button
+          type="button"
+          class="cat-pick"
+          [class.active]="emoji === e"
+          [attr.aria-pressed]="emoji === e"
+          [attr.aria-label]="e"
+          (click)="emoji = e"
+        >
+          {{ e }}
+        </button>
+      }
+    </div>
+
+    <div class="cat-picker" role="group" aria-label="Colour">
+      @for (p of overview!.palette; track p.hex) {
+        <button
+          type="button"
+          class="cat-swatch-btn"
+          [class.active]="color === p.hex"
+          [attr.aria-pressed]="color === p.hex"
+          [attr.aria-label]="p.label"
+          [style.background]="p.hex"
+          (click)="color = p.hex"
+        ></button>
+      }
+    </div>
+
+    <p class="cat-preview">
+      <span class="cat-swatch" [style.background]="color || null" aria-hidden="true"></span>
+      <span>{{ emoji }} {{ normalizedName || 'name' }}</span>
+    </p>
+    @if (renameNote) {
+      <p class="cat-muted">{{ renameNote }}</p>
+    }
+    @if (actionError) {
+      <p class="fc-error" role="alert">{{ actionError }}</p>
+    }
+    <div class="cat-actions">
+      <button type="button" class="fc-btn fc-btn--ghost" [disabled]="busy" (click)="close()">Cancel</button>
+      <button type="submit" class="fc-btn fc-btn--primary" [disabled]="!canSave">
+        {{ busy ? 'Saving…' : mode.kind === 'edit' ? 'Save' : 'Create' }}
+      </button>
+    </div>
+  </form>
+</ng-template>

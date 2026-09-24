@@ -57,4 +57,10 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/recurring/recurring.component').then((m) => m.RecurringComponent),
   },
+  {
+    path: 'categories',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/categories/categories.component').then((m) => m.CategoriesComponent),
+  },
 ];

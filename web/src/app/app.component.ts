@@ -27,6 +27,7 @@ export class AppComponent implements OnInit {
     { label: 'Compare',      icon: 'compare_arrows',         path: '/compare' },
     { label: 'Analytics',    icon: 'insights',               path: '/analytics' },
     { label: 'Recurring',    icon: 'repeat',                 path: '/recurring' },
+    { label: 'Categories',   icon: 'sell',                   path: '/categories' },
     { label: 'Tips',         icon: 'lightbulb',              path: '/tips' },
   ];
 
