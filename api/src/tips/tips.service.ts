@@ -73,7 +73,14 @@ export class TipsService {
       const label = d.toLocaleString('en', { month: 'long', year: 'numeric' });
 
       const txs = await this.txModel
-        .find({ userId: this.userId, timestamp: { $gte: start, $lt: end }, amount: { $lt: 0 } })
+        .find({
+          userId: this.userId,
+          timestamp: { $gte: start, $lt: end },
+          amount: { $lt: 0 },
+          // Internal transfers move money between the user's own accounts and
+          // unresolved ones have not been asserted, so neither is spending.
+          transferKind: { $nin: ['internal', 'unresolved'] },
+        })
         .select('amount category')
         .lean();
 
@@ -94,7 +101,14 @@ export class TipsService {
     // Average monthly income over the same 3-month window
     const since = new Date(now.getFullYear(), now.getMonth() - 2, 1);
     const incomeTxs = await this.txModel
-      .find({ userId: this.userId, timestamp: { $gte: since }, amount: { $gt: 0 } })
+      .find({
+        userId: this.userId,
+        timestamp: { $gte: since },
+        amount: { $gt: 0 },
+        // Internal transfers move money between the user's own accounts and
+        // unresolved ones have not been asserted, so neither is spending.
+        transferKind: { $nin: ['internal', 'unresolved'] },
+      })
       .select('amount')
       .lean();
     const avgIncome = incomeTxs.reduce((s, t) => s + t.amount, 0) / 3;

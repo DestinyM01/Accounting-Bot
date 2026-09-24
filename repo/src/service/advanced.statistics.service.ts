@@ -41,7 +41,16 @@ export class AdvancedStatisticsService {
     try {
       const transactions = await this.transactionModel
         .aggregate([
-          { $match: { userId, transactionType } },
+          {
+            $match: {
+              userId,
+              transactionType,
+              // Internal transfers move money between the user's own accounts
+              // and unresolved ones have not been asserted, so neither is
+              // spending.
+              transferKind: { $nin: ['internal', 'unresolved'] },
+            },
+          },
           { $group: { _id: '$transactionName', totalAmount: { $sum: '$amount' } } },
           { $sort: { totalAmount: -1 } },
           { $limit: 10 },
@@ -197,6 +206,10 @@ export class AdvancedStatisticsService {
                 $gte: startDate,
                 $lte: endDate,
               },
+              // Internal transfers move money between the user's own accounts
+              // and unresolved ones have not been asserted, so neither is
+              // spending.
+              transferKind: { $nin: ['internal', 'unresolved'] },
             },
           },
           {

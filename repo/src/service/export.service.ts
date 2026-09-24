@@ -16,10 +16,14 @@ export class ExportService {
     endDate: Date,
     groupIds?: number[],
   ): Promise<Buffer> {
+    // Internal transfers move money between the user's own accounts and
+    // unresolved ones have not been asserted, so neither is spending — left
+    // in, they'd print as ordinary expense rows in the CSV.
+    const transferGuard = { transferKind: { $nin: ['internal', 'unresolved'] } };
     const query =
       groupIds && groupIds.length > 0
-        ? { userId: { $in: [...groupIds, userId] }, timestamp: { $gte: startDate, $lte: endDate } }
-        : { userId, timestamp: { $gte: startDate, $lte: endDate } };
+        ? { userId: { $in: [...groupIds, userId] }, timestamp: { $gte: startDate, $lte: endDate }, ...transferGuard }
+        : { userId, timestamp: { $gte: startDate, $lte: endDate }, ...transferGuard };
 
     const transactions = await this.transactionModel.find(query).sort({ timestamp: -1 }).lean().exec();
     const rows = transactions.map((t) => ({
@@ -35,8 +39,14 @@ export class ExportService {
   }
 
   async exportUserTransactionsCsv(userId: number, groupIds?: number[]): Promise<Buffer> {
+    // Internal transfers move money between the user's own accounts and
+    // unresolved ones have not been asserted, so neither is spending — left
+    // in, they'd print as ordinary expense rows in the CSV.
+    const transferGuard = { transferKind: { $nin: ['internal', 'unresolved'] } };
     const query =
-      groupIds && groupIds.length > 0 ? { userId: { $in: [...groupIds, userId] } } : { userId };
+      groupIds && groupIds.length > 0
+        ? { userId: { $in: [...groupIds, userId] }, ...transferGuard }
+        : { userId, ...transferGuard };
 
     const transactions = await this.transactionModel.find(query).sort({ timestamp: -1 }).lean().exec();
 

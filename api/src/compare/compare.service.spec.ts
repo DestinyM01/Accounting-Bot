@@ -88,5 +88,15 @@ describe('CompareService', () => {
       const result = await service.compare('2026-05', '2026-05');
       expect(result.analysis).toBe('Test analysis result');
     });
+
+    // Internal transfers post as transactionType EXPENSE with a negative
+    // amount — exactly the shape buildPeriodSummary sums — so without this
+    // exclusion they inflate totalExpenses and feed the Mistral prompt wrong
+    // numbers.
+    it('excludes internal and unresolved transfers from the period query', async () => {
+      await service.compare('2026-05', '2026-05');
+      const query = (mockModel.find as jest.Mock).mock.calls[0][0];
+      expect(query.transferKind).toEqual({ $nin: ['internal', 'unresolved'] });
+    });
   });
 });

@@ -22,8 +22,14 @@ export class StatisticsService {
     const userId = ctx.from.id;
     const firstTransaction = true;
     try {
+      // Internal transfers move money between the user's own accounts and
+      // unresolved ones have not been asserted, so neither is spending —
+      // sendFormattedTransactions() sums these into per-name and grand totals.
+      const transferGuard = { transferKind: { $nin: ['internal', 'unresolved'] } };
       const query =
-        groupIds && groupIds.length > 0 ? { userId: { $in: groupIds }, transactionType } : { userId, transactionType };
+        groupIds && groupIds.length > 0
+          ? { userId: { $in: groupIds }, transactionType, ...transferGuard }
+          : { userId, transactionType, ...transferGuard };
 
       const transactions = await this.transactionModel.find(query).exec();
 
@@ -56,8 +62,14 @@ export class StatisticsService {
     const groupIds = ctx.session.group;
     ctx.session.transactionQuery = query;
 
+    // Internal transfers move money between the user's own accounts and
+    // unresolved ones have not been asserted, so neither is spending —
+    // sendFormattedTransactions() sums these into per-name and grand totals.
+    const transferGuard = { transferKind: { $nin: ['internal', 'unresolved'] } };
     const adaptedQuery =
-      groupIds && groupIds.length > 0 ? { userId: { $in: groupIds }, ...query } : { userId, ...query };
+      groupIds && groupIds.length > 0
+        ? { userId: { $in: groupIds }, ...query, ...transferGuard }
+        : { userId, ...query, ...transferGuard };
 
     try {
       const transactions = await this.transactionModel.find(adaptedQuery).exec();
@@ -83,8 +95,14 @@ export class StatisticsService {
     const groupIds = ctx.session.group;
     ctx.session.transactionQuery = query;
 
+    // Internal transfers move money between the user's own accounts and
+    // unresolved ones have not been asserted, so neither is spending — this
+    // feeds the custom chart, which sums/groups amounts for plotting.
+    const transferGuard = { transferKind: { $nin: ['internal', 'unresolved'] } };
     const adaptedQuery =
-      groupIds && groupIds.length > 0 ? { userId: { $in: groupIds }, ...query } : { userId, ...query };
+      groupIds && groupIds.length > 0
+        ? { userId: { $in: groupIds }, ...query, ...transferGuard }
+        : { userId, ...query, ...transferGuard };
 
     return await this.transactionModel.find(adaptedQuery).exec();
   }
@@ -247,7 +265,13 @@ export class StatisticsService {
   ): Promise<Record<string, number>> {
     const query = groupIds && groupIds.length > 0 ? { userId: { $in: [...groupIds, userId] } } : { userId };
     const transactions = await this.transactionModel
-      .find({ ...query, timestamp: { $gte: startDate, $lte: endDate } })
+      .find({
+        ...query,
+        timestamp: { $gte: startDate, $lte: endDate },
+        // Internal transfers move money between the user's own accounts and
+        // unresolved ones have not been asserted, so neither is spending.
+        transferKind: { $nin: ['internal', 'unresolved'] },
+      })
       .exec();
 
     const totals: Record<string, number> = {};

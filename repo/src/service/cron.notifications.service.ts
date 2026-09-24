@@ -72,7 +72,13 @@ export class CronNotificationsService {
     for (const user of activeUsers) {
       try {
         const transactions = await this.transactionModel
-          .find({ userId: user.userId, timestamp: { $gte: startOfPrevMonth, $lte: endOfPrevMonth } })
+          .find({
+            userId: user.userId,
+            timestamp: { $gte: startOfPrevMonth, $lte: endOfPrevMonth },
+            // Internal transfers move money between the user's own accounts and
+            // unresolved ones have not been asserted, so neither is spending.
+            transferKind: { $nin: ['internal', 'unresolved'] },
+          })
           .exec();
         if (transactions.length === 0) continue;
 
@@ -179,6 +185,9 @@ export class CronNotificationsService {
             category: budget.category,
             transactionType: TransactionType.EXPENSE,
             timestamp: { $gte: startOfMonth, $lte: endOfMonth },
+            // Internal transfers move money between the user's own accounts and
+            // unresolved ones have not been asserted, so neither is spending.
+            transferKind: { $nin: ['internal', 'unresolved'] },
           })
           .exec();
 

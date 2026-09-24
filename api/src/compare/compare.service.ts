@@ -65,7 +65,13 @@ export class CompareService {
     const end   = new Date(year, m,     1);
 
     const txs = await this.txModel
-      .find({ userId: this.userId, timestamp: { $gte: start, $lt: end } })
+      .find({
+        userId: this.userId,
+        timestamp: { $gte: start, $lt: end },
+        // Internal transfers move money between the user's own accounts and
+        // unresolved ones have not been asserted, so neither is spending.
+        transferKind: { $nin: ['internal', 'unresolved'] },
+      })
       .select('amount category')
       .lean();
 
