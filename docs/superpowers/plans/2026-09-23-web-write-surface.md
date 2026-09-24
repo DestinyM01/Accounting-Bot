@@ -2111,9 +2111,9 @@ with `.tx-amount.transfer { color: var(--text-muted); }` in the dashboard scss.
 
 ---
 
-### Task 16b: Phase 3 review fixes (applied in `a436af0`, `1653afe`, `1de5d5a`, `4321f00`)
+### Task 16b: Phase 3 review fixes (applied in `a436af0`, `1653afe`, `1de5d5a`, `4321f00`; re-review round in `f9a6716`)
 
-The Phase 3 spec review found three things a user hits on first use, one of them irreversible, plus the right answer to the style-budget warning. All four applied; the web build is clean with zero warnings and `api/`/`repo/` are untouched.
+The Phase 3 spec review found three things a user hits on first use, one of them irreversible, plus the right answer to the style-budget warning. All four applied. The re-review then found the create form still defaulted to the UTC day (the same class of bug as the edit finding) plus three refactor nits — native select arrows, primary hover, recurring error placement/staleness — fixed in `f9a6716` together with a visible message on a failed in-place reload. Web build clean with zero warnings; `api/`/`repo/` untouched.
 
 - [ ] **Editing must never rewrite the time.** The overlay (Task 14 as written) prefilled the date from the **UTC** day and always re-sent a noon-local `timestamp`, so editing only the *name* of a 9:15 PM purchase stored it as 12:00 PM — and past 8 PM (UTC−4) moved it to the next day, across a month boundary on the 30th. There is no time field, so it could not be undone. Fix: prefill from the local date of `new Date(tx.timestamp)`; send `timestamp` on edit **only** when the date changed, and then keep the original time-of-day and move just the calendar day. Creates keep noon-local. Also: the bottom sheet gets `max-height: 100dvh; overflow-y: auto`; the type toggle's buttons get `role="radio"` + `aria-checked`.
 - [ ] **Writes reload in place.** `changed$` → `load(false)` flipped `loading`, which removed the table, scrolled to the top and discarded "Load More" rows on every save/delete/resolve, and broke focus return after edit→save. Fix: `reloadInPlace()` re-fetches the rows on screen (capped at the API's 200) without touching `loading`, and sets `offset` so the next Load More continues correctly. Delete/resolve errors (404/409 from another tab) now also `notify()` so the stale row refreshes.
