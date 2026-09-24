@@ -32,6 +32,7 @@ export interface TransactionItem {
   categoryNeedsReview?: boolean;
   merchant?: string;
   source?: string;
+  transferKind?: string;
 }
 
 export interface TransactionPage {

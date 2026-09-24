@@ -75,7 +75,9 @@
       @for (tx of filtered; track tx._id) {
         <div class="tx-row">
           <div class="tx-cell tx-main">
-            <div class="tx-icon" [class]="tx.isExpense ? 'expense-icon' : 'income-icon'">
+            <div class="tx-icon"
+                 [class]="(tx.transferKind === 'internal' || tx.transferKind === 'unresolved')
+                            ? '' : (tx.isExpense ? 'expense-icon' : 'income-icon')">
               <mat-icon>{{ catIcon(tx.category) }}</mat-icon>
             </div>
             <div class="tx-info">
@@ -104,9 +106,16 @@
           </div>
 
           <div class="tx-cell align-right">
-            <span class="tx-amount" [class]="tx.isExpense ? 'expense' : 'income'">
-              {{ tx.isExpense ? '-' : '+' }}{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}
-            </span>
+            @if (tx.transferKind === 'internal' || tx.transferKind === 'unresolved') {
+              <span class="cat-pill transfer-pill">
+                {{ tx.transferKind === 'internal' ? 'Internal' : 'Unresolved' }}
+              </span>
+              <span class="tx-amount">{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}</span>
+            } @else {
+              <span class="tx-amount" [class]="tx.isExpense ? 'expense' : 'income'">
+                {{ tx.isExpense ? '-' : '+' }}{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}
+              </span>
+            }
           </div>
 
           <div class="tx-cell align-right">

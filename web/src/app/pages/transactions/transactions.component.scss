@@ -209,6 +209,15 @@
   height: 18px;
 }
 
+// An internal/unresolved transfer is not spending — tag it instead of
+// rendering the expense sign/icon. Reuses .cat-pill (defined in the shared
+// styles and already used above for categories); only existing tokens.
+.cat-pill.transfer-pill {
+  background: var(--color-surface-hover);
+  color: var(--text-muted);
+  margin-right: 8px;
+}
+
 // ── Load more ──────────────────────────────────────────────────────────
 .load-more-wrap {
   display: flex;

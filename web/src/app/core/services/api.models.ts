@@ -16,6 +16,7 @@ export interface Transaction {
   categoryNeedsReview?: boolean;
   merchant?: string;
   source?: string;
+  transferKind?: string;
 }
 
 export interface TransactionPage {
