@@ -10,6 +10,12 @@ export const routes: Routes = [
       import('./pages/dashboard/dashboard.component').then((m) => m.DashboardComponent),
   },
   {
+    path: 'balance',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/balance/balance.component').then((m) => m.BalanceComponent),
+  },
+  {
     path: 'transactions',
     canActivate: [authGuard],
     loadComponent: () =>

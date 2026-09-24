@@ -1,0 +1,156 @@
+.bal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+
+  h1 {
+    margin: 0;
+    font-size: var(--text-page-title);
+  }
+}
+
+.bal-amount {
+  margin: var(--space-2xs) 0 0;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.bal-muted {
+  margin: var(--space-2xs) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.bal-section {
+  margin-bottom: var(--space-lg);
+
+  h2 {
+    margin: 0 0 var(--space-sm);
+    font-size: var(--text-lg);
+  }
+}
+
+.bal-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+
+  .bal-note {
+    flex: 1 1 240px;
+  }
+}
+
+.bal-preview {
+  margin: var(--space-sm) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+.bal-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+}
+
+.bal-chart-box {
+  position: relative;
+  height: 220px;
+}
+
+.bal-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  margin-bottom: var(--space-sm);
+}
+
+.bal-chip {
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-muted);
+  border-radius: var(--radius-pill);
+  padding: var(--space-3xs) var(--space-sm);
+  font-size: var(--text-sm);
+  cursor: pointer;
+
+  &:hover:not(.active) {
+    background: var(--color-surface-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  &.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--color-accent-ink);
+  }
+}
+
+.bal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+  border-top: 1px solid var(--border);
+
+  &:first-child {
+    border-top: none;
+  }
+}
+
+.bal-row-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bal-row-name {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.bal-row-meta,
+.bal-after {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.bal-row-nums {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.bal-delta {
+  font-weight: 600;
+
+  &.up {
+    color: var(--income);
+  }
+
+  &.down {
+    color: var(--expense);
+  }
+}
+
+.bal-more {
+  margin-top: var(--space-sm);
+}

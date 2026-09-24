@@ -1,0 +1,113 @@
+<div class="page-wrap">
+  <div class="bal-header">
+    <div>
+      <h1>Balance</h1>
+      @if (loading) {
+        <p class="bal-muted">Loading…</p>
+      } @else if (headerError) {
+        <p class="fc-error" role="alert">{{ headerError }}</p>
+      } @else {
+        <p class="bal-amount">{{ current | currency:'USD':'symbol':'1.2-2' }}</p>
+        @if (balance?.lastActivity) {
+          <p class="bal-muted">Last activity {{ balance!.lastActivity | date:'MMM d, h:mm a':'-0400' }}</p>
+        }
+      }
+    </div>
+    @if (!formOpen) {
+      <button type="button" class="fc-btn fc-btn--primary" [disabled]="loading" (click)="openForm()">
+        <mat-icon>edit</mat-icon> Set balance
+      </button>
+    }
+  </div>
+
+  @if (formOpen) {
+    <section class="card bal-section" aria-labelledby="bal-form-title">
+      <h2 id="bal-form-title">Set balance</h2>
+      <p class="bal-muted">
+        Type the total your accounts show now. The difference is recorded as an adjustment you made; it never counts as
+        income or expense.
+      </p>
+      <div class="bal-form-row">
+        <label class="fc-field">
+          <span>New balance</span>
+          <input class="fc-input" type="number" step="0.01" [(ngModel)]="amount" name="amount" />
+        </label>
+        <label class="fc-field bal-note">
+          <span>Note</span>
+          <input class="fc-input" type="text" maxlength="100" placeholder="Why? (optional)" [(ngModel)]="note" name="note" />
+        </label>
+      </div>
+      @if (preview) {
+        <p class="bal-preview" aria-live="polite">{{ preview }}</p>
+      }
+      @if (formError) {
+        <p class="fc-error" role="alert">{{ formError }}</p>
+      }
+      <div class="bal-actions">
+        <button type="button" class="fc-btn fc-btn--ghost" [disabled]="saving" (click)="cancelForm()">Cancel</button>
+        <button type="button" class="fc-btn fc-btn--primary" [disabled]="!canConfirm" (click)="confirm()">
+          <mat-icon>{{ saving ? 'hourglass_empty' : 'check' }}</mat-icon> {{ saving ? 'Saving…' : 'Confirm' }}
+        </button>
+      </div>
+    </section>
+  }
+
+  <section class="card bal-section" aria-labelledby="bal-chart-title">
+    <h2 id="bal-chart-title">Last 90 days</h2>
+    @if (chartError) {
+      <p class="fc-error" role="alert">{{ chartError }}</p>
+    }
+    <div class="bal-chart-box">
+      <canvas #chartCanvas role="img" aria-label="Daily closing balance over the last 90 days"></canvas>
+    </div>
+  </section>
+
+  <section class="card bal-section" aria-labelledby="bal-history-title">
+    <h2 id="bal-history-title">History</h2>
+    <div class="bal-chips" role="group" aria-label="Filter by kind">
+      @for (f of filters; track f.value) {
+        <button
+          type="button"
+          class="bal-chip"
+          [class.active]="filter === f.value"
+          [attr.aria-pressed]="filter === f.value"
+          (click)="setFilter(f.value)"
+        >
+          {{ f.label }}
+        </button>
+      }
+    </div>
+
+    @if (listError) {
+      <p class="fc-error" role="alert">{{ listError }}</p>
+    }
+
+    @if (listLoading && items.length === 0) {
+      <p class="bal-muted">Loading…</p>
+    } @else if (items.length === 0 && !listError) {
+      <p class="bal-muted">No history for this kind yet.</p>
+    } @else {
+      <ul class="bal-list">
+        @for (h of items; track h.id) {
+          <li class="bal-row">
+            <div class="bal-row-main">
+              <span class="bal-row-name">{{ rowName(h) }}</span>
+              <span class="bal-row-meta">
+                {{ h.timestamp | date:'MMM d, h:mm a':'-0400' }} · {{ kindLabel[h.reason] || h.reason }}
+              </span>
+            </div>
+            <div class="bal-row-nums">
+              <span class="bal-delta" [class.up]="h.delta > 0" [class.down]="h.delta < 0">{{ signed(h.delta) }}</span>
+              <span class="bal-after">{{ money(h.newBalance) }}</span>
+            </div>
+          </li>
+        }
+      </ul>
+      @if (hasMore) {
+        <button type="button" class="fc-btn fc-btn--ghost bal-more" [disabled]="loadingMore" (click)="loadMore()">
+          {{ loadingMore ? 'Loading…' : 'Load more' }}
+        </button>
+      }
+    }
+  </section>
+</div>
