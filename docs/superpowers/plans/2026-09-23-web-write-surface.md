@@ -1505,6 +1505,8 @@ where `categories = { list: jest.fn().mockResolvedValue([{ name: 'food' }, { nam
 
 ## Phase 3 — Web
 
+> **How Phase 3 is verified.** `web/` has no test runner (`package.json` has no `test` script) and no `*.spec.ts` files, and every route sits behind the Authentik `authGuard`, so an unauthenticated browser pass cannot reach the pages. Each web task is therefore verified by `pnpm run build` (which type-checks the templates under Angular's strict mode) plus code review; the functional smoke test happens on the deployed app after the push, by the user, against the checklist in each task's "Build + preview" step. A `web` entry in `.claude/launch.json` (`pnpm --dir web start`, port 4200) exists for driving the dev server locally when a login is available.
+
 ### Task 13: API client, models, and the two tiny services
 
 **Files:**
