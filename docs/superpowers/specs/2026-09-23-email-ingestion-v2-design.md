@@ -256,8 +256,25 @@ Schema additions, mirrored in **both** `api/src/shared/schemas/transaction.schem
 | `transferKind?: string` | `'external' \| 'internal' \| 'unresolved'` |
 | `recurringId?: string` | Link to the rule this transaction satisfies |
 
-Aggregation sites that must exclude `internal` and `unresolved` from expense totals and budgets:
-`api/src/transactions/transactions.service.ts`, `api/src/analytics`, `api/src/statistics`, `api/src/budget`, and `repo/src/service/budget.service.ts`.
+Every site that sums, averages, counts or groups money must exclude `internal` and `unresolved` with `transferKind: { $nin: ['internal', 'unresolved'] }` (`$nin` matches an absent field, which is what keeps ordinary card transactions counting).
+
+> **This list was wrong in the first draft.** It named five sites; a post-review sweep found eleven, and the fix pass found two more inside files already on the list (`cron.notifications.service.ts` `monthlySummary`, `repo` `statistics.service.ts` `getCategoryExpensesForPeriod`) — **thirteen**. The missed ones were found only because a reviewer grepped every `find`/`aggregate` in both services rather than trusting the spec, and then the implementer read each file in full rather than trusting the reviewer's line numbers. Treat the list below as a floor — the test for a new query is "does it sum money?", not "is it on this list?".
+
+| Service | Site | Feeds |
+|---|---|---|
+| `api` | `transactions.service.ts` — expense listing and CSV export | web list, export |
+| `api` | `analytics.service.ts` — top-10, chart totals | dashboard charts |
+| `api` | `statistics.service.ts` — summary, monthly, by-category | dashboard |
+| `api` | `budget.service.ts` — spent / remaining | budget page |
+| `api` | `compare.service.ts` — period summaries | **Mistral prompt** |
+| `api` | `tips.service.ts` — 3-month category context | **Mistral prompt** |
+| `repo` | `budget.service.ts` — `checkBudget` | `/budget` reply |
+| `repo` | `cron.notifications.service.ts` — budget-exceeded cron | push alert (must agree with `/budget`) |
+| `repo` | `statistics.service.ts` → `message.service.ts` | bot statistics |
+| `repo` | `export.service.ts` | bot CSV |
+| `repo` | `advanced.statistics.service.ts` | admin views |
+
+Listings that only *display* rows keep internal/unresolved **visible and tagged** (`transferKind` selected and rendered); exclusion applies to spending totals, not to visibility. The CSV export prints `Type = transfer` and a `Kind` column for them so a spreadsheet sum on `Type = expense` stays correct.
 
 ---
 

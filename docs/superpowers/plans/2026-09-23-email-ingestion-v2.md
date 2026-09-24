@@ -1507,6 +1507,8 @@ git commit -m "docs: document OWN_CASH_ACCOUNTS"
 | Genuine second same-amount payment not swallowed | 12 |
 | `OWN_CASH_ACCOUNTS` documented | 13 |
 
+> **Post-review correction.** The "excluded from expense aggregation → Task 9" row above was false as executed. Task 9 covered one file; the spec named five; the real count was **thirteen** — eleven from a reviewer grepping every `find`/`aggregate` in both services, two more from the implementer reading each file in full — including the bot's budget-alert cron, which then disagreed with `/budget`, and the two services feeding the Mistral prompt. Closed in follow-up commits. Lesson for the next plan: when a spec says "every site that does X", the task must include the grep, not a list.
+
 **Gaps deliberately deferred:** the web UI for resolving an `unresolved` transfer. Every format observed in the live mailbox classifies deterministically, so `unresolved` is a safety net that should never fire in practice. Building UI for a state that does not occur is speculative; when one does appear it will be visible in the logs and in the transactions list, and the UI can follow. Salary as recurring income needs no code — the user creates an ordinary recurring income rule and Task 11's skip logic plus Task 6's `isNonTransactional` handle the rest.
 
 **Placeholder scan:** Tasks 8, 11 and 12 describe test bodies rather than spelling out every mock. That is deliberate — those specs must match the mocking harness already present in `ingestion.service.spec.ts` and the implementer should read it first. Every assertion to make is stated explicitly. No step says "add error handling" or "write tests for the above".
