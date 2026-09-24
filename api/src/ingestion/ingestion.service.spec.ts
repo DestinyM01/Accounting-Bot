@@ -472,6 +472,57 @@ describe('IngestionService', () => {
     expect(created.recurringId).toBeUndefined();
   });
 
+  // Two active rules of the same amount can both match one mail. The old code
+  // `break`s on the first match unconditionally, so when that first rule's
+  // period is already satisfied by an earlier confirmed payment, the second
+  // email falls through to "record separately" — unlinked to ANY rule — and
+  // the second rule's own cron still fires later, double-charging it. The
+  // fix must instead try the next matching rule when the first one's period
+  // is already claimed.
+  it('links to the next matching rule when an earlier one is already satisfied this period', async () => {
+    const ruleA = {
+      _id: 'rule-A',
+      userId: 999,
+      amount: 100,
+      dayOfMonth: 1,
+      active: true,
+      transactionType: TransactionType.EXPENSE,
+    };
+    const ruleB = {
+      _id: 'rule-B',
+      userId: 999,
+      amount: 100,
+      dayOfMonth: 2,
+      active: true,
+      transactionType: TransactionType.EXPENSE,
+    };
+    recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([ruleA, ruleB]) });
+
+    // Rule A's period is already confirmed by an earlier email; rule B's is not.
+    txModel.findOne.mockImplementation((query: any) => {
+      if (query.recurringId === String(ruleA._id)) {
+        return Promise.resolve({
+          _id: 'confirmed-A',
+          recurringId: String(ruleA._id),
+          recurringPeriod: query.recurringPeriod,
+          sourceMessageId: 'msg-earlier',
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'msg-2' })]);
+    parserParseMock.mockReturnValue(
+      makeParsed({ direction: 'expense', amount: 100, currency: 'DOP', occurredAt: new Date(2026, 0, 1) }),
+    );
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.recurringId).toBe(String(ruleB._id));
+  });
+
   it('leaves an unmatched transaction unlinked', async () => {
     recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([]) });
     mail.fetchSince.mockResolvedValue([makeMail()]);

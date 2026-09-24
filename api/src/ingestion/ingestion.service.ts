@@ -126,6 +126,17 @@ export class IngestionService {
     const rules = await this.recurringModel.find({ userId: this.userId, active: true }).lean();
     let rule: (typeof rules)[number] | undefined;
     let period: string | null = null;
+    let predicted: any = null;
+    let allMatchesClaimed = false;
+
+    // Two active rules can share an amount and both have this mail's date in
+    // range. Stopping at the first match unconditionally would, when that
+    // rule's period is already satisfied by an earlier confirmed payment,
+    // fall through to "record separately" — unlinked to ANY rule — leaving
+    // the other rule's cron to fire later and double-charge it. So a rule
+    // whose period is already claimed (a predicted row with a
+    // sourceMessageId) is skipped in favour of the next matching rule; only
+    // when every matching rule is already claimed do we fall through.
     for (const r of rules) {
       const matched = matchedPeriod(r as any, {
         userId: this.userId,
@@ -133,20 +144,27 @@ export class IngestionService {
         timestamp: p.occurredAt,
         transferKind: p.transferKind,
       });
-      if (matched) {
-        rule = r;
-        period = matched;
-        break;
+      if (!matched) continue;
+
+      const existing = await this.txModel.findOne({
+        userId: this.userId,
+        recurringId: String(r._id),
+        recurringPeriod: matched,
+      });
+
+      if (existing && existing.sourceMessageId) {
+        allMatchesClaimed = true;
+        continue;
       }
+
+      rule = r;
+      period = matched;
+      predicted = existing;
+      allMatchesClaimed = false;
+      break;
     }
 
     if (rule && period) {
-      const predicted = await this.txModel.findOne({
-        userId: this.userId,
-        recurringId: String(rule._id),
-        recurringPeriod: period,
-      });
-
       if (predicted && !predicted.sourceMessageId) {
         // The cron fired first. Confirm the prediction in place: no second row,
         // and no second balance movement — the prediction already moved it.
@@ -155,7 +173,6 @@ export class IngestionService {
           predicted.merchant = p.counterparty;
           predicted.externalRef = p.externalRef;
           predicted.timestamp = p.occurredAt;
-          if (!predicted.recurringPeriod) predicted.recurringPeriod = period;
           await predicted.save();
         } catch (err: any) {
           if (err?.code === 11000) return 'duplicate';
@@ -165,17 +182,13 @@ export class IngestionService {
         return 'created';
       }
 
-      if (predicted) {
-        // Already reconciled this period — a genuine second payment of the same
-        // amount, not a duplicate. Record it normally, unlinked.
-        this.logger.log(
-          `Rule ${String(rule._id)} already matched for ${period}; recording ${messageId} separately`,
-        );
-      } else {
-        recurringId = String(rule._id);
-        recurringPeriod = period;
-        this.logger.log(`Linking mail ${messageId} to recurring rule ${String(rule._id)} for ${period}`);
-      }
+      recurringId = String(rule._id);
+      recurringPeriod = period;
+      this.logger.log(`Linking mail ${messageId} to recurring rule ${String(rule._id)} for ${period}`);
+    } else if (allMatchesClaimed) {
+      // Every matching rule's period is already satisfied — a genuine second
+      // payment of the same amount, not a duplicate. Record it normally, unlinked.
+      this.logger.log(`All matching rules already satisfied for this period; recording ${messageId} separately`);
     }
 
     try {

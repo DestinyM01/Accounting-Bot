@@ -149,4 +149,40 @@ describe('RecurringService', () => {
     );
     expect(mockTransactionService.createTransaction).not.toHaveBeenCalled();
   });
+
+  // The tests above compare against periodKey(new Date()) — the same
+  // padStart call the production code uses — so they'd pass even if padding
+  // were silently broken, and only ever run against whatever month "today"
+  // happens to be (January-September, since the suite runs in September
+  // 2026). Freezing time to a single-digit and a double-digit month and
+  // asserting a literal string exercises the zero-padding independently.
+  describe('period zero-padding across the year', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('stamps a single-digit month with a leading zero (January)', async () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 0, 15));
+      const rule = makeRule({ lastExecutedAt: undefined });
+      mockRecurringModel.find = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([rule]) });
+
+      await service.processRecurring();
+
+      expect(mockTransactionService.createTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ recurringPeriod: '2026-01' }),
+      );
+    });
+
+    it('stamps a double-digit month correctly (December)', async () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 11, 15));
+      const rule = makeRule({ lastExecutedAt: undefined });
+      mockRecurringModel.find = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([rule]) });
+
+      await service.processRecurring();
+
+      expect(mockTransactionService.createTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ recurringPeriod: '2026-12' }),
+      );
+    });
+  });
 });

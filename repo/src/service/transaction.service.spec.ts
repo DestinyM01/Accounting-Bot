@@ -147,9 +147,11 @@ describe('TransactionService', () => {
         amount: 800,
       });
 
-      expect(mockTransactionModel).toHaveBeenCalledWith(
-        expect.objectContaining({ recurringId: undefined }),
-      );
+      // Direct property access rather than objectContaining({ recurringId:
+      // undefined }): in Jest 29, objectContaining requires the key to be
+      // present on the received object to match an undefined expectation.
+      const created = mockTransactionModel.mock.calls[0][0];
+      expect(created.recurringId).toBeUndefined();
     });
   });
 

@@ -48,10 +48,18 @@ export function matchedPeriod(rule: RuleLike, tx: TxLike): string | null {
   // and the genuine expense is never recorded at all.
   if (tx.transferKind === 'internal' || tx.transferKind === 'unresolved') return null;
 
+  // The schema constrains transactionType, but TypeScript doesn't — RuleLike
+  // types it as a plain string and the caller passes `r as any`. Comparing
+  // only against EXPENSE would treat any other value, including an absent or
+  // unexpected one, as income. Fail closed instead: an unknown type matches
+  // nothing.
+  const ruleIsExpense = rule.transactionType === TransactionType.EXPENSE;
+  const ruleIsIncome = rule.transactionType === TransactionType.INCOME;
+  if (!ruleIsExpense && !ruleIsIncome) return null;
+
   // Expenses are stored negative, income positive. A rule predicting an expense
   // must not be satisfied by income of the same magnitude.
   const txIsExpense = tx.amount < 0;
-  const ruleIsExpense = rule.transactionType === TransactionType.EXPENSE;
   if (txIsExpense !== ruleIsExpense) return null;
 
   const y = tx.timestamp.getFullYear();

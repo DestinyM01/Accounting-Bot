@@ -83,6 +83,18 @@ describe('matchesRule', () => {
     ).toBe(false);
   });
 
+  // The schema constrains transactionType, but TypeScript doesn't: RuleLike
+  // types it as a plain string and the caller passes `r as any`. Comparing
+  // only against EXPENSE treats any other value — including an unexpected or
+  // absent one — as income, so an unknown rule type would wrongly match an
+  // income transaction of the same amount/date. It must fail closed instead.
+  it('rejects a rule with an unknown transactionType even when the tx is income (fails closed)', () => {
+    const weirdRule = { ...rule, transactionType: 'not-a-real-type' };
+    expect(
+      matchesRule(weirdRule, { userId: 1, amount: 1942.1, timestamp: new Date(2026, 7, 24) }),
+    ).toBe(false);
+  });
+
   // Regression guard: card transactions carry no transferKind at all and must
   // keep matching.
   it('still matches an ordinary expense with no transferKind', () => {
