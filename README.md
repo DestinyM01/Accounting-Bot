@@ -36,6 +36,7 @@ A personal finance tracker: a **web dashboard** for entry, review and reporting,
 | Page | Description |
 |---|---|
 | **Dashboard** | Balance summary and recent activity |
+| **Balance** | Set the balance to the total your accounts show (recorded as an adjustment, never as income or expense); a 90-day chart and the full history, filterable by kind |
 | **Transactions** | Full transaction list with type, category, and date-range filters; one-click CSV export |
 | **Budget** | Visual budget progress per category |
 | **Statistics** | Monthly income/expense chart and category breakdown |
@@ -229,6 +230,9 @@ All endpoints require a `Bearer` JWT token (issued by Authentik).
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/balance` | Current balance summary |
+| `PUT` | `/api/balance` | Set the balance to a total `{ balance, note? }`; recorded as a manual adjustment |
+| `GET` | `/api/balance/history` | Balance history, newest first (`limit`, `offset`, `reason`) |
+| `GET` | `/api/balance/daily` | Daily closing balances for the last `days` days (default 90) |
 | `GET` | `/api/transactions` | Paginated transaction list (filters: `type`, `category`, `startDate`, `endDate`) |
 | `GET` | `/api/transactions/export` | Download filtered transactions as CSV |
 | `GET` | `/api/budget` | Budget progress by category for a given month |
