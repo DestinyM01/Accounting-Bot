@@ -1,16 +1,91 @@
+// imapflow and mailparser are the network edge. Both are mocked so the
+// filtering and failure behaviour can be exercised without a mailbox. The
+// `mock` prefix is required for jest.mock factories to reference them.
+const mockConnect = jest.fn();
+const mockGetMailboxLock = jest.fn();
+const mockFetch = jest.fn();
+const mockLogout = jest.fn();
+const mockImapFlow = jest.fn();
+jest.mock('imapflow', () => ({
+  ImapFlow: function (this: any, opts: unknown) {
+    mockImapFlow(opts);
+    return { connect: mockConnect, getMailboxLock: mockGetMailboxLock, fetch: mockFetch, logout: mockLogout };
+  },
+}));
+
+const mockSimpleParser = jest.fn();
+jest.mock('mailparser', () => ({
+  simpleParser: (...args: unknown[]) => mockSimpleParser(...args),
+}));
+
+import { Logger } from '@nestjs/common';
 import { MailClient } from './mail.client';
 
+const SENDER = 'a@b.com';
+
+/** A parsed message as mailparser would hand it back, keyed by the raw source text. */
+function parsedMail(id: string, date: Date) {
+  return {
+    from: { value: [{ address: SENDER }] },
+    subject: id,
+    text: `body of ${id}`,
+    messageId: `<${id}>`,
+    date,
+  };
+}
+
 describe('MailClient', () => {
+  const env = { ...process.env };
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+    process.env.GMAIL_USER = 'mailbox-user';
+    process.env.GMAIL_APP_PASSWORD = 'app-password';
+    process.env.INGEST_MAILBOX = 'Banks';
+
+    mockConnect.mockResolvedValue(undefined);
+    mockLogout.mockResolvedValue(undefined);
+    mockGetMailboxLock.mockResolvedValue({ release: jest.fn() });
+    mockFetch.mockImplementation(async function* () {
+      /* no messages by default */
+    });
+  });
+
+  afterEach(() => {
+    process.env = { ...env };
+    jest.restoreAllMocks();
+  });
+
   it('returns an empty list and does not throw when credentials are missing', async () => {
-    const prevUser = process.env.GMAIL_USER;
-    const prevPass = process.env.GMAIL_APP_PASSWORD;
     delete process.env.GMAIL_USER;
     delete process.env.GMAIL_APP_PASSWORD;
 
     const client = new MailClient();
-    await expect(client.fetchSince(new Date(), ['a@b.com'])).resolves.toEqual([]);
+    await expect(client.fetchSince(new Date(), [SENDER])).resolves.toEqual([]);
+    expect(mockImapFlow).not.toHaveBeenCalled();
+  });
 
-    if (prevUser !== undefined) process.env.GMAIL_USER = prevUser;
-    if (prevPass !== undefined) process.env.GMAIL_APP_PASSWORD = prevPass;
+  // IMAP SEARCH SINCE is date-granular: it returns everything from 00:00 of
+  // the watermark's calendar day. The watermark carries a time of day, and a
+  // message from earlier that same day must not be ingested.
+  it('drops a message received earlier on the watermark day and keeps one received after', async () => {
+    const since = new Date('2026-01-01T18:00:00Z');
+    mockFetch.mockImplementation(async function* () {
+      yield { uid: 1, source: Buffer.from('early') };
+      yield { uid: 2, source: Buffer.from('late') };
+    });
+    mockSimpleParser.mockImplementation(async (src: Buffer) =>
+      src.toString() === 'late'
+        ? parsedMail('late', new Date('2026-01-01T20:00:00Z'))
+        : parsedMail('early', new Date('2026-01-01T10:00:00Z')),
+    );
+
+    const out = await new MailClient().fetchSince(since, [SENDER]);
+
+    expect(out.map((m) => m.messageId)).toEqual(['<late>']);
   });
 });

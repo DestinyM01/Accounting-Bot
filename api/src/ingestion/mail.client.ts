@@ -52,13 +52,19 @@ export class MailClient {
           if (!allow.includes(sender)) continue;
 
           const envelopeDate = msg.envelope?.date ? new Date(msg.envelope.date) : undefined;
+          const receivedAt = parsed.date ?? envelopeDate ?? new Date();
+
+          // IMAP SEARCH SINCE is date-granular: it returns everything from
+          // 00:00 of the watermark's day. The watermark carries a time of
+          // day, so anything from earlier that day must be dropped here.
+          if (receivedAt < since) continue;
 
           out.push({
             messageId: parsed.messageId ?? `uid-${msg.uid}`,
             sender,
             subject: parsed.subject ?? '',
             body: parsed.text ?? '',
-            receivedAt: parsed.date ?? envelopeDate ?? new Date(),
+            receivedAt,
           });
         }
       } finally {
