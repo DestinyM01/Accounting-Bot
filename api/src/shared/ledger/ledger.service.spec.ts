@@ -25,6 +25,8 @@ describe('LedgerService', () => {
     service = mod.get(LedgerService);
   });
 
+  afterEach(() => jest.restoreAllMocks());
+
   it('applies a signed delta with one atomic $inc and records history from the returned balance', async () => {
     const r = await service.apply(-250, 'expense', 'uber', 'tx1');
     expect(balanceModel.findOneAndUpdate).toHaveBeenCalledWith(
@@ -111,7 +113,6 @@ describe('LedgerService', () => {
       historyModel.create.mockRejectedValueOnce(new Error('history down'));
       await expect(service.setTo(20)).resolves.toEqual({ previousBalance: 10, newBalance: 20, delta: 10 });
       expect(errorSpy).toHaveBeenCalledWith('Failed to record balance history', expect.stringContaining('history down'));
-      errorSpy.mockRestore();
     });
   });
 });

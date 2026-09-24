@@ -1,7 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-export type BalanceChangeReason = 'income' | 'expense' | 'delete' | 'manual' | 'recurring';
+export const BALANCE_CHANGE_REASONS = ['income', 'expense', 'delete', 'manual', 'recurring'] as const;
+export type BalanceChangeReason = (typeof BALANCE_CHANGE_REASONS)[number];
 
 @Schema()
 export class BalanceHistory extends Document {

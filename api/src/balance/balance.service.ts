@@ -2,11 +2,10 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Balance } from '../shared/schemas/balance.schema';
-import { BalanceHistory } from '../shared/schemas/balance-history.schema';
+import { BALANCE_CHANGE_REASONS, BalanceHistory } from '../shared/schemas/balance-history.schema';
 import { LedgerService } from '../shared/ledger/ledger.service';
 import { dailyClosings, DailyPoint, windowStart } from './daily-closings';
 
-export const HISTORY_REASONS = ['income', 'expense', 'delete', 'manual', 'recurring'] as const;
 const MAX_ABS_BALANCE = 1e12;
 const NOTE_MAX = 100;
 
@@ -60,8 +59,8 @@ export class BalanceService {
     const offset = clampInt(query.offset, 0, 0, Number.MAX_SAFE_INTEGER);
     const filter: Record<string, unknown> = { userId: this.userId };
     if (query.reason !== undefined && query.reason !== '') {
-      if (!(HISTORY_REASONS as readonly string[]).includes(query.reason)) {
-        throw new BadRequestException(`reason must be one of ${HISTORY_REASONS.join(', ')}`);
+      if (!(BALANCE_CHANGE_REASONS as readonly string[]).includes(query.reason)) {
+        throw new BadRequestException(`reason must be one of ${BALANCE_CHANGE_REASONS.join(', ')}`);
       }
       filter.reason = query.reason;
     }

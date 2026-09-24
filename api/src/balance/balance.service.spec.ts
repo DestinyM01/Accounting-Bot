@@ -60,10 +60,15 @@ describe('BalanceService', () => {
       expect(ledger.setTo).toHaveBeenCalledWith(10, undefined);
     });
 
-    it('rejects anything but a finite number within ±1e12', async () => {
-      for (const bad of ['51170', NaN, Infinity, 2e12, -2e12, undefined]) {
-        await expect(service.set({ balance: bad as any })).rejects.toBeInstanceOf(BadRequestException);
-      }
+    it.each([
+      ['a numeric string', '51170'],
+      ['NaN', NaN],
+      ['Infinity', Infinity],
+      ['a total over 1e12', 2e12],
+      ['a total under -1e12', -2e12],
+      ['a missing total', undefined],
+    ])('rejects %s', async (_label, bad) => {
+      await expect(service.set({ balance: bad as any })).rejects.toBeInstanceOf(BadRequestException);
       expect(ledger.setTo).not.toHaveBeenCalled();
     });
 
@@ -79,11 +84,17 @@ describe('BalanceService', () => {
       expect(ledger.setTo).toHaveBeenCalledWith(1, 'x'.repeat(100));
     });
 
-    it('rejects a note that is not a string or longer than 100 characters', async () => {
+    it('rejects a note that is not a string', async () => {
       await expect(service.set({ balance: 1, note: 5 as any })).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects a note over 100 characters', async () => {
       await expect(service.set({ balance: 1, note: 'x'.repeat(101) })).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('accepts a 100-character note', async () => {
       await service.set({ balance: 1, note: 'x'.repeat(100) });
-      expect(ledger.setTo).toHaveBeenCalledTimes(1);
+      expect(ledger.setTo).toHaveBeenCalledWith(1, 'x'.repeat(100));
     });
   });
 
@@ -139,6 +150,7 @@ describe('BalanceService', () => {
       const points = await service.daily({ days: '7' }, NOW);
       expect(historyModel.findOne).toHaveBeenCalledWith({ userId: 1, timestamp: { $lt: windowStart(NOW, 7) } });
       expect(before.sort).toHaveBeenCalledWith({ timestamp: -1, _id: -1 });
+      expect(before.select).toHaveBeenCalledWith('newBalance');
       expect(points).toHaveLength(7);
       expect(points.every((p) => p.balance === 800)).toBe(true);
     });
@@ -179,6 +191,7 @@ describe('BalanceService', () => {
       await service.daily({ days: '7' }, NOW);
       expect(historyModel.find).toHaveBeenCalledWith({ userId: 1, timestamp: { $gte: windowStart(NOW, 7) } });
       expect(rows.sort).toHaveBeenCalledWith({ timestamp: 1, _id: 1 });
+      expect(rows.select).toHaveBeenCalledWith('timestamp newBalance previousBalance');
     });
   });
 });

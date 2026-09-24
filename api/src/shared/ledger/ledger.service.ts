@@ -19,6 +19,22 @@ export class LedgerService {
     @InjectModel(BalanceHistory.name) private readonly historyModel: Model<BalanceHistory>,
   ) {}
 
+  /** A history failure is logged and never undoes the movement that already happened. */
+  private async recordHistory(row: {
+    previousBalance: number;
+    newBalance: number;
+    delta: number;
+    reason: BalanceChangeReason;
+    transactionName?: string;
+    transactionId?: string;
+  }): Promise<void> {
+    try {
+      await this.historyModel.create({ userId: this.userId, ...row });
+    } catch (err) {
+      this.logger.error('Failed to record balance history', String(err));
+    }
+  }
+
   /** Adds a SIGNED delta (expense negative, income positive) and records history. */
   async apply(
     delta: number,
@@ -36,20 +52,7 @@ export class LedgerService {
     const newBalance = updated.balance;
     const previousBalance = newBalance - delta;
 
-    // History failure must never break the movement that already happened.
-    try {
-      await this.historyModel.create({
-        userId: this.userId,
-        previousBalance,
-        newBalance,
-        delta,
-        reason,
-        transactionName,
-        transactionId,
-      });
-    } catch (err) {
-      this.logger.error('Failed to record balance history', String(err));
-    }
+    await this.recordHistory({ previousBalance, newBalance, delta, reason, transactionName, transactionId });
     return { previousBalance, newBalance };
   }
 
@@ -84,19 +87,7 @@ export class LedgerService {
     const delta = Math.round((target - previousBalance) * 100) / 100;
 
     if (delta !== 0) {
-      // History failure must never break the correction that already happened.
-      try {
-        await this.historyModel.create({
-          userId: this.userId,
-          previousBalance,
-          newBalance: target,
-          delta,
-          reason: 'manual',
-          transactionName: note,
-        });
-      } catch (err) {
-        this.logger.error('Failed to record balance history', String(err));
-      }
+      await this.recordHistory({ previousBalance, newBalance: target, delta, reason: 'manual', transactionName: note });
     }
     return { previousBalance, newBalance: target, delta };
   }
