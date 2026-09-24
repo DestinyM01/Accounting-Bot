@@ -163,11 +163,25 @@ describe('ReportDataService', () => {
       expect((await service.health(at('2026-09-25T15:00:00Z'))).overdueRecurring).toEqual([]);
     });
 
+    it('still flags a legacy rule whose createdAt field loads as "now"', async () => {
+      // Mongoose fills a missing createdAt with "now"; only the ObjectId holds the real creation time.
+      recurringModel.find.mockResolvedValue([gym({ createdAt: at('2026-09-20T15:00:00Z') })]);
+      const h = await service.health(at('2026-09-20T15:00:00Z'));
+      expect(h.overdueRecurring).toEqual([{ name: 'gym', dueAt: at('2026-09-20T12:00:00Z') }]);
+    });
+
     it('is content with a bank email ingested two days ago, deleted rows included', async () => {
-      txModel.findOne.mockReturnValue(query({ _id: idAt(at('2026-09-26T11:00:00Z')) }));
+      const newest = query({ _id: idAt(at('2026-09-26T11:00:00Z')) });
+      txModel.findOne.mockReturnValue(newest);
       const h = await service.health(NOW);
       expect(txModel.findOne).toHaveBeenCalledWith({ userId: 1, source: 'email' });
       expect(h).toMatchObject({ lastIngestedAt: at('2026-09-26T11:00:00Z'), daysSinceIngest: 2, ingestionStale: false });
+      expect(newest.sort).toHaveBeenCalledWith({ _id: -1 });
+    });
+
+    it('treats a bank email exactly three days old as fresh', async () => {
+      txModel.findOne.mockReturnValue(query({ _id: idAt(at('2026-09-25T11:20:00Z')) }));
+      expect(await service.health(NOW)).toMatchObject({ daysSinceIngest: 3, ingestionStale: false });
     });
 
     it('flags ingestion more than three days old', async () => {

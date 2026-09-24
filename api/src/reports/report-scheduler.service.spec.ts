@@ -122,7 +122,7 @@ describe('ReportSchedulerService', () => {
   it('releases the claim when sending fails, so the next hour retries', async () => {
     mailer.send.mockRejectedValue(new Error('SMTP 421'));
     await service.run(NOW);
-    expect(sendModel.deleteOne).toHaveBeenCalledWith({ ...key, status: 'sending' });
+    expect(sendModel.deleteOne).toHaveBeenCalledWith({ ...key, status: 'sending', at: NOW });
     expect(sendModel.updateOne).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('weekly report 2026-W39'), expect.any(String));
     expect(logSpy).toHaveBeenCalledWith('Report run: sent 0, skipped 0, failed 1');
@@ -139,6 +139,7 @@ describe('ReportSchedulerService', () => {
     await service.run(NOW);
     expect(sendModel.create).not.toHaveBeenCalled();
     expect(mailer.send).not.toHaveBeenCalled();
+    expect(logSpy).not.toHaveBeenCalledWith(expect.stringContaining('Report run'));
   });
 
   it('takes over a claim abandoned for more than 30 minutes and sends it', async () => {

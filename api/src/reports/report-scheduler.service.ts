@@ -121,8 +121,9 @@ export class ReportSchedulerService {
           : renderMonthly(await this.data.monthly(period), options);
       await this.mailer.send(email);
     } catch (err) {
-      // Release the claim so the next hour retries, until the window closes.
-      await this.sendModel.deleteOne({ ...key, status: 'sending' });
+      // Only this run's claim: if a slow send let another pod take the claim
+      // over, that pod's claim is not ours to release.
+      await this.sendModel.deleteOne({ ...key, status: 'sending', at: now });
       this.logger.error(
         `Sending ${period.kind} report ${period.key} failed; retrying next hour`,
         err instanceof Error ? err.stack : String(err),

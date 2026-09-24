@@ -91,7 +91,7 @@ function count(n: number, one: string, many: string): string {
 /** A budget's standing mid-month: over only past the limit; 80% up to and including it. */
 export function budgetStatus(b: BudgetLine): string {
   if (b.spent > b.limit) return `over by ${money(b.spent - b.limit)}`;
-  if (b.spent >= 0.8 * b.limit) return '≥ 80%';
+  if (b.limit > 0 && b.spent >= 0.8 * b.limit) return '≥ 80%';
   return 'on track';
 }
 
@@ -101,9 +101,10 @@ function healthLines(h: Health): string[] {
     lines.push('No bank email has been ingested yet.');
   } else if (h.ingestionStale) {
     lines.push(`No bank email ingested since ${day(h.lastIngestedAt)} (${h.daysSinceIngest} days).`);
-  }
-  if (lines.length === 0) {
+  } else if (lines.length === 0) {
     lines.push(`Recurring payments and bank emails are up to date. Last bank email ingested ${day(h.lastIngestedAt)}.`);
+  } else {
+    lines.push(`Last bank email ingested ${day(h.lastIngestedAt)}.`);
   }
   return lines;
 }
@@ -224,7 +225,9 @@ function toHtml(title: string, subtitle: string, sections: Section[], opts: Rend
     .join('');
 
   return (
-    `<!doctype html><html><body style="margin:0;padding:24px;background:#f3f4f6">` +
+    `<!doctype html><html><head><meta charset="utf-8">` +
+    `<meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title></head>` +
+    `<body style="margin:0;padding:24px;background:#f3f4f6">` +
     `<div style="max-width:600px;margin:0 auto;background:#ffffff;padding:24px;border-radius:8px;font-family:${FONT}">` +
     `<h1 style="font-size:20px;margin:0 0 4px;color:#111827">${escapeHtml(title)}</h1>` +
     `<p style="margin:0;color:#6b7280;font-size:14px">${escapeHtml(subtitle)}</p>` +

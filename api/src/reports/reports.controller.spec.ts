@@ -3,7 +3,7 @@
 jest.mock('@nestjs/schedule', () => ({ Cron: () => () => undefined, ScheduleModule: { forRoot: () => ({ module: class {} }) } }));
 
 import 'reflect-metadata';
-import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { GUARDS_METADATA, HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { ServiceUnavailableException } from '@nestjs/common';
 import { ReportsController } from './reports.controller';
 import { ReportsModule } from './reports.module';
@@ -32,6 +32,10 @@ describe('ReportsController', () => {
   it('is protected by JwtAuthGuard at class level', () => {
     const guards: unknown[] = Reflect.getMetadata(GUARDS_METADATA, ReportsController) ?? [];
     expect(guards).toContain(JwtAuthGuard);
+  });
+
+  it('answers 202 Accepted', () => {
+    expect(Reflect.getMetadata(HTTP_CODE_METADATA, ReportsController.prototype.sendTest)).toBe(202);
   });
 
   it('answers 503 and sends nothing when email is not configured', async () => {

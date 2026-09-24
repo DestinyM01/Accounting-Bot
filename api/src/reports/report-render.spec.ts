@@ -55,6 +55,7 @@ function monthly(overrides: Partial<MonthlyReportData> = {}): MonthlyReportData 
 describe('renderWeekly', () => {
   it('names the week and what was spent in the subject', () => {
     expect(renderWeekly(weekly(), opts).subject).toBe('Weekly digest · Sep 21–27 · RD$ 18,450 spent');
+    expect(renderWeekly(weekly(), opts).html.startsWith('<!doctype html><html><head><meta charset="utf-8">')).toBe(true);
   });
 
   it('writes a week across two months in full, and marks a test', () => {
@@ -104,6 +105,24 @@ describe('renderWeekly', () => {
     expect(text).toContain('No bank email has been ingested yet.');
   });
 
+  it('keeps the last ingested day beside other health problems', () => {
+    const text = renderWeekly(
+      weekly({ health: health({ overdueRecurring: [{ name: 'gym', dueAt: at('2026-09-20T12:00:00Z') }] }) }),
+      opts,
+    ).text;
+    expect(text).toContain('Recurring "gym" was due Sep 20 and hasn\'t been booked.');
+    expect(text).toContain('Last bank email ingested Sep 27.');
+    expect(text).not.toContain('up to date');
+  });
+
+  it('dates by the Santo Domingo day, not the UTC day', () => {
+    const text = renderWeekly(
+      weekly({ week: { ...weekly().week, largest: [{ name: 'Late Colmado', at: at('2026-09-22T02:30:00Z'), amount: 300 }] } }),
+      opts,
+    ).text;
+    expect(text).toContain('Late Colmado · Sep 21');
+  });
+
   it('escapes bank and user text in the HTML and keeps it verbatim in the text', () => {
     const email = renderWeekly(
       weekly({
@@ -148,5 +167,6 @@ describe('budgetStatus', () => {
     expect(budgetStatus({ category: 'food', limit: 10000, spent: 8000 })).toBe('≥ 80%');
     expect(budgetStatus({ category: 'food', limit: 10000, spent: 10000 })).toBe('≥ 80%');
     expect(budgetStatus({ category: 'food', limit: 10000, spent: 10001 })).toBe('over by RD$ 1');
+    expect(budgetStatus({ category: 'fun', limit: 0, spent: 0 })).toBe('on track');
   });
 });
