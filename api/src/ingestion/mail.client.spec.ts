@@ -88,4 +88,22 @@ describe('MailClient', () => {
 
     expect(out.map((m) => m.messageId)).toEqual(['<late>']);
   });
+
+  // A missing or misnamed label (or one with IMAP disabled) must not degrade
+  // into an empty, healthy-looking run every ten minutes. The failure has to
+  // reach poll(), which logs it at error level, and it has to name the
+  // mailbox so the fix is obvious. The underlying IMAP error deliberately
+  // does NOT mention the mailbox here, so the name must come from us.
+  it('rejects with the mailbox name when the mailbox cannot be opened', async () => {
+    mockGetMailboxLock.mockRejectedValue(new Error('Command failed'));
+
+    await expect(new MailClient().fetchSince(new Date(), [SENDER])).rejects.toThrow(/Banks/);
+    expect(mockLogout).toHaveBeenCalled();
+  });
+
+  it('opens the mailbox read-only', async () => {
+    await new MailClient().fetchSince(new Date(), [SENDER]);
+
+    expect(mockGetMailboxLock).toHaveBeenCalledWith('Banks', { readOnly: true });
+  });
 });

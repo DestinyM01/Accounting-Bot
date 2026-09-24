@@ -127,6 +127,20 @@ describe('IngestionService', () => {
     jest.restoreAllMocks();
   });
 
+  // The mail client throws when the mailbox cannot be opened. The cron entry
+  // point must survive that and shout: an error-level log on every poll until
+  // the label is fixed, never a silent empty run.
+  it('poll() logs a rejected run() at error level and does not throw', async () => {
+    mail.fetchSince.mockRejectedValue(new Error('Cannot open mailbox "Banks": Command failed'));
+
+    await expect(service.poll()).resolves.toBeUndefined();
+
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      'Ingestion poll failed',
+      expect.stringContaining('Cannot open mailbox "Banks"'),
+    );
+  });
+
   it('records an expense as a negative signed amount with TransactionType.EXPENSE', async () => {
     mail.fetchSince.mockResolvedValue([makeMail()]);
     parserParseMock.mockReturnValue(makeParsed({ direction: 'expense', amount: 100, currency: 'DOP' }));

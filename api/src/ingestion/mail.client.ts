@@ -42,7 +42,16 @@ export class MailClient {
     await client.connect();
     try {
       // readOnly so we never flag messages as seen
-      const lock = await client.getMailboxLock(mailbox, { readOnly: true });
+      let lock: Awaited<ReturnType<ImapFlow['getMailboxLock']>>;
+      try {
+        lock = await client.getMailboxLock(mailbox, { readOnly: true });
+      } catch (err) {
+        // A missing or misnamed label must not degrade into an empty,
+        // healthy-looking run. Name the mailbox so the fix is obvious, and
+        // let poll() log it at error level on every attempt until it is.
+        const reason = err instanceof Error ? err.message : String(err);
+        throw new Error(`Cannot open mailbox "${mailbox}": ${reason}`);
+      }
       try {
         for await (const msg of client.fetch({ since }, { source: true, envelope: true })) {
           if (!msg.source) continue;
@@ -70,9 +79,9 @@ export class MailClient {
       } finally {
         lock.release();
       }
-    } catch (err) {
-      this.logger.error('IMAP fetch failed', err instanceof Error ? err.stack : String(err));
     } finally {
+      // Failures propagate to the caller, which logs them at error level.
+      // Swallowing them here returned [] and let the run report itself healthy.
       await client.logout().catch(() => undefined);
     }
 
