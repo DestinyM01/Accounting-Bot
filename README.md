@@ -43,6 +43,7 @@ A personal finance tracker: a **web dashboard** for entry, review and reporting,
 | **Compare** | Pick any two months and get a side-by-side summary + Mistral AI narrative |
 | **Analytics** | Top-10 most frequent transactions table; click a row to see its monthly history chart |
 | **Recurring** | Create rules; upcoming billing and what was billed this month. The API checks hourly and books each rule on its day (08:00 local), catching up days missed within 31 days |
+| **Categories** | Create, edit, rename and delete your own categories; deleting one in use moves its transactions, recurring rules and budgets to a category you choose |
 | **Tips** | AI-generated personalised financial tips (Mistral, 1-hour cache) |
 | **Email reports** | A weekly digest (Monday 07:00) and a monthly summary (the 1st), sent by the API through Gmail; "Email me a test digest" on the Dashboard sends one now |
 
@@ -241,6 +242,12 @@ All endpoints require a `Bearer` JWT token (issued by Authentik).
 | `GET` | `/api/statistics/by-category` | Expense breakdown by category |
 | `GET` | `/api/recurring` | All recurring transaction entries |
 | `POST` | `/api/reports/test` | Email the latest weekly digest now, marked [Test] |
+| `GET` | `/api/categories` | Built-in and active custom categories |
+| `GET` | `/api/categories/overview` | Every category with its usage, plus the palette and emoji for new ones |
+| `POST` | `/api/categories` | Create a category `{ name, emoji, color }` |
+| `PATCH` | `/api/categories/:id` | Change emoji or colour; a new name renames it everywhere |
+| `DELETE` | `/api/categories/:id?moveTo=` | Delete, moving everything that uses it to `moveTo` |
+| `POST` | `/api/categories/:id/finish` | Finish an interrupted move |
 | `GET` | `/api/tips` | AI financial tips (Mistral, 1h cache) |
 | `POST` | `/api/tips/refresh` | Force-refresh tips |
 | `GET` | `/api/compare/months` | Distinct months that have transaction data |
