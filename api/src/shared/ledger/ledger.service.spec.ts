@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
+import { Logger } from '@nestjs/common';
 import { LedgerService } from './ledger.service';
 import { Balance } from '../schemas/balance.schema';
 import { BalanceHistory } from '../schemas/balance-history.schema';
@@ -105,9 +106,12 @@ describe('LedgerService', () => {
     });
 
     it('keeps the correction when writing history fails', async () => {
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
       balanceModel.findOneAndUpdate.mockResolvedValueOnce({ userId: 1, balance: 10 });
       historyModel.create.mockRejectedValueOnce(new Error('history down'));
       await expect(service.setTo(20)).resolves.toEqual({ previousBalance: 10, newBalance: 20, delta: 10 });
+      expect(errorSpy).toHaveBeenCalledWith('Failed to record balance history', expect.stringContaining('history down'));
+      errorSpy.mockRestore();
     });
   });
 });

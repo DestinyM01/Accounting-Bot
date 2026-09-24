@@ -61,10 +61,22 @@ describe('BalanceService', () => {
     });
 
     it('rejects anything but a finite number within ±1e12', async () => {
-      for (const bad of ['51170', NaN, Infinity, 2e12, undefined]) {
+      for (const bad of ['51170', NaN, Infinity, 2e12, -2e12, undefined]) {
         await expect(service.set({ balance: bad as any })).rejects.toBeInstanceOf(BadRequestException);
       }
       expect(ledger.setTo).not.toHaveBeenCalled();
+    });
+
+    it('accepts exactly ±1e12 and negative totals', async () => {
+      await service.set({ balance: 1e12 });
+      await service.set({ balance: -1e12 });
+      await service.set({ balance: -250.5 });
+      expect(ledger.setTo.mock.calls.map((c) => c[0])).toEqual([1e12, -1e12, -250.5]);
+    });
+
+    it('measures the note after trimming it', async () => {
+      await service.set({ balance: 1, note: `  ${'x'.repeat(100)}  ` });
+      expect(ledger.setTo).toHaveBeenCalledWith(1, 'x'.repeat(100));
     });
 
     it('rejects a note that is not a string or longer than 100 characters', async () => {
@@ -150,6 +162,23 @@ describe('BalanceService', () => {
       expect(await service.daily({ days: '3' }, NOW)).toHaveLength(7);
       expect(await service.daily({ days: '1000' }, NOW)).toHaveLength(365);
       expect(await service.daily({}, NOW)).toHaveLength(90);
+    });
+
+    it('prefers the row before the window over the first window row', async () => {
+      historyModel.findOne.mockReturnValue(query({ newBalance: 800 }));
+      historyModel.find.mockReturnValue(
+        query([{ timestamp: at('2026-09-23T15:00:00Z'), newBalance: 900, previousBalance: 1000 }]),
+      );
+      const points = await service.daily({ days: '7' }, NOW);
+      expect(points[0].balance).toBe(800);
+    });
+
+    it('reads the window from its start, oldest first', async () => {
+      const rows = query([]);
+      historyModel.find.mockReturnValue(rows);
+      await service.daily({ days: '7' }, NOW);
+      expect(historyModel.find).toHaveBeenCalledWith({ userId: 1, timestamp: { $gte: windowStart(NOW, 7) } });
+      expect(rows.sort).toHaveBeenCalledWith({ timestamp: 1, _id: 1 });
     });
   });
 });
