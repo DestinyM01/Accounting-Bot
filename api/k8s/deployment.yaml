@@ -92,6 +92,14 @@ spec:
                   name: accounting-bot-secret
                   key: OWN_CASH_ACCOUNTS
                   optional: true
+            # Optional: where the weekly digest and monthly summary go. Unset,
+            # they go to GMAIL_USER. In the Secret, never here: the repo is public.
+            - name: REPORT_TO
+              valueFrom:
+                secretKeyRef:
+                  name: accounting-bot-secret
+                  key: REPORT_TO
+                  optional: true
             - name: USD_DOP_RATE
               value: "60"
           resources:

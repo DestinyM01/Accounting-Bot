@@ -43,6 +43,7 @@ A personal finance tracker: a **web dashboard** for entry, review and reporting,
 | **Analytics** | Top-10 most frequent transactions table; click a row to see its monthly history chart |
 | **Recurring** | Create rules; upcoming billing and what was billed this month. The API checks hourly and books each rule on its day (08:00 local), catching up days missed within 31 days |
 | **Tips** | AI-generated personalised financial tips (Mistral, 1-hour cache) |
+| **Email reports** | A weekly digest (Monday 07:00) and a monthly summary (the 1st), sent by the API through Gmail; "Email me a test digest" on the Dashboard sends one now |
 
 ---
 
@@ -162,6 +163,7 @@ The web app expects the API at `/api` (proxied in `angular.json` or via nginx in
 | `INGEST_START_AT` | Forward-only watermark, ISO date; mail older than this is never ingested (default: 24 hours ago) |
 | `OWN_ACCOUNT_IDENTIFIERS` | Comma-separated own account last-4s and/or name fragment, used to decide transfer direction (default: empty — Banreservas transfers all skipped) |
 | `OWN_CASH_ACCOUNTS` | Comma-separated last-4s of your own savings/checking accounts; transfers to these are internal, not expenses (default: empty — no transfer is treated as internal) |
+| `REPORT_TO` | Recipient of the weekly digest and monthly summary (default: `GMAIL_USER`). Reports go through Gmail SMTP with the same app password |
 | `USD_DOP_RATE` | Fallback USD→DOP rate when the live FX lookup fails (default: `60`) |
 
 **Email ingestion setup notes:**
@@ -234,6 +236,7 @@ All endpoints require a `Bearer` JWT token (issued by Authentik).
 | `GET` | `/api/statistics/monthly` | Monthly income+expense chart data |
 | `GET` | `/api/statistics/by-category` | Expense breakdown by category |
 | `GET` | `/api/recurring` | All recurring transaction entries |
+| `POST` | `/api/reports/test` | Email the latest weekly digest now, marked [Test] |
 | `GET` | `/api/tips` | AI financial tips (Mistral, 1h cache) |
 | `POST` | `/api/tips/refresh` | Force-refresh tips |
 | `GET` | `/api/compare/months` | Distinct months that have transaction data |
