@@ -837,8 +837,11 @@ describe('IngestionService', () => {
       const sentCreated = txModel.create.mock.calls[1][0];
       expect(sentCreated.transferKind).toBe('internal');
       expect(sentCreated.matchedLegId).toBe('rx-id');
+      // Only an unresolved leg may be flipped to internal here: if the user had
+      // resolved this received leg to external in between, its balance already
+      // moved, and this write must not silently relabel it as internal.
       expect(txModel.updateOne).toHaveBeenCalledWith(
-        { _id: 'rx-id' },
+        { _id: 'rx-id', transferKind: 'unresolved' },
         { $set: { transferKind: 'internal', matchedLegId: 'tx-id' } },
       );
       expect(ledger.apply).not.toHaveBeenCalled();

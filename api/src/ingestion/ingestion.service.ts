@@ -302,8 +302,12 @@ export class IngestionService {
     // next poll redoes the whole thing.
     try {
       if (counterLeg) {
+        // Only an unresolved leg may be flipped to internal; a resolved one
+        // already moved the balance. This only applies when the counter leg is
+        // the received (unresolved) half — a matched sent leg is already
+        // internal and was never a resolution target.
         await this.txModel.updateOne(
-          { _id: counterLeg._id },
+          p.isReceivedTransfer ? { _id: counterLeg._id } : { _id: counterLeg._id, transferKind: 'unresolved' },
           { $set: { transferKind: 'internal', matchedLegId: String(doc._id) } },
         );
         this.logger.log(`Matched transfer legs ${String(counterLeg._id)} <-> ${String(doc._id)} from mail ${messageId}`);
