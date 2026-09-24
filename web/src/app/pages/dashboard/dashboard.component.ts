@@ -22,6 +22,7 @@ interface StatCard {
   badgeDir: 'up' | 'down' | 'neutral';
   badgePct: number | null;
   sub: string | null;
+  link?: string;
 }
 
 @Component({
@@ -133,6 +134,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         badgeDir: 'neutral',
         badgePct: null,
         sub: `${this.summary?.transactionCount ?? 0} transactions this month`,
+        link: '/balance',
       },
       {
         label: 'Monthly Income',

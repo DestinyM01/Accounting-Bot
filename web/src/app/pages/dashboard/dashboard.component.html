@@ -21,21 +21,31 @@
     <!-- Stat cards -->
     <div class="stat-grid">
       @for (s of stats; track s.label) {
-        <div class="stat-card" [class]="s.cls">
-          <div class="stat-label">{{ s.label }}</div>
-          <div class="stat-amount">{{ s.amount | currency:'USD':'symbol':'1.0-0' }}</div>
-          @if (s.badgePct !== null) {
-            <span class="stat-badge" [class]="s.badgeDir">
-              {{ badgeLabel(s.badgePct, s.badgeDir) }} vs last month
-            </span>
-          }
-          @if (s.sub) {
-            <div class="stat-sub">{{ s.sub }}</div>
-          }
-          <mat-icon class="ghost-icon">{{ s.icon }}</mat-icon>
-        </div>
+        @if (s.link) {
+          <a class="stat-card stat-card--link" [class]="s.cls" [routerLink]="s.link">
+            <ng-container *ngTemplateOutlet="statBody; context: { $implicit: s }" />
+          </a>
+        } @else {
+          <div class="stat-card" [class]="s.cls">
+            <ng-container *ngTemplateOutlet="statBody; context: { $implicit: s }" />
+          </div>
+        }
       }
     </div>
+
+    <ng-template #statBody let-s>
+      <div class="stat-label">{{ s.label }}</div>
+      <div class="stat-amount">{{ s.amount | currency:'USD':'symbol':'1.0-0' }}</div>
+      @if (s.badgePct !== null) {
+        <span class="stat-badge" [class]="s.badgeDir">
+          {{ badgeLabel(s.badgePct, s.badgeDir) }} vs last month
+        </span>
+      }
+      @if (s.sub) {
+        <div class="stat-sub">{{ s.sub }}</div>
+      }
+      <mat-icon class="ghost-icon">{{ s.icon }}</mat-icon>
+    </ng-template>
 
     <!-- Chart + Categories row -->
     <div class="mid-row">
