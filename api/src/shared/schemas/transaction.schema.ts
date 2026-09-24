@@ -40,3 +40,13 @@ export class Transaction extends Document {
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
+
+// One transaction per scheduled occurrence of a recurring rule. Both the
+// ingestion side and the bot's cron reconcile through this key; the database
+// enforces it rather than two find-then-create sequences racing each other.
+// Partial: rows not linked to a rule (a deliberately separate second payment
+// of the same amount) are unaffected.
+TransactionSchema.index(
+  { userId: 1, recurringId: 1, recurringPeriod: 1 },
+  { unique: true, partialFilterExpression: { recurringId: { $exists: true } } },
+);

@@ -69,3 +69,11 @@ export class Transaction extends Document {
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
+
+// One transaction per scheduled occurrence of a recurring rule. Mirrors
+// api/src/shared/schemas/transaction.schema.ts — both services back the same
+// collection. Partial: rows not linked to a rule are unaffected.
+TransactionSchema.index(
+  { userId: 1, recurringId: 1, recurringPeriod: 1 },
+  { unique: true, partialFilterExpression: { recurringId: { $exists: true } } },
+);

@@ -79,16 +79,31 @@ export class RecurringService {
           continue;
         }
 
-        const created = await this.transactionService.createTransaction({
-          userId: r.userId,
-          userName: r.userName,
-          transactionName: r.transactionName,
-          transactionType: r.transactionType,
-          amount: r.amount,
-          category: r.category,
-          recurringId: String(r._id),
-          recurringPeriod: period,
-        });
+        let created;
+        try {
+          created = await this.transactionService.createTransaction({
+            userId: r.userId,
+            userName: r.userName,
+            transactionName: r.transactionName,
+            transactionType: r.transactionType,
+            amount: r.amount,
+            category: r.category,
+            recurringId: String(r._id),
+            recurringPeriod: period,
+          });
+        } catch (err: any) {
+          // The partial unique index on (userId, recurringId, recurringPeriod)
+          // says this period is already satisfied — the bank email landed
+          // between our lookup above and this create. Not a failure: no
+          // balance movement, and stamp the rule so tomorrow does not retry.
+          if (err?.code === 11000) {
+            this.logger.log(`Recurring "${r.transactionName}" already satisfied for ${period} (unique index) — skipping`);
+            r.lastExecutedAt = new Date();
+            await r.save();
+            continue;
+          }
+          throw err;
+        }
         await this.balanceService.updateBalance(
           r.userId,
           r.amount,

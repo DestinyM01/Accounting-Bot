@@ -93,6 +93,25 @@ describe('RecurringService', () => {
     expect(mockTransactionService.createTransaction).toHaveBeenCalledTimes(1);
   });
 
+  // The partial unique index on (userId, recurringId, recurringPeriod) is the
+  // real guard against two rows for one period. When the bank email lands
+  // between this cron's lookup and its create, the create hits 11000. That is
+  // "already satisfied", not a failure: no balance movement, no error log,
+  // and the rule is stamped so tomorrow's run does not retry it.
+  it('treats a duplicate-key error from createTransaction as already satisfied', async () => {
+    const rule = makeRule({ lastExecutedAt: undefined });
+    mockRecurringModel.find = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([rule]) });
+    mockTransactionService.createTransaction = jest.fn().mockRejectedValue({ code: 11000 });
+    const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+
+    await expect(service.processRecurring()).resolves.toBeUndefined();
+
+    expect(mockBalanceService.updateBalance).not.toHaveBeenCalled();
+    expect(rule.save).toHaveBeenCalled();
+    expect(rule.lastExecutedAt).toBeInstanceOf(Date);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
   it('skips a rule already satisfied by an ingested transaction this month', async () => {
     const rule = makeRule({ lastExecutedAt: undefined });
     mockRecurringModel.find = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([rule]) });
