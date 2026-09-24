@@ -1,4 +1,5 @@
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
+import { isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
 
 /** Days either side of a rule's dayOfMonth that still count as the same payment. */
 export const MATCH_WINDOW_DAYS = 3;
@@ -46,7 +47,7 @@ export function matchedPeriod(rule: RuleLike, tx: TxLike): string | null {
   // asserted, so neither can be the real-world payment a rule predicts.
   // Without this, an internal funding leg of the same amount consumes the rule
   // and the genuine expense is never recorded at all.
-  if (tx.transferKind === 'internal' || tx.transferKind === 'unresolved') return null;
+  if (isNonSpendingTransfer(tx.transferKind)) return null;
 
   // The schema constrains transactionType, but TypeScript doesn't — RuleLike
   // types it as a plain string and the caller passes `r as any`. Comparing

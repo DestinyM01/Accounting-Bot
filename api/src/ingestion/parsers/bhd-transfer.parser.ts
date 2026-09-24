@@ -1,6 +1,7 @@
 import { ParseInput, ParsedTransaction, toAmount } from './types';
 import { parseDdMmYyyyDash12h } from './dates';
 import { matchesOwn } from './own-party';
+import { TransferKind } from '../../shared/schemas/transfer-kind';
 
 /** Strips a trailing colon and surrounding whitespace, for exact label comparison. */
 function normaliseLabel(cell: string): string {
@@ -45,7 +46,7 @@ export function parseBhdTransfer(input: ParseInput): ParsedTransaction | null {
   // Tipo de transacción both lie: a real "y a otros Bancos" email moved money
   // between two of the user's own accounts. The beneficiary name lies too — the
   // user's loan account carries their own name.
-  let transferKind: 'external' | 'internal' | 'unresolved';
+  let transferKind: TransferKind;
   if (!destino) {
     transferKind = 'unresolved';
   } else if (matchesOwn(destino, ownCashAccounts)) {

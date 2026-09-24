@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
-import { NOT_DELETED, SPENDING_ONLY } from '../shared/schemas/transfer-kind';
+import { NOT_DELETED, NON_SPENDING_KINDS, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
 
 export interface TransactionQuery {
   limit?: number;
@@ -53,13 +53,12 @@ export class TransactionsService {
 
   private buildFilter(query: ExportQuery & { needsReview?: boolean; transferKind?: string }): Record<string, any> {
     const filter: any = { userId: this.userId, ...NOT_DELETED };
-    // Internal transfers move money between the user's own accounts and
-    // unresolved ones have not been asserted, so neither is spending. They stay
-    // visible in an unfiltered listing, tagged, so the money trail is auditable
-    // and an unresolved transfer can actually be found and classified — so
-    // only the expense view takes the spending-only kind filter.
+    // Internal/unresolved rows stay visible, tagged, in an unfiltered listing
+    // so the money trail is auditable and an unresolved transfer can still be
+    // found and classified there.
+    // Only the expense view excludes them, since neither one is spending.
     if (query.type === 'expense') {
-      filter.transferKind = SPENDING_ONLY.transferKind;
+      filter.transferKind = { $nin: [...NON_SPENDING_KINDS] };
     }
     if (query.type === 'income')  filter.amount = { $gt: 0 };
     if (query.type === 'expense') filter.amount = { $lt: 0 };
@@ -120,7 +119,7 @@ export class TransactionsService {
       // Internal/unresolved rows are visible but tagged: printing them as
       // 'expense' would let a spreadsheet sum on Type=expense double-count a
       // transfer alongside the real payment it funded.
-      const isTransfer = t.transferKind === 'internal' || t.transferKind === 'unresolved';
+      const isTransfer = isNonSpendingTransfer(t.transferKind);
       const type   = isTransfer ? 'transfer' : (t.amount < 0 ? 'expense' : 'income');
       const kind   = t.transferKind || '';
       const amount = Math.abs(t.amount).toFixed(2);

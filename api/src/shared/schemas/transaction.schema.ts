@@ -32,7 +32,7 @@ export class Transaction extends Document {
    */
   @Prop() matchedLegId?: string;
 
-  /** Soft-delete marker. Rows are never removed: an email-sourced row must keep its sourceMessageId. */
+  /** Soft-delete marker for every row. Never hard-delete: an email-sourced row must keep its sourceMessageId or the next poll re-creates it. */
   @Prop() deletedAt?: Date;
 
   /** The recurring rule this transaction satisfies, when reconciled. */

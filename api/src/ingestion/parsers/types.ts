@@ -1,3 +1,5 @@
+import { TransferKind } from '../../shared/schemas/transfer-kind';
+
 export type Bank = 'popular' | 'bhd' | 'santacruz' | 'banreservas';
 
 export interface ParsedTransaction {
@@ -18,7 +20,7 @@ export interface ParsedTransaction {
    *   internal   — between the user's own cash accounts; no expense, no balance
    *   unresolved — destination could not be parsed; recorded, never asserted
    */
-  transferKind?: 'external' | 'internal' | 'unresolved';
+  transferKind?: TransferKind;
   /**
    * True for the receiving side of a transfer whose sender the email does not
    * name. It may be a third party paying the user, or the user's own transfer

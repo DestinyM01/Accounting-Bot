@@ -7,7 +7,7 @@ import { LedgerService } from '../shared/ledger/ledger.service';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
-import { NOT_DELETED } from '../shared/schemas/transfer-kind';
+import { NOT_DELETED, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
 import { MailClient } from './mail.client';
 import { CategorizerService } from './categorizer.service';
 import { FxService } from './fx.service';
@@ -311,7 +311,7 @@ export class IngestionService {
       // Only external transfers and ordinary card transactions move money.
       // An internal transfer nets to zero against the single Balance document,
       // and an unresolved one has not been asserted yet.
-      if (transferKind === 'internal' || transferKind === 'unresolved') {
+      if (isNonSpendingTransfer(transferKind)) {
         return 'created';
       }
       await this.ledger.apply(signed, p.direction, p.counterparty, String(doc._id));

@@ -1,6 +1,7 @@
 import { ParseInput, ParsedTransaction, toAmount } from './types';
 import { parseDdMmYyyy } from './dates';
 import { matchesOwn } from './own-party';
+import { TransferKind } from '../../shared/schemas/transfer-kind';
 
 /**
  * Popular puts label and value on the SAME line: "Monto: RD$ 20,000.00".
@@ -31,7 +32,7 @@ function parseSent(input: ParseInput): ParsedTransaction | null {
   const cuenta = inlineValue(body, 'Cuenta o Producto');
 
   // Destination account decides, never the beneficiary name.
-  const transferKind: 'external' | 'internal' | 'unresolved' = !cuenta
+  const transferKind: TransferKind = !cuenta
     ? 'unresolved'
     : matchesOwn(cuenta, ownCashAccounts)
       ? 'internal'
