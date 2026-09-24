@@ -16,12 +16,8 @@ describe.each([
     expect(guards).toContain(JwtAuthGuard);
   });
 
-  it('no handler opts out of the class guard', () => {
-    const proto = Ctrl.prototype;
-    for (const name of Object.getOwnPropertyNames(proto)) {
-      if (name === 'constructor') continue;
-      const methodGuards: unknown[] | undefined = Reflect.getMetadata(GUARDS_METADATA, proto[name]);
-      if (methodGuards) expect(methodGuards).toContain(JwtAuthGuard);
-    }
-  });
+  // No "no handler opts out" test: Nest merges method-level @UseGuards guards
+  // ADDITIVELY onto the class-level ones — a method decorator can only add
+  // guards, never remove the class guard. There is no opt-out for a test to
+  // detect, so a test asserting one can never fail and proves nothing.
 });

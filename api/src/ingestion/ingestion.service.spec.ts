@@ -847,6 +847,39 @@ describe('IngestionService', () => {
       expect(ledger.apply).not.toHaveBeenCalled();
     });
 
+    // Between findCounterLeg's read and the link write, the received leg may
+    // have been resolved by a concurrent request (e.g. resolved to external
+    // by the user). The guarded update then matches nothing: this mail is not
+    // actually paired with that row, so it must not point matchedLegId at a
+    // row that is no longer internal.
+    it('received first, then sent: the counter leg is no longer unresolved when the link write runs', async () => {
+      txModel.create.mockImplementationOnce((doc: any) => Promise.resolve({ _id: 'rx-id', ...doc }));
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'rx-mail' })]);
+      parserParseMock.mockReturnValue(received());
+      await service.run();
+      const rxRow = { _id: 'rx-id', ...txModel.create.mock.calls[0][0] };
+
+      txModel.findOne.mockImplementation(legStore([rxRow]));
+      txModel.updateOne.mockResolvedValueOnce({ matchedCount: 0 });
+      txModel.create.mockImplementationOnce((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc }));
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'tx-mail' })]);
+      parserParseMock.mockReturnValue(sent());
+      const result = await service.run();
+
+      expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Counter leg rx-id no longer unresolved; recording tx-mail unlinked'),
+      );
+      // The created row must not end up pointing at a leg it never actually
+      // claimed: the optimistic matchedLegId set at create() is corrected by
+      // an explicit follow-up unset once the claim is known to have failed.
+      expect(txModel.updateOne).toHaveBeenCalledWith(
+        { _id: 'tx-id' },
+        { $unset: { matchedLegId: 1 } },
+      );
+      expect(ledger.apply).not.toHaveBeenCalled();
+    });
+
     it('sent first, then received: the received leg is created internal and linked to the sent leg', async () => {
       // Run 1 — the sent leg arrives alone; nothing to link yet.
       txModel.create.mockImplementationOnce((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc }));

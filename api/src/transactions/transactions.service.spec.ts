@@ -497,4 +497,76 @@ describe('TransactionsService', () => {
       expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { transferKind: 'unresolved' } });
     });
   });
+
+  // When the compensation ITSELF fails, the row is left in a state no retry
+  // can repair. The ledger error — not the compensation's — is still what the
+  // caller sees (it is the one worth surfacing), and the failure is logged
+  // loudly, with the id, since nothing else will ever say so again.
+  describe('compensation failure', () => {
+    beforeEach(() => { mockModel.updateOne = jest.fn().mockResolvedValue({}); mockModel.deleteOne = jest.fn().mockResolvedValue({}); });
+
+    it('create: logs and still rejects with the ledger error when the rollback delete also fails', async () => {
+      mockModel.create.mockResolvedValue({ _id: 'new1', transactionName: 'colmado' });
+      mockModel.deleteOne.mockRejectedValueOnce(new Error('db down'));
+      ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
+      const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
+
+      await expect(service.create({ type: 'expense', amount: 10, name: 'Colmado', category: 'food' })).rejects.toThrow('ledger down');
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('new1'), expect.anything());
+    });
+
+    it('update: logs and still rejects with the ledger error when the restore also fails', async () => {
+      mockModel.findOne = jest.fn().mockResolvedValue({ _id: 't1', userId: 1, amount: -100, transactionName: 'old', category: 'food', transferKind: undefined });
+      mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({});
+      mockModel.updateOne.mockRejectedValueOnce(new Error('db down'));
+      ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
+      const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
+
+      await expect(service.update('t1', { amount: 130 })).rejects.toThrow('ledger down');
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('t1'), expect.anything());
+    });
+
+    it('softDelete: logs and still rejects with the ledger error when the restore also fails', async () => {
+      mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({ _id: 't1', amount: -100, transactionName: 'rent' });
+      mockModel.updateOne.mockRejectedValueOnce(new Error('db down'));
+      ledger.reverse.mockRejectedValueOnce(new Error('ledger down'));
+      const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
+
+      await expect(service.softDelete('t1')).rejects.toThrow('ledger down');
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('t1'), expect.anything());
+    });
+
+    it('resolveTransfer: logs and still rejects with the ledger error when the revert also fails', async () => {
+      mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({ _id: 't1', amount: -100, transactionName: 'transfer' });
+      mockModel.updateOne.mockRejectedValueOnce(new Error('db down'));
+      ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
+      const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
+
+      await expect(service.resolveTransfer('t1', 'external')).rejects.toThrow('ledger down');
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('t1'), expect.anything());
+    });
+  });
+
+  // update's compensation must restore every field the patch touched, not
+  // just amount: a co-edit of name+amount that rolls back must not leave the
+  // new name stranded on the old amount.
+  describe('update — full pre-image restore on ledger failure', () => {
+    it('restores every patched field, not only amount', async () => {
+      mockModel.findOne = jest.fn().mockResolvedValue({ _id: 't1', userId: 1, amount: -100, transactionName: 'old', category: 'food', transferKind: undefined });
+      mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({});
+      mockModel.updateOne = jest.fn().mockResolvedValue({});
+      ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
+
+      await expect(service.update('t1', { amount: 130, name: 'New' })).rejects.toThrow('ledger down');
+
+      expect(mockModel.updateOne).toHaveBeenCalledWith(
+        { _id: 't1' },
+        { $set: { amount: -100, transactionName: 'old' } },
+      );
+    });
+  });
 });

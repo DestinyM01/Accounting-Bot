@@ -306,11 +306,20 @@ export class IngestionService {
         // already moved the balance. This only applies when the counter leg is
         // the received (unresolved) half — a matched sent leg is already
         // internal and was never a resolution target.
-        await this.txModel.updateOne(
+        const link = await this.txModel.updateOne(
           p.isReceivedTransfer ? { _id: counterLeg._id } : { _id: counterLeg._id, transferKind: 'unresolved' },
           { $set: { transferKind: 'internal', matchedLegId: String(doc._id) } },
         );
-        this.logger.log(`Matched transfer legs ${String(counterLeg._id)} <-> ${String(doc._id)} from mail ${messageId}`);
+        if (!p.isReceivedTransfer && link.matchedCount === 0) {
+          // Between findCounterLeg's read and this write, the received leg was
+          // resolved by a concurrent request — it is no longer part of this
+          // transfer. Undo the optimistic matchedLegId this row was created
+          // with, rather than leave it pointing at a leg that is not internal.
+          this.logger.warn(`Counter leg ${String(counterLeg._id)} no longer unresolved; recording ${messageId} unlinked`);
+          await this.txModel.updateOne({ _id: doc._id }, { $unset: { matchedLegId: 1 } });
+        } else {
+          this.logger.log(`Matched transfer legs ${String(counterLeg._id)} <-> ${String(doc._id)} from mail ${messageId}`);
+        }
       }
       // Only external transfers and ordinary card transactions move money.
       // An internal transfer nets to zero against the single Balance document,

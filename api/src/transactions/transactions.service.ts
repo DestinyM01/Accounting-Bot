@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
@@ -64,12 +64,27 @@ export interface TransactionPage {
 @Injectable()
 export class TransactionsService {
   private readonly userId = parseInt(process.env.BOSS_USER_ID || '0', 10);
+  private readonly logger = new Logger(TransactionsService.name);
 
   constructor(
     @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
     private readonly ledger: LedgerService,
     private readonly categories: CategoriesService,
   ) {}
+
+  /**
+   * Runs a compensation after a failed ledger call, then rethrows the LEDGER
+   * error — that is the one worth surfacing. If the compensation itself fails
+   * the row is in a state no retry can repair: say so loudly, with the id.
+   */
+  private async compensate(id: string, what: string, undo: () => Promise<unknown>, ledgerErr: unknown): Promise<never> {
+    try {
+      await undo();
+    } catch (undoErr) {
+      this.logger.error(`Rollback of ${what} for ${id} failed; row needs manual repair`, String(undoErr));
+    }
+    throw ledgerErr;
+  }
 
   private buildFilter(query: ExportQuery & { needsReview?: boolean; transferKind?: string }): Record<string, any> {
     const filter: any = { userId: this.userId, ...NOT_DELETED };
@@ -196,8 +211,7 @@ export class TransactionsService {
       // starts clean; leaving it would invite a DELETE that reverses a movement
       // that never happened. Permitted hard delete: a row this call created
       // milliseconds ago, with no sourceMessageId — the same rule as ingestion's rollback.
-      await this.transactionModel.deleteOne({ _id: doc._id });
-      throw err;
+      return this.compensate(String(doc._id), 'create', () => this.transactionModel.deleteOne({ _id: doc._id }), err);
     }
     return { id: String(doc._id) };
   }
@@ -254,10 +268,12 @@ export class TransactionsService {
       try {
         await this.ledger.apply(delta, 'manual', tx.transactionName, id);
       } catch (err) {
-        // The amount was stored but the balance did not move. Put the amount
-        // back so a retry starts from a consistent row instead of drifting.
-        await this.transactionModel.updateOne({ _id: id }, { $set: { amount: tx.amount } });
-        throw err;
+        // The row was stored but the balance did not move. Put back every
+        // field the patch touched — not just amount — so a retry starts from
+        // the exact pre-image instead of a hybrid of old and new values.
+        const restore: Record<string, unknown> = {};
+        for (const k of Object.keys(patch)) restore[k] = (tx as any)[k] ?? null;
+        return this.compensate(id, 'update', () => this.transactionModel.updateOne({ _id: id }, { $set: restore }), err);
       }
     }
   }
@@ -287,11 +303,11 @@ export class TransactionsService {
         const restore: Record<string, unknown> = {};
         if (tx.recurringId) restore.recurringId = tx.recurringId;
         if (tx.recurringPeriod) restore.recurringPeriod = tx.recurringPeriod;
-        await this.transactionModel.updateOne(
+        const undo = () => this.transactionModel.updateOne(
           { _id: id },
           Object.keys(restore).length ? { $unset: { deletedAt: 1 }, $set: restore } : { $unset: { deletedAt: 1 } },
         );
-        throw err;
+        return this.compensate(id, 'softDelete', undo, err);
       }
     }
   }
@@ -316,8 +332,7 @@ export class TransactionsService {
       try {
         await this.ledger.apply(tx.amount, tx.amount < 0 ? 'expense' : 'income', tx.transactionName, id);
       } catch (err) {
-        await this.transactionModel.updateOne({ _id: id }, { $set: { transferKind: 'unresolved' } });
-        throw err;
+        return this.compensate(id, 'resolveTransfer', () => this.transactionModel.updateOne({ _id: id }, { $set: { transferKind: 'unresolved' } }), err);
       }
     }
   }
