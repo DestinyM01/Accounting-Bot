@@ -850,8 +850,34 @@ export interface UpdateTransactionBody {
     }
 
     if (Object.keys(patch).length === 0) return;
-    await this.transactionModel.updateOne({ _id: id }, { $set: patch });
-    if (delta !== 0) await this.ledger.apply(delta, 'manual', tx.transactionName, id);
+
+    // Guarded write: the row must still be live and still carry the amount and
+    // kind the delta was computed from. A concurrent delete, edit or resolution
+    // changes one of those; the filter then misses and nothing is applied.
+    // (Review finding: the first draft did a bare updateOne({ _id }) here, which
+    // let an edit land on a row another tab had just deleted or resolved.)
+    const written = await this.transactionModel.findOneAndUpdate(
+      {
+        _id: id,
+        userId: this.userId,
+        ...NOT_DELETED,
+        amount: tx.amount,
+        transferKind: tx.transferKind ?? null,   // null matches an absent field
+      },
+      { $set: patch },
+    );
+    if (!written) throw new ConflictException('transaction changed concurrently; reload and retry');
+
+    if (delta !== 0) {
+      try {
+        await this.ledger.apply(delta, 'manual', tx.transactionName, id);
+      } catch (err) {
+        // The amount was stored but the balance did not move. Put the amount
+        // back so a retry starts from a consistent row instead of drifting.
+        await this.transactionModel.updateOne({ _id: id }, { $set: { amount: tx.amount } });
+        throw err;
+      }
+    }
   }
 ```
 
@@ -1065,6 +1091,23 @@ Controller:
 - [ ] **Step 5: Commit** — `git commit -m "feat(api): PATCH /transactions/:id/transfer-kind resolves an unresolved transfer"`
 
 ---
+
+### Task 9b: Post-review corrections to Tasks 6–9 (applied in `0fb9e8c`…`6e86ffd`)
+
+The Phase 2A spec review found four Important gaps in the endpoints as planned above. They were fixed in a follow-up batch; this block records what the shipped code does so the task text above is not read as authoritative where it differs.
+
+- **Rollback on ledger failure, all four endpoints.** Each transitions the row and *then* moves the balance; if the ledger throws, the row is compensated and the error rethrown so a retry is possible and the guard no longer blocks it:
+  - `create` → `deleteOne({ _id: doc._id })`. This is the **one permitted hard delete**: a row this call created milliseconds ago with no `sourceMessageId`, the same rule as ingestion's rollback. Leaving it would invite a DELETE that reverses a movement that never happened.
+  - `update` → `$set: { amount: tx.amount }` (a co-edited name/category is left as written; it is not money).
+  - `softDelete` → `$unset: { deletedAt: 1 }` plus `$set` of `recurringId`/`recurringPeriod` when the pre-image had them.
+  - `resolveTransfer` → `$set: { transferKind: 'unresolved' }`.
+- **Resolve: 404 vs 409.** On a null match, `exists({ _id, userId, ...NOT_DELETED })` decides: no live row → 404 (spec table), live row not unresolved → 409. No balance moves on either path.
+- **JWT guard asserted.** `api/src/transactions/transactions.controller.spec.ts` reads `GUARDS_METADATA` on `TransactionsController` and `RecurringController` and on each handler; verified to fail with the decorator removed.
+- **`setCategory` (PATCH `/:id/category`)** now validates against the allow-list like POST/PUT.
+- **Validation pinned:** invalid timestamp (create + update), blank name (update), empty-body no-op (update), category case (`'Gym'` passes, `'gym'` rejected).
+- **History name casing:** `create` passes `doc.transactionName` (stored lowercase) to the ledger, so history matches the row.
+- **`transferKind` typed** as `TransferKind` in both schemas; the union is spelled only in the two `transfer-kind.ts` files.
+- **Ingestion counter-leg link** requires `transferKind: 'unresolved'` in its `updateOne` filter for the received-leg case — a received leg the user resolved to `external` in the meantime already moved the balance and must not be flipped to `internal`. The sent-leg case needs no guard: a sent leg is created `internal` directly and is never a resolve target.
 
 ### Task 10: `POST /recurring`
 
@@ -1970,7 +2013,7 @@ git diff <start>..HEAD | grep -nE "6728|0010|1311|7574|4492|SUERO|ANDUJAR|KENNY|
 | `deletedAt` on both schemas | 2 |
 | `source: 'manual'` | 6 |
 | Email-sourced amount edits allowed with history | 7 |
-| JWT guard on new routes | inherited from the class-level `@UseGuards` on both controllers; Task 6 build confirms the decorator is on the class |
+| JWT guard on new routes | 9b — pinned by `transactions.controller.spec.ts` via `GUARDS_METADATA` on both controllers (the first draft waived this as "inherited"; the spec said asserted, and review held it to that) |
 | Recent-transactions card tags transfers | 16 |
 | Live reload after writes | 13, 15, 16 |
 | Categorizer canonical names + word boundaries | 12 |
