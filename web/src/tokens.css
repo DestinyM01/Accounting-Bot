@@ -86,4 +86,5 @@
   --color-income-subtle-2:  oklch(81%   0.18  168 / 12%);/* income tint at 12% — icon backgrounds  */
   --color-expense-subtle-2: oklch(72%   0.18   25 / 12%);/* expense tint at 12% — icon backgrounds */
   --color-accent-ink-muted: oklch(98%   0.01  200 / 65%);/* subdued text on accent surface          */
+  --overlay-scrim: oklch(0% 0 0 / 50%);   /* same value the drawer backdrop uses */
 }

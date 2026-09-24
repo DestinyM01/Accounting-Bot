@@ -1,0 +1,49 @@
+@if (open) {
+  <div class="tf-scrim" (click)="close()" aria-hidden="true"></div>
+  <div class="tf-panel card" role="dialog" aria-modal="true" [attr.aria-label]="mode === 'edit' ? 'Edit transaction' : 'New transaction'">
+    <div class="tf-header">
+      <h2>{{ mode === 'edit' ? 'Edit transaction' : 'New transaction' }}</h2>
+      <button class="tf-close" type="button" (click)="close()" aria-label="Close"><mat-icon>close</mat-icon></button>
+    </div>
+
+    @if (mode === 'create') {
+      <div class="tf-type" role="radiogroup" aria-label="Type">
+        <button type="button" class="tf-type-btn" [class.active]="type === 'expense'" (click)="type = 'expense'">
+          <mat-icon>arrow_downward</mat-icon> Expense
+        </button>
+        <button type="button" class="tf-type-btn" [class.active]="type === 'income'" (click)="type = 'income'">
+          <mat-icon>arrow_upward</mat-icon> Income
+        </button>
+      </div>
+    }
+
+    <label class="tf-field">
+      <span>Amount</span>
+      <input #firstField class="tf-input" type="number" min="0.01" step="0.01" [(ngModel)]="amount" placeholder="0.00" />
+    </label>
+    <label class="tf-field">
+      <span>Name</span>
+      <input class="tf-input" type="text" [(ngModel)]="name" placeholder="What was it?" />
+    </label>
+    <label class="tf-field">
+      <span>Category</span>
+      <select class="tf-input" [(ngModel)]="category">
+        @for (cat of categories; track cat) { <option [value]="cat">{{ cat | titlecase }}</option> }
+      </select>
+    </label>
+    <label class="tf-field">
+      <span>Date</span>
+      <input class="tf-input" type="date" [(ngModel)]="date" />
+    </label>
+
+    @if (error) { <p class="tf-error" role="alert">{{ error }}</p> }
+
+    <div class="tf-actions">
+      <button type="button" class="tf-cancel" (click)="close()">Cancel</button>
+      <button type="button" class="tf-submit" [disabled]="!valid || saving" (click)="save()">
+        <mat-icon>{{ saving ? 'hourglass_empty' : 'check' }}</mat-icon>
+        {{ saving ? 'Saving…' : (mode === 'edit' ? 'Save changes' : 'Add') }}
+      </button>
+    </div>
+  </div>
+}

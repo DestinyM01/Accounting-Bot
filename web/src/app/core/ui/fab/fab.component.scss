@@ -1,0 +1,28 @@
+.fab {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 150;                             /* under the mobile drawer (199/200) and dropdowns (1000) */
+  width: 56px; height: 56px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--color-accent-ink);
+  border: none; cursor: pointer;
+  box-shadow: 0 8px 24px var(--overlay-scrim);
+  transition: transform 0.12s, filter 0.12s;
+  mat-icon { font-size: 26px; width: 26px; height: 26px; }
+
+  &:hover, &.is-hover         { filter: brightness(1.08); }
+  &:focus-visible, &.is-focus { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+  &:active, &.is-active       { transform: scale(0.94); }
+  &:disabled, &.is-disabled   { opacity: 0.5; cursor: not-allowed; }
+  &[data-state="loading"]     { pointer-events: none; mat-icon { animation: fab-spin 1s linear infinite; } }
+  &[data-state="error"]       { background: var(--expense); }
+  &[data-state="success"]     { background: var(--income); }
+}
+
+@keyframes fab-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fab { transition: none; }
+  .fab[data-state="loading"] mat-icon { animation: none; }
+}

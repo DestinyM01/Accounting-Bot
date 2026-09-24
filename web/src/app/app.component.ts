@@ -7,11 +7,13 @@ import { ApiService } from './core/services/api.service';
 import { CategoryService } from './core/services/category.service';
 import { BudgetEntry } from './core/services/api.models';
 import { filter } from 'rxjs/operators';
+import { FabComponent } from './core/ui/fab/fab.component';
+import { TransactionFormComponent } from './core/ui/transaction-form/transaction-form.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, MatIconModule],
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, MatIconModule, FabComponent, TransactionFormComponent],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss'],
 })
