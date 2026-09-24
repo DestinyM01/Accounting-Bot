@@ -40,6 +40,8 @@ All new endpoints sit behind the existing JWT guard. This is the API's first rea
 
 Editable: `name`, `category`, `amount`, `timestamp`. On an amount change the **net delta** is applied to the balance and a `BalanceHistory` row with reason `manual` is written — **unless** the row is `internal` or `unresolved`, in which case the amount is stored and the balance is untouched. Deleted rows cannot be edited (404).
 
+The write is guarded: it only lands if the row is still live and still carries the `amount` and `transferKind` the delta was computed from. If a concurrent delete, edit or resolution changed any of those between read and write, the request returns **409** and nothing moves — the client reloads and retries. (Added after review; the first draft's bare `updateOne` could land an edit on a row another tab had just deleted.)
+
 ### `DELETE /transactions/:id`
 
 Sets `deletedAt: now`. Reverses the balance and writes history `delete` **only if** the row moved the balance (not `internal`, not `unresolved`, not already deleted). Response 204. Never removes the document.
