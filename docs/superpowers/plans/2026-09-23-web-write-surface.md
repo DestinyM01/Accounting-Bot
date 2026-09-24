@@ -780,9 +780,25 @@ describe('softDelete', () => {
   it('marks the row deleted and reverses the balance for an ordinary expense', async () => {
     mockModel.findOne.mockResolvedValue({ _id: 't1', amount: -100, transactionName: 'uber', transferKind: undefined });
     await service.softDelete('t1');
-    expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { deletedAt: expect.any(Date) } });
+    expect(mockModel.updateOne).toHaveBeenCalledWith(
+      { _id: 't1' },
+      { $set: { deletedAt: expect.any(Date) }, $unset: { recurringId: 1, recurringPeriod: 1 } },
+    );
     expect(ledger.reverse).toHaveBeenCalledWith(-100, 'uber', 't1');
     expect(mockModel.deleteOne).not.toHaveBeenCalled();   // never a hard delete
+  });
+
+  // A deleted row must leave the partial unique index on
+  // (userId, recurringId, recurringPeriod), or the bank email for that period
+  // can never be recorded: its create collides with the deleted row and every
+  // poll re-parses the mail. Unsetting the link is what frees the slot.
+  it('unsets the recurring link so the period can be recorded again', async () => {
+    mockModel.findOne.mockResolvedValue({ _id: 't2', amount: -20000, transactionName: 'rent', recurringId: 'r1', recurringPeriod: '2026-10' });
+    await service.softDelete('t2');
+    expect(mockModel.updateOne).toHaveBeenCalledWith(
+      { _id: 't2' },
+      expect.objectContaining({ $unset: { recurringId: 1, recurringPeriod: 1 } }),
+    );
   });
 
   it('does not touch the balance for internal or unresolved rows', async () => {
@@ -816,7 +832,16 @@ describe('softDelete', () => {
   async softDelete(id: string): Promise<void> {
     const tx = await this.transactionModel.findOne({ _id: id, userId: this.userId, ...NOT_DELETED });
     if (!tx) throw new NotFoundException();
-    await this.transactionModel.updateOne({ _id: id }, { $set: { deletedAt: new Date() } });
+    // $unset the recurring link so the row leaves the partial unique index on
+    // (userId, recurringId, recurringPeriod). Otherwise the bank email for that
+    // period can never be recorded — its create collides with this deleted row —
+    // and, having no sourceMessageId to dedupe on, is re-parsed on every poll.
+    // ($exists: false is not allowed in a partialFilterExpression, so the index
+    // itself cannot be taught to ignore deleted rows.)
+    await this.transactionModel.updateOne(
+      { _id: id },
+      { $set: { deletedAt: new Date() }, $unset: { recurringId: 1, recurringPeriod: 1 } },
+    );
     if (!isNonSpendingTransfer(tx.transferKind)) {
       await this.ledger.reverse(tx.amount, tx.transactionName, id);
     }
@@ -1009,7 +1034,7 @@ The bot is retiring but these two methods are live and corrupt the balance today
 describe('deleteTransactionById', () => {
   it('soft-deletes and reverses the balance for an ordinary row', async () => {
     // findOne resolves { _id, amount: -100, transactionName: 'x', transferKind: undefined }
-    // expect updateOne/findByIdAndUpdate with { deletedAt: expect.any(Date) }
+    // expect findByIdAndUpdate with { $set: { deletedAt: expect.any(Date) }, $unset: { recurringId: 1, recurringPeriod: 1 } }
     // expect balanceService.reverseTransaction called with (-100)
     // expect deleteOne NOT called
   });
@@ -1032,7 +1057,12 @@ In `deleteTransactionById`, replace the reverse + `deleteOne` block with:
 ```typescript
       // Soft-delete: an ingested row must keep its sourceMessageId or the next
       // poll re-creates it. Reverse the balance only if this row ever moved it.
-      await this.transactionModel.findByIdAndUpdate(transactionId, { deletedAt: new Date() }).exec();
+      // Unset the recurring link so the row leaves the partial unique index on
+      // (userId, recurringId, recurringPeriod) — otherwise that period can never
+      // be recorded again by either the email or the cron.
+      await this.transactionModel
+        .findByIdAndUpdate(transactionId, { $set: { deletedAt: new Date() }, $unset: { recurringId: 1, recurringPeriod: 1 } })
+        .exec();
       if (!isNonSpendingTransfer(transaction.transferKind)) {
         await this.balanceService.reverseTransaction(userId, transaction.amount, transaction.transactionName, transactionId);
       }
