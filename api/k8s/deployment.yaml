@@ -61,15 +61,37 @@ spec:
                   key: GMAIL_APP_PASSWORD
                   optional: true
             - name: INGEST_MAILBOX
-              value: "INBOX"
+              value: "Banks"
             - name: INGEST_POLL_CRON
               value: "*/10 * * * *"
+            # The next three are user-specific: real account digits and a
+            # deploy-time timestamp. This repository is public, so they live in
+            # the Secret, never in this manifest. optional: true only keeps the
+            # pod starting before the keys exist.
+            #
+            # Their absence does NOT make the ingester inert — only missing
+            # GMAIL_USER/GMAIL_APP_PASSWORD does. Without OWN_CASH_ACCOUNTS every
+            # transfer is booked as an expense that moves the balance; without
+            # INGEST_START_AT the last 24h of mail is ingested. Set all three in
+            # the Secret BEFORE adding the Gmail credentials.
             - name: INGEST_START_AT
-              value: ""
+              valueFrom:
+                secretKeyRef:
+                  name: accounting-bot-secret
+                  key: INGEST_START_AT
+                  optional: true
             - name: OWN_ACCOUNT_IDENTIFIERS
-              value: ""
+              valueFrom:
+                secretKeyRef:
+                  name: accounting-bot-secret
+                  key: OWN_ACCOUNT_IDENTIFIERS
+                  optional: true
             - name: OWN_CASH_ACCOUNTS
-              value: ""
+              valueFrom:
+                secretKeyRef:
+                  name: accounting-bot-secret
+                  key: OWN_CASH_ACCOUNTS
+                  optional: true
             - name: USD_DOP_RATE
               value: "60"
           resources:
