@@ -533,7 +533,7 @@ For `reverse`, have `findOneAndUpdate` resolve `{ balance: 1300 }` then `{ balan
   }
 ```
 
-`reverse` is unchanged.
+`reverse` is unchanged in behaviour; give it an explicit return type `Promise<{ previousBalance: number; newBalance: number }>` (code-quality review), and reword the class doc so it states an obligation rather than a present fact — "Every write path … **must** go through here".
 
 - [ ] **Step 4: Run** — `pnpm test ledger` PASS; `pnpm test` all green (the ingestion spec mocks the whole ledger, so it is unaffected); `pnpm run build` clean.
 - [ ] **Step 5: Commit** — `git commit -m "fix(api): make the ledger's balance movement a single atomic \$inc"`
@@ -549,7 +549,8 @@ The spec says the JS re-spellings of "is this non-spending" use `isNonSpendingTr
 - `api/src/transactions/transactions.service.ts` (~line 123, the CSV `type` column)
 
 - [ ] **Step 1:** replace each `x === 'internal' || x === 'unresolved'` with `isNonSpendingTransfer(x)`, importing from `../shared/schemas/transfer-kind` (adjust relative path per file). Leave the single `=== 'internal'` at ingestion ~line 187 alone — that is a different predicate.
-- [ ] **Step 2:** `pnpm test` all green — the existing suites cover all three sites. `pnpm run build` clean.
+- [ ] **Step 1b (code-quality review):** `api/src/ingestion/parsers/types.ts` and the two transfer parsers declare their own `'external' | 'internal' | 'unresolved'` literal — import `TransferKind` from `transfer-kind.ts` instead. In `transactions.service.ts` `buildFilter`, replace `filter.transferKind = SPENDING_ONLY.transferKind` with `{ $nin: [...NON_SPENDING_KINDS] }` so the site does not reach into another constant's shape, and split the run-on comment above it into two. Broaden the `deletedAt` comment in **both** transaction schemas: soft-delete applies to every row; the `sourceMessageId` case is *why* it must be soft.
+- [ ] **Step 2:** `pnpm test` all green — the existing suites cover all three sites. `pnpm run build` clean; `cd repo && npm run build` clean.
 - [ ] **Step 3: Commit** — `git commit -m "refactor(api): use isNonSpendingTransfer at the three remaining predicate sites"`
 
 ---
@@ -1210,45 +1211,113 @@ Import `isNonSpendingTransfer` from `../type/transfer-kind`. Both lookups (`find
 
 **Files:** `api/src/ingestion/categorizer.service.ts`, `categorizer.service.spec.ts`
 
-- [ ] **Step 1: Write the failing tests** (match the spec's existing Mistral mock):
+> **Corrected after reading the real file.** The existing spec constructs `new CategorizerService()` directly and never mocks Mistral — the fallback is only exercised via "no API key → other". A blanket `\b(?:…)\b` wrapping would **regress** real merchants: several rules are stems (`gasolin`, `clinic`, `cine`, `farmacia`, `supermercado`, `hospital`) that must keep matching `GASOLINERA`, `CLINICA`, `CINEMARK`. The leading `\b` is what kills `MEDICINE`; `\w*` on the stems keeps the Spanish suffixes. And bare `nacional` cannot be saved by boundaries at all — `BANCO NACIONAL` is a whole word — so it is dropped; `supermercado\w*` still catches "SUPERMERCADOS NACIONAL". Note also that the Mistral fallback **always** sets `needsReview: true`; the canonical-name fix changes *which* name is returned, not the review flag.
+
+- [ ] **Step 1: Add a Mistral mock and the failing tests**
+
+At the top of `categorizer.service.spec.ts`, before the imports are used:
 
 ```typescript
-it('returns the canonical custom-category name when Mistral answers in a different case', async () => {
-  // mock Mistral reply 'gym'; allowed contains 'Gym'
-  const r = await service.categorize('BODY SHOP FITNESS', ['food', 'other', 'Gym']);
-  expect(r).toEqual({ category: 'Gym', needsReview: false });
-});
+const complete = jest.fn();
+jest.mock('@mistralai/mistralai', () => ({
+  Mistral: jest.fn().mockImplementation(() => ({ chat: { complete } })),
+}));
+```
 
-it('does not match a rule keyword inside a longer word', async () => {
-  // 'cine' must not match MEDICINE; with no rule hit the Mistral fallback runs
-  // mock Mistral reply 'health'
-  const r = await service.categorize('MEDICINE SHOPPE', ['health', 'entertainment', 'other']);
-  expect(r.category).toBe('health');
-});
+Append a new describe block. Each test constructs a **fresh** service (the client is cached per instance with `??=`):
 
-it('still matches a rule keyword as a whole word', async () => {
-  const r = await service.categorize('CINE CARIBBEAN', ['entertainment', 'other']);
-  expect(r).toEqual({ category: 'entertainment', needsReview: false });
+```typescript
+describe('CategorizerService — word boundaries and canonical names', () => {
+  const allowed = ['food', 'transport', 'housing', 'health', 'entertainment', 'other', 'Gym'];
+  let prevKey: string | undefined;
+  beforeEach(() => { prevKey = process.env.MISTRAL_API_KEY; process.env.MISTRAL_API_KEY = 'test-key'; complete.mockReset(); });
+  afterEach(() => { if (prevKey === undefined) delete process.env.MISTRAL_API_KEY; else process.env.MISTRAL_API_KEY = prevKey; });
+
+  const reply = (name: string) => complete.mockResolvedValue({ choices: [{ message: { content: name } }] });
+
+  // The reply is lowercased before matching, but custom categories keep their
+  // case. Returning the caller's spelling is what lets 'Gym' ever be assigned.
+  it('returns the canonical custom-category name when Mistral answers in another case', async () => {
+    reply('gym');
+    const r = await new CategorizerService().categorize('BODY SHOP FITNESS', allowed);
+    expect(r).toEqual({ category: 'Gym', needsReview: true });
+  });
+
+  // 'cine' must not match inside MEDICINE. With no rule hit, the fallback runs.
+  it('does not match a rule keyword inside a longer word', async () => {
+    reply('health');
+    const r = await new CategorizerService().categorize('MEDICINE SHOPPE', allowed);
+    expect(complete).toHaveBeenCalled();
+    expect(r.category).toBe('health');
+  });
+
+  it('still matches a rule keyword as a whole word, without Mistral', async () => {
+    const r = await new CategorizerService().categorize('CINE CARIBBEAN', allowed);
+    expect(complete).not.toHaveBeenCalled();
+    expect(r).toEqual({ category: 'entertainment', needsReview: false });
+  });
+
+  // Regression guards for the stems: these must keep matching by rule.
+  it.each([
+    ['GASOLINERA SHELL', 'transport'],
+    ['CLINICA ABREU', 'health'],
+    ['CINEMARK BLUE MALL', 'entertainment'],
+    ['SUPERMERCADOS NACIONAL', 'food'],
+  ])('keeps matching %s as %s by rule', async (merchant, expected) => {
+    const r = await new CategorizerService().categorize(merchant, allowed);
+    expect(complete).not.toHaveBeenCalled();
+    expect(r).toEqual({ category: expected, needsReview: false });
+  });
+
+  // Words that used to false-positive now fall through to the reviewed fallback.
+  it.each([
+    ['BANCO NACIONAL'],      // was food via bare 'nacional'
+    ['AGUACATE MARKET'],     // was housing via 'agua'
+    ['VIVANDA STORE'],       // was housing via 'viva'
+  ])('no longer misfiles %s by rule', async (merchant) => {
+    reply('other');
+    const r = await new CategorizerService().categorize(merchant, allowed);
+    expect(complete).toHaveBeenCalled();
+    expect(r.needsReview).toBe(true);
+  });
 });
 ```
 
-- [ ] **Step 2: Fails** — first returns `other`/`needsReview`, second returns `entertainment`.
+- [ ] **Step 2: Run** — `cd api && pnpm test categorizer`. Expected failures: the canonical test gets `other`; MEDICINE gets `entertainment` with `complete` not called; BANCO NACIONAL / AGUACATE / VIVANDA get a rule hit with `needsReview: false`. The stem guards **already pass** — they are there to stay green through Step 3.
 
 - [ ] **Step 3: Implement**
 
-Read the file. Two mechanical changes:
-
-1. Every rule regex becomes whole-word: wrap the alternation as `/\b(?:netflix|spotify|hbo|disney|cine|steam)\b/i` — apply the same `\b(?:…)\b` wrapping to each entry in `RULES`.
-2. Where the Mistral reply is lowercased and checked with `allowed.includes(text)`, replace with:
+Replace `RULES` with:
 
 ```typescript
-    const hit = allowed.find((a) => a.toLowerCase() === text);
-    return hit ? { category: hit, needsReview: false } : null;
+/**
+ * Deterministic rules run first — free, instant, and predictable.
+ * Each alternation starts at a word boundary so a keyword cannot match inside
+ * a longer word ('cine' in MEDICINE, 'agua' in AGUACATE). Stems carry \w* so
+ * Spanish suffixes still match (GASOLINERA, CLINICA, CINEMARK). Bare 'nacional'
+ * is deliberately absent: BANCO NACIONAL is a whole word no boundary can exclude.
+ */
+const RULES: { pattern: RegExp; category: string }[] = [
+  { pattern: /\b(?:uber\s*\*?\s*eats|pedidosya|didi\s*food)\b/i, category: 'food' },
+  { pattern: /\b(?:uber|didi|taxi|parqueo|gasolin\w*|shell|texaco)\b/i, category: 'transport' },
+  { pattern: /\b(?:supermercado\w*|jumbo|sirena|bravo|pricesmart)\b/i, category: 'food' },
+  { pattern: /\b(?:farmacia\w*|carol|gbc|hospital\w*|clinic\w*)\b/i, category: 'health' },
+  { pattern: /\b(?:edenorte|edesur|edeeste|claro|altice|viva|agua)\b/i, category: 'housing' },
+  { pattern: /\b(?:netflix|spotify|hbo|disney|cine\w*|steam)\b/i, category: 'entertainment' },
+  { pattern: /\bcajero\s+autom\w*/i, category: 'other' },
+];
 ```
 
-(keeping whatever the surrounding return shape is — the point is returning the **canonical** `hit`, not the lowercased reply).
+In `askMistral`, replace `return allowed.includes(text) ? text : null;` with:
 
-- [ ] **Step 4: Run** — all categorizer tests green.
+```typescript
+      // Return the caller's canonical spelling: custom categories keep their case
+      // ('Gym'), and a lowercased reply must map back to it or it can never be assigned.
+      const hit = allowed.find((a) => a.toLowerCase() === text);
+      return hit ?? null;
+```
+
+- [ ] **Step 4: Run** — `pnpm test categorizer` all green, including the six pre-existing rule tests (`UBER*EATS…`, `PedidosYa*…`, `UBER*RIDES`, `Cajero Automatico`, `FARMACIA CAROL`, `EDENORTE DOMINICANA`) — if any of those breaks, a boundary is wrong; fix the pattern, not the test.
 - [ ] **Step 5: Commit** — `git commit -m "fix(ingestion): categorizer returns canonical names and matches rules on word boundaries"`
 
 ---
