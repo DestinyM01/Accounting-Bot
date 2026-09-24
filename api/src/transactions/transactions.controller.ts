@@ -1,7 +1,7 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt.guard';
-import { TransactionsService, TransactionPage } from './transactions.service';
+import { TransactionsService, TransactionPage, CreateTransactionBody } from './transactions.service';
 
 @Controller('transactions')
 @UseGuards(JwtAuthGuard)
@@ -29,6 +29,11 @@ export class TransactionsController {
       needsReview: needsReview === 'true',
       transferKind,
     });
+  }
+
+  @Post()
+  create(@Body() body: CreateTransactionBody) {
+    return this.transactionsService.create(body);
   }
 
   @Patch(':id/category')

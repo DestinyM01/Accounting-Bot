@@ -1,8 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { NOT_DELETED, NON_SPENDING_KINDS, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
+import { TransactionType } from '../shared/schemas/transaction-type.enum';
+import { LedgerService } from '../shared/ledger/ledger.service';
+import { CategoriesService } from '../categories/categories.service';
+
+export interface CreateTransactionBody {
+  type: 'income' | 'expense';
+  amount: number;
+  name: string;
+  category: string;
+  timestamp?: string;
+}
 
 export interface TransactionQuery {
   limit?: number;
@@ -49,6 +60,8 @@ export class TransactionsService {
 
   constructor(
     @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
+    private readonly ledger: LedgerService,
+    private readonly categories: CategoriesService,
   ) {}
 
   private buildFilter(query: ExportQuery & { needsReview?: boolean; transferKind?: string }): Record<string, any> {
@@ -135,5 +148,40 @@ export class TransactionsService {
       { _id: id, userId: this.userId, ...NOT_DELETED },
       { category, categoryNeedsReview: false },
     );
+  }
+
+  private async assertCategory(category: string): Promise<void> {
+    const allowed = (await this.categories.list()).map((c) => c.name);
+    if (!allowed.includes(category)) throw new BadRequestException(`unknown category: ${category}`);
+  }
+
+  private assertPositive(amount: number): void {
+    if (typeof amount !== 'number' || !(amount > 0)) throw new BadRequestException('amount must be > 0');
+  }
+
+  async create(body: CreateTransactionBody): Promise<{ id: string }> {
+    const { type, amount, name, category, timestamp } = body;
+    if (type !== 'income' && type !== 'expense') throw new BadRequestException('type must be income or expense');
+    this.assertPositive(amount);
+    if (!name?.trim()) throw new BadRequestException('name is required');
+    await this.assertCategory(category);
+
+    const ts = timestamp ? new Date(timestamp) : new Date();
+    if (isNaN(ts.getTime())) throw new BadRequestException('timestamp is invalid');
+
+    const signed = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
+    const doc = await this.transactionModel.create({
+      userId: this.userId,
+      userName: 'web',
+      // The bot lowercases names; matching keeps search and analytics grouping consistent.
+      transactionName: name.trim().toLowerCase(),
+      transactionType: type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
+      amount: signed,
+      timestamp: ts,
+      category,
+      source: 'manual',
+    });
+    await this.ledger.apply(signed, type, name.trim(), String(doc._id));
+    return { id: String(doc._id) };
   }
 }
