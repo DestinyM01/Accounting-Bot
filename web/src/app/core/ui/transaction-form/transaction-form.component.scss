@@ -61,5 +61,5 @@
 }
 
 @media (max-width: 480px) {
-  .tf-panel { left: 0; top: auto; bottom: 0; transform: none; width: 100vw; border-radius: 16px 16px 0 0; }
+  .tf-panel { left: 0; top: auto; bottom: 0; transform: none; width: 100vw; border-radius: 16px 16px 0 0; max-height: 100dvh; overflow-y: auto; }
 }

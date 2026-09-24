@@ -34,6 +34,14 @@ export class TransactionFormComponent implements OnInit, OnDestroy {
   private sub?: Subscription;
   private trigger: HTMLElement | null = null;
 
+  /** Local YYYY-MM-DD for a stored ISO timestamp — the day the user actually saw. */
+  private static localDateKey(iso: string): string {
+    const d = new Date(iso);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+  private originalDate = '';
+
   constructor(
     private api: ApiService,
     private catSvc: CategoryService,
@@ -59,7 +67,8 @@ export class TransactionFormComponent implements OnInit, OnDestroy {
       this.amount   = r.tx.amount;
       this.name     = r.tx.transactionName;
       this.category = r.tx.category;
-      this.date     = r.tx.timestamp.slice(0, 10);
+      this.date     = TransactionFormComponent.localDateKey(r.tx.timestamp);
+      this.originalDate = this.date;
     } else {
       this.editing  = null;
       this.type     = 'expense';
@@ -85,13 +94,27 @@ export class TransactionFormComponent implements OnInit, OnDestroy {
     if (!this.valid || this.saving) return;
     this.saving = true;
     this.error = '';
-    const timestamp = this.date ? new Date(this.date + 'T12:00:00').toISOString() : undefined;
+
+    let timestamp: string | undefined;
+    if (this.mode === 'edit' && this.editing) {
+      // Send a timestamp ONLY if the user changed the date — and then keep the
+      // original time-of-day, moving just the calendar day. Never rewrite the
+      // time of a transaction the bank already stamped.
+      if (this.date && this.date !== this.originalDate) {
+        const orig = new Date(this.editing.timestamp);
+        const [y, m, d] = this.date.split('-').map(Number);
+        timestamp = new Date(y, m - 1, d, orig.getHours(), orig.getMinutes(), orig.getSeconds()).toISOString();
+      }
+    } else {
+      // New transactions: noon local, so the picked day survives any timezone.
+      timestamp = this.date ? new Date(this.date + 'T12:00:00').toISOString() : undefined;
+    }
 
     // Typed as Observable<unknown>: create and update resolve to different
     // bodies ({ id } vs void) and neither is used below, but a union of the
     // two return types leaves `subscribe` with no single compatible overload.
     const req: Observable<unknown> = this.mode === 'edit' && this.editing
-      ? this.api.updateTransaction(this.editing._id, { name: this.name, category: this.category, amount: this.amount!, timestamp })
+      ? this.api.updateTransaction(this.editing._id, { name: this.name, category: this.category, amount: this.amount!, ...(timestamp ? { timestamp } : {}) })
       : this.api.createTransaction({ type: this.type, amount: this.amount!, name: this.name, category: this.category, timestamp });
 
     req.subscribe({

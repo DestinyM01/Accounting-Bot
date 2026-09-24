@@ -8,10 +8,10 @@
 
     @if (mode === 'create') {
       <div class="tf-type" role="radiogroup" aria-label="Type">
-        <button type="button" class="tf-type-btn" [class.active]="type === 'expense'" (click)="type = 'expense'">
+        <button type="button" class="tf-type-btn" role="radio" [attr.aria-checked]="type === 'expense'" [class.active]="type === 'expense'" (click)="type = 'expense'">
           <mat-icon>arrow_downward</mat-icon> Expense
         </button>
-        <button type="button" class="tf-type-btn" [class.active]="type === 'income'" (click)="type = 'income'">
+        <button type="button" class="tf-type-btn" role="radio" [attr.aria-checked]="type === 'income'" [class.active]="type === 'income'" (click)="type = 'income'">
           <mat-icon>arrow_upward</mat-icon> Income
         </button>
       </div>
