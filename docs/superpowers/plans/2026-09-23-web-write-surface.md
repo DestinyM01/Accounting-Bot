@@ -2111,6 +2111,15 @@ with `.tx-amount.transfer { color: var(--text-muted); }` in the dashboard scss.
 
 ---
 
+### Phase 3 as built (commits `5a8b322`, `98b9d85`, `e2e03ba`, `8b6a527`, `b35a0af`)
+
+Deviations from the task text above, all deliberate and all reported by the implementers:
+
+- **Task 12d:** the plan's `categories.service.spec.ts` fixture lacked an `_id`; the real `list()` dereferences `_id.toString()` on every custom row, so the fixture carries `_id: 'c1'`.
+- **Task 14:** the create/edit ternary yields a union of two `Observable`s with incompatible `subscribe` overloads under Angular's strict checker; `const req: Observable<unknown> = …` resolves it and the `next` handler never reads the value.
+- **Task 15:** the template had two boolean `transferKind` chains, not three; the third reference is the label ternary (`'Internal' | 'Unresolved'`) and must keep reading `transferKind`. On mobile the old `:last-child` hide would have hidden the new actions column; it now targets the status column (`nth-child(4)`) and the actions cell takes its own full-width row (`grid-column: 1 / -1`).
+- **Task 16:** extracting the dashboard's duplicated `forkJoin` into `refresh()` means the 60 s timer now also rebuilds the trend chart, which the old timer branch skipped. The web build passes with one new warning: `recurring.component.scss` is 9.00 kB against the 8 kB component-style budget in `angular.json`, because its `.rf-*` form rules duplicate the overlay form's `.tf-*` (and the budget page's `.bf-*`). Left for the Phase 3 review to decide between a shared `_form-controls.scss` partial and a raised budget.
+
 ## Final verification
 
 ```bash
