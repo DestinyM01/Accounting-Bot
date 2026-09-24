@@ -304,7 +304,9 @@ export class IngestionService {
         // the received (unresolved) half — a matched sent leg is already
         // internal and was never a resolution target.
         const link = await this.txModel.updateOne(
-          p.isReceivedTransfer ? { _id: counterLeg._id } : { _id: counterLeg._id, transferKind: 'unresolved' },
+          p.isReceivedTransfer
+            ? { _id: counterLeg._id }
+            : { _id: counterLeg._id, transferKind: 'unresolved', ...NOT_DELETED },
           { $set: { transferKind: 'internal', matchedLegId: String(doc._id) } },
         );
         if (!p.isReceivedTransfer && link.matchedCount === 0) {

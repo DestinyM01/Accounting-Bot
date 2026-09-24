@@ -13,6 +13,7 @@ export class Recurring extends Document {
   @Prop({ default: Category.OTHER }) category: string;
   @Prop({ required: true }) dayOfMonth: number;
   @Prop({ required: true, default: true }) active: boolean;
+  @Prop({ required: true, default: Date.now }) createdAt: Date;
   @Prop() lastExecutedAt: Date;
 }
 

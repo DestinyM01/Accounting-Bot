@@ -739,6 +739,7 @@ describe('IngestionService', () => {
       expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
       const created = txModel.create.mock.calls[0][0];
       expect(created.category).toBe('Gym');
+      expect(categorizer.categorize).toHaveBeenCalledWith(expect.anything(), expect.arrayContaining(['Gym']));
     });
 
     it('does not start a second run while one is still in flight', async () => {
@@ -856,7 +857,7 @@ describe('IngestionService', () => {
       // resolved this received leg to external in between, its balance already
       // moved, and this write must not silently relabel it as internal.
       expect(txModel.updateOne).toHaveBeenCalledWith(
-        { _id: 'rx-id', transferKind: 'unresolved' },
+        { _id: 'rx-id', transferKind: 'unresolved', ...NOT_DELETED },
         { $set: { transferKind: 'internal', matchedLegId: 'tx-id' } },
       );
       expect(ledger.apply).not.toHaveBeenCalled();
