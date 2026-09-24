@@ -85,7 +85,7 @@ export class TransactionsService {
    * error — that is the one worth surfacing. If the compensation itself fails
    * the row is in a state no retry can repair: say so loudly, with the id.
    */
-  private async compensate(id: string, what: string, undo: () => Promise<unknown>, ledgerErr: unknown): Promise<never> {
+  private async compensate({ id, what }: { id: string; what: string }, undo: () => Promise<unknown>, ledgerErr: unknown): Promise<never> {
     try {
       await undo();
     } catch (undoErr) {
@@ -174,16 +174,11 @@ export class TransactionsService {
   }
 
   async setCategory(id: string, category: string): Promise<void> {
-    await this.assertCategory(category);
+    await this.categories.assertValid(category);
     await this.transactionModel.findOneAndUpdate(
       { _id: id, userId: this.userId, ...NOT_DELETED },
       { category, categoryNeedsReview: false },
     );
-  }
-
-  private async assertCategory(category: string): Promise<void> {
-    const allowed = (await this.categories.list()).map((c) => c.name);
-    if (!allowed.includes(category)) throw new BadRequestException(`unknown category: ${category}`);
   }
 
   private assertPositive(amount: number): void {
@@ -195,7 +190,7 @@ export class TransactionsService {
     if (type !== 'income' && type !== 'expense') throw new BadRequestException(`type must be income or expense (got ${type})`);
     this.assertPositive(amount);
     if (!name?.trim()) throw new BadRequestException('name is required');
-    await this.assertCategory(category);
+    await this.categories.assertValid(category);
 
     const ts = timestamp ? new Date(timestamp) : new Date();
     if (isNaN(ts.getTime())) throw new BadRequestException(`timestamp is invalid (got ${timestamp})`);
@@ -219,7 +214,7 @@ export class TransactionsService {
       // starts clean; leaving it would invite a DELETE that reverses a movement
       // that never happened. Permitted hard delete: a row this call created
       // milliseconds ago, with no sourceMessageId — the same rule as ingestion's rollback.
-      return this.compensate(String(doc._id), 'create', () => this.transactionModel.deleteOne({ _id: doc._id }), err);
+      return this.compensate({ id: String(doc._id), what: 'create' }, () => this.transactionModel.deleteOne({ _id: doc._id }), err);
     }
     return { id: String(doc._id) };
   }
@@ -246,7 +241,7 @@ export class TransactionsService {
       patch.transactionName = body.name.trim().toLowerCase();
     }
     if (body.category !== undefined) {
-      await this.assertCategory(body.category);
+      await this.categories.assertValid(body.category);
       patch.category = body.category;
       patch.categoryNeedsReview = false;
     }
@@ -284,7 +279,7 @@ export class TransactionsService {
         // the exact pre-image instead of a hybrid of old and new values.
         const restore: Record<string, unknown> = {};
         for (const k of Object.keys(patch)) restore[k] = (tx as any)[k] ?? null;
-        return this.compensate(id, 'update', () => this.transactionModel.updateOne({ _id: id }, { $set: restore }), err);
+        return this.compensate({ id, what: 'update' }, () => this.transactionModel.updateOne({ _id: id }, { $set: restore }), err);
       }
     }
   }
@@ -318,7 +313,7 @@ export class TransactionsService {
           { _id: id },
           Object.keys(restore).length ? { $unset: { deletedAt: 1 }, $set: restore } : { $unset: { deletedAt: 1 } },
         );
-        return this.compensate(id, 'softDelete', undo, err);
+        return this.compensate({ id, what: 'softDelete' }, undo, err);
       }
     }
   }
@@ -347,7 +342,7 @@ export class TransactionsService {
       try {
         await this.ledger.apply(tx.amount, tx.amount < 0 ? 'expense' : 'income', tx.transactionName, id);
       } catch (err) {
-        return this.compensate(id, 'resolveTransfer', () => this.transactionModel.updateOne({ _id: id }, { $set: { transferKind: 'unresolved' } }), err);
+        return this.compensate({ id, what: 'resolveTransfer' }, () => this.transactionModel.updateOne({ _id: id }, { $set: { transferKind: 'unresolved' } }), err);
       }
     }
   }

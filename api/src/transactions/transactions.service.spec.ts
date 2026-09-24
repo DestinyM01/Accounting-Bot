@@ -6,7 +6,7 @@ import { NOT_DELETED, SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 import { LedgerService } from '../shared/ledger/ledger.service';
 import { CategoriesService } from '../categories/categories.service';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 
 const mockTxs = [
   {
@@ -51,6 +51,9 @@ const ledger = {
 
 const categoriesService = {
   list: jest.fn().mockResolvedValue([{ name: 'food' }, { name: 'other' }, { name: 'Gym' }]),
+  assertValid: jest.fn(async (c: string) => {
+    if (!['food', 'other', 'Gym'].includes(c)) throw new BadRequestException(`unknown category: ${c}`);
+  }),
 };
 
 describe('TransactionsService', () => {

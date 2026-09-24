@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
+import { BadRequestException } from '@nestjs/common';
 import { RecurringService } from './recurring.service';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { CategoriesService } from '../categories/categories.service';
@@ -15,6 +16,9 @@ const mockModel: any = {
 
 const categoriesService = {
   list: jest.fn().mockResolvedValue([{ name: 'food' }, { name: 'other' }]),
+  assertValid: jest.fn(async (c: string) => {
+    if (!['food', 'other'].includes(c)) throw new BadRequestException(`unknown category: ${c}`);
+  }),
 };
 
 describe('RecurringService', () => {
@@ -46,13 +50,23 @@ describe('RecurringService', () => {
       }));
     });
 
-    it('rejects day outside 1..28, bad type, non-positive amount, unknown category, blank name', async () => {
+    it('rejects a dayOfMonth outside 1..28 or non-integer', async () => {
       const ok = { type: 'expense' as const, amount: 1, name: 'x', category: 'food', dayOfMonth: 5 };
       await expect(service.create({ ...ok, dayOfMonth: 0 })).rejects.toThrow(/dayOfMonth/);
       await expect(service.create({ ...ok, dayOfMonth: 29 })).rejects.toThrow(/dayOfMonth/);
       await expect(service.create({ ...ok, dayOfMonth: 5.5 })).rejects.toThrow(/dayOfMonth/);
+      expect(mockModel.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a bad type or non-positive amount', async () => {
+      const ok = { type: 'expense' as const, amount: 1, name: 'x', category: 'food', dayOfMonth: 5 };
       await expect(service.create({ ...ok, type: 'x' as any })).rejects.toThrow(/type/);
       await expect(service.create({ ...ok, amount: 0 })).rejects.toThrow(/amount/);
+      expect(mockModel.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown category or blank name', async () => {
+      const ok = { type: 'expense' as const, amount: 1, name: 'x', category: 'food', dayOfMonth: 5 };
       await expect(service.create({ ...ok, category: 'nope' })).rejects.toThrow(/category/);
       await expect(service.create({ ...ok, name: ' ' })).rejects.toThrow(/name/);
       expect(mockModel.create).not.toHaveBeenCalled();

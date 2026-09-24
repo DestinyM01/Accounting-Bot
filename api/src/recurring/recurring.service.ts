@@ -28,8 +28,7 @@ export class RecurringService {
     if (typeof amount !== 'number' || !(amount > 0)) throw new BadRequestException(`amount must be > 0 (got ${amount})`);
     if (!name?.trim()) throw new BadRequestException('name is required');
     if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 28) throw new BadRequestException(`dayOfMonth must be an integer 1..28 (got ${dayOfMonth})`);
-    const allowed = (await this.categories.list()).map((c) => c.name);
-    if (!allowed.includes(category)) throw new BadRequestException(`unknown category: ${category}`);
+    await this.categories.assertValid(category);
 
     const doc = await this.model.create({
       userId: this.userId,

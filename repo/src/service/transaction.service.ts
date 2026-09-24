@@ -62,6 +62,7 @@ export class TransactionService {
         );
         return;
       }
+      // Mirrors api TransactionsService.softDelete — see that comment for the index rationale.
       // Soft-delete, atomically, matching only a LIVE row: an ingested row must
       // keep its sourceMessageId or the next poll re-creates it, and two
       // concurrent deletes must not both reverse the balance. The pre-image

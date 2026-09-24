@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
@@ -42,5 +42,11 @@ export class CategoriesService {
 
   async delete(id: string): Promise<void> {
     await this.model.findOneAndUpdate({ _id: id, userId: this.userId }, { active: false });
+  }
+
+  /** Rejects a category that is neither built-in nor an active custom one. Exact, case-sensitive: names are stored verbatim. */
+  async assertValid(category: string): Promise<void> {
+    const allowed = (await this.list()).map((c) => c.name);
+    if (!allowed.includes(category)) throw new BadRequestException(`unknown category: ${category}`);
   }
 }
