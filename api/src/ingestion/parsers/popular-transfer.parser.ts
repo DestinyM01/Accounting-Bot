@@ -77,7 +77,11 @@ function parseReceived(input: ParseInput): ParsedTransaction | null {
     counterparty: 'Transferencia recibida',
     isWithdrawal: false,
     approved: true,
-    transferKind: 'external',
+    // Never asserted as income here: with no sender named, this may be the
+    // user's own money arriving from another bank, whose sending leg was
+    // suppressed as internal. The orchestrator reconciles the two legs.
+    transferKind: 'unresolved',
+    isReceivedTransfer: true,
   };
 }
 

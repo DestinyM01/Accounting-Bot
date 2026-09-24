@@ -26,6 +26,12 @@ export class Transaction extends Document {
   /** 'external' | 'internal' | 'unresolved'. Absent for ordinary card transactions. */
   @Prop() transferKind?: string;
 
+  /**
+   * The other leg of an internal transfer reported by two banks (sent by one,
+   * received by the other). Set on both rows once they are reconciled.
+   */
+  @Prop() matchedLegId?: string;
+
   /** The recurring rule this transaction satisfies, when reconciled. */
   @Prop() recurringId?: string;
 

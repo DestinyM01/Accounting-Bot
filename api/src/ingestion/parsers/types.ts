@@ -19,6 +19,14 @@ export interface ParsedTransaction {
    *   unresolved — destination could not be parsed; recorded, never asserted
    */
   transferKind?: 'external' | 'internal' | 'unresolved';
+  /**
+   * True for the receiving side of a transfer whose sender the email does not
+   * name. It may be a third party paying the user, or the user's own transfer
+   * from another bank — whose sending leg was suppressed as internal. It is
+   * recorded as unresolved and reconciled against a sent leg by the
+   * orchestrator; it never asserts income on its own.
+   */
+  isReceivedTransfer?: boolean;
 }
 
 export interface ParseInput {

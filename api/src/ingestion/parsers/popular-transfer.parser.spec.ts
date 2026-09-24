@@ -102,7 +102,12 @@ describe('parsePopularTransfer — sent', () => {
 });
 
 describe('parsePopularTransfer — received', () => {
-  it('parses an incoming transfer as income', () => {
+  // The email names no sender, so this money may have come from the user's
+  // own other account — whose sending leg was correctly suppressed as
+  // internal. Asserting 'external' income here would book phantom income
+  // equal to every self-funding transfer. The parser records the leg and
+  // leaves it to persist() to reconcile it against a sent leg.
+  it('parses an incoming transfer as an unresolved received leg, never asserted income', () => {
     const r = parsePopularTransfer({
       subject: 'Notificación transf recibida via app e IB',
       body: RECEIVED,
@@ -110,7 +115,8 @@ describe('parsePopularTransfer — received', () => {
     })!;
     expect(r.direction).toBe('income');
     expect(r.amount).toBe(2000);
-    expect(r.transferKind).toBe('external');
+    expect(r.transferKind).toBe('unresolved');
+    expect(r.isReceivedTransfer).toBe(true);
   });
 
   // "RD 2,000.00" has no dollar sign, which is why the v1 amount regex misses it.

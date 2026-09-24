@@ -56,6 +56,10 @@ export class Transaction extends Document {
   @Prop()
   transferKind?: string;
 
+  /** The other leg of an internal transfer reported by two banks. Set on both rows once reconciled. */
+  @Prop()
+  matchedLegId?: string;
+
   @Prop()
   recurringId?: string;
 

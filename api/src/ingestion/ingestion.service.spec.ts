@@ -63,7 +63,7 @@ function makeMail(overrides: Partial<FetchedMail> = {}): FetchedMail {
 
 describe('IngestionService', () => {
   let service: IngestionService;
-  let txModel: { create: jest.Mock; findOne: jest.Mock };
+  let txModel: { create: jest.Mock; findOne: jest.Mock; updateOne: jest.Mock };
   let balanceModel: { findOne: jest.Mock; create: jest.Mock };
   let historyModel: { create: jest.Mock };
   let categoryModel: { find: jest.Mock };
@@ -88,6 +88,7 @@ describe('IngestionService', () => {
     txModel = {
       create: jest.fn().mockImplementation((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc })),
       findOne: jest.fn().mockResolvedValue(null),
+      updateOne: jest.fn().mockResolvedValue({}),
     };
     balanceModel = {
       findOne: jest.fn().mockResolvedValue(balanceDoc),
@@ -607,5 +608,183 @@ describe('IngestionService', () => {
     expect(predicted.save).toHaveBeenCalled();
     expect(predicted.sourceMessageId).toBe('msg-42');
     expect(txModel.create).not.toHaveBeenCalled();
+  });
+
+  // A Popular "transf recibida" email names no sender. The money may be a
+  // third party paying the user, or the user's own transfer from another bank
+  // whose sending leg was correctly suppressed as internal. Booking it as
+  // income would add phantom income equal to every self-funding transfer, so
+  // the received leg is recorded as unresolved and reconciled against a sent
+  // leg in either arrival order. Nothing in these paths moves the balance.
+  describe('received-transfer leg matching', () => {
+    const DAY = 24 * 3600_000;
+    const at = new Date(2026, 2, 10, 9, 0);
+
+    /**
+     * Stand-in for the leg query: filters `rows` the way Mongo would on the
+     * fields the service is expected to constrain. Recurring lookups (which
+     * carry a recurringId, not a transferKind) find nothing.
+     */
+    function legStore(rows: any[]) {
+      return (q: any) => {
+        if (!q.transferKind) return Promise.resolve(null);
+        const hit = rows.find(
+          (r) =>
+            r.source === q.source &&
+            r.transferKind === q.transferKind &&
+            r.amount === q.amount &&
+            r.timestamp >= q.timestamp.$gte &&
+            r.timestamp <= q.timestamp.$lte &&
+            (q.matchedLegId?.$exists === false ? r.matchedLegId === undefined : true),
+        );
+        return Promise.resolve(hit ?? null);
+      };
+    }
+
+    const received = () =>
+      makeParsed({
+        direction: 'income',
+        amount: 2000,
+        currency: 'DOP',
+        occurredAt: at,
+        counterparty: 'Transferencia recibida',
+        transferKind: 'unresolved',
+        isReceivedTransfer: true,
+      });
+    const sent = (occurredAt: Date = at) =>
+      makeParsed({
+        direction: 'expense',
+        amount: 2000,
+        currency: 'DOP',
+        occurredAt,
+        counterparty: 'JUAN ANTONIO RIVERA MART',
+        transferKind: 'internal',
+      });
+
+    it('records a received leg with no sent leg as unresolved, needing review, without moving the balance', async () => {
+      balanceDoc.balance = 1000;
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'rx-mail' })]);
+      parserParseMock.mockReturnValue(received());
+
+      const result = await service.run();
+
+      expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+      const created = txModel.create.mock.calls[0][0];
+      expect(created.transferKind).toBe('unresolved');
+      expect(created.transactionType).toBe(TransactionType.INCOME);
+      expect(created.amount).toBe(2000);
+      expect(created.categoryNeedsReview).toBe(true);
+      expect(created.matchedLegId).toBeUndefined();
+      expect(txModel.updateOne).not.toHaveBeenCalled();
+      expect(balanceDoc.balance).toBe(1000);
+      expect(balanceDoc.save).not.toHaveBeenCalled();
+    });
+
+    it('received first, then sent: both legs end internal and point at each other', async () => {
+      balanceDoc.balance = 1000;
+
+      // Run 1 — the received leg arrives alone.
+      txModel.create.mockImplementationOnce((doc: any) => Promise.resolve({ _id: 'rx-id', ...doc }));
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'rx-mail' })]);
+      parserParseMock.mockReturnValue(received());
+      await service.run();
+      const rxRow = { _id: 'rx-id', ...txModel.create.mock.calls[0][0] };
+      expect(rxRow.transferKind).toBe('unresolved');
+
+      // Run 2 — the sent leg arrives and must find the waiting received leg.
+      txModel.findOne.mockImplementation(legStore([rxRow]));
+      txModel.create.mockImplementationOnce((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc }));
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'tx-mail' })]);
+      parserParseMock.mockReturnValue(sent());
+      const result = await service.run();
+
+      expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+      const sentCreated = txModel.create.mock.calls[1][0];
+      expect(sentCreated.transferKind).toBe('internal');
+      expect(sentCreated.matchedLegId).toBe('rx-id');
+      expect(txModel.updateOne).toHaveBeenCalledWith(
+        { _id: 'rx-id' },
+        { $set: { transferKind: 'internal', matchedLegId: 'tx-id' } },
+      );
+      expect(balanceDoc.balance).toBe(1000);
+      expect(balanceDoc.save).not.toHaveBeenCalled();
+    });
+
+    it('sent first, then received: the received leg is created internal and linked to the sent leg', async () => {
+      balanceDoc.balance = 1000;
+
+      // Run 1 — the sent leg arrives alone; nothing to link yet.
+      txModel.create.mockImplementationOnce((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc }));
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'tx-mail' })]);
+      parserParseMock.mockReturnValue(sent());
+      await service.run();
+      const sentRow = { _id: 'tx-id', ...txModel.create.mock.calls[0][0] };
+      expect(sentRow.transferKind).toBe('internal');
+      expect(sentRow.matchedLegId).toBeUndefined();
+      expect(txModel.updateOne).not.toHaveBeenCalled();
+
+      // Run 2 — the received leg arrives and must find the sent leg.
+      txModel.findOne.mockImplementation(legStore([sentRow]));
+      txModel.create.mockImplementationOnce((doc: any) => Promise.resolve({ _id: 'rx-id', ...doc }));
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'rx-mail' })]);
+      parserParseMock.mockReturnValue(received());
+      const result = await service.run();
+
+      expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+      const rxCreated = txModel.create.mock.calls[1][0];
+      expect(rxCreated.transferKind).toBe('internal');
+      expect(rxCreated.transactionType).toBe(TransactionType.INCOME);
+      expect(rxCreated.matchedLegId).toBe('tx-id');
+      expect(txModel.updateOne).toHaveBeenCalledWith(
+        { _id: 'tx-id' },
+        { $set: { transferKind: 'internal', matchedLegId: 'rx-id' } },
+      );
+      expect(balanceDoc.balance).toBe(1000);
+      expect(balanceDoc.save).not.toHaveBeenCalled();
+    });
+
+    // Only a sent leg that was itself classified internal (destination is one
+    // of the user's own cash accounts) can be the other half of a received
+    // transfer. A genuine payment to a third party of the same amount on the
+    // same day is a coincidence, not a match.
+    it('does not match a received leg against an external expense of the same amount', async () => {
+      const externalRow = {
+        _id: 'ext-id',
+        source: 'email',
+        transferKind: 'external',
+        amount: -2000,
+        timestamp: at,
+      };
+      txModel.findOne.mockImplementation(legStore([externalRow]));
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'rx-mail' })]);
+      parserParseMock.mockReturnValue(received());
+
+      await service.run();
+
+      const created = txModel.create.mock.calls[0][0];
+      expect(created.transferKind).toBe('unresolved');
+      expect(created.matchedLegId).toBeUndefined();
+      expect(txModel.updateOne).not.toHaveBeenCalled();
+    });
+
+    it('does not match legs more than a day apart', async () => {
+      const staleSent = {
+        _id: 'old-id',
+        source: 'email',
+        transferKind: 'internal',
+        amount: -2000,
+        timestamp: new Date(at.getTime() - 2 * DAY),
+      };
+      txModel.findOne.mockImplementation(legStore([staleSent]));
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'rx-mail' })]);
+      parserParseMock.mockReturnValue(received());
+
+      await service.run();
+
+      const created = txModel.create.mock.calls[0][0];
+      expect(created.transferKind).toBe('unresolved');
+      expect(created.matchedLegId).toBeUndefined();
+      expect(txModel.updateOne).not.toHaveBeenCalled();
+    });
   });
 });

@@ -20,6 +20,9 @@ import { matchedPeriod } from './reconciliation.service';
 
 const BUILT_IN = ['food','transport','housing','health','entertainment','salary','savings','other'];
 
+/** How far apart the two legs of one internal transfer may be reported by their banks. */
+const LEG_WINDOW_MS = 24 * 3600_000;
+
 @Injectable()
 export class IngestionService {
   private readonly logger = new Logger(IngestionService.name);
@@ -120,6 +123,19 @@ export class IngestionService {
 
     const signed = p.direction === 'expense' ? -Math.abs(amount) : Math.abs(amount);
 
+    // An internal transfer reported by two banks arrives as two mails in
+    // either order: the sending bank's leg (classified internal by its
+    // destination account) and the receiving bank's leg (which names no
+    // sender, so it cannot be classified on its own). Reconcile them here:
+    // a received leg that finds its sent leg is internal, not income, and
+    // both rows point at each other. Neither path moves the balance.
+    let transferKind = p.transferKind;
+    let counterLeg: { _id: unknown } | null = null;
+    if (p.isReceivedTransfer || p.transferKind === 'internal') {
+      counterLeg = await this.findCounterLeg(p, amount);
+      if (counterLeg) transferKind = 'internal';
+    }
+
     let recurringId: string | undefined;
     let recurringPeriod: string | undefined;
 
@@ -142,7 +158,7 @@ export class IngestionService {
         userId: this.userId,
         amount: signed,
         timestamp: p.occurredAt,
-        transferKind: p.transferKind,
+        transferKind,
       });
       if (!matched) continue;
 
@@ -211,14 +227,22 @@ export class IngestionService {
         originalCurrency,
         isWithdrawal: p.isWithdrawal,
         externalRef: p.externalRef,
-        transferKind: p.transferKind,
+        transferKind,
+        matchedLegId: counterLeg ? String(counterLeg._id) : undefined,
         recurringId,
         recurringPeriod,
       });
+      if (counterLeg) {
+        await this.txModel.updateOne(
+          { _id: counterLeg._id },
+          { $set: { transferKind: 'internal', matchedLegId: String(doc._id) } },
+        );
+        this.logger.log(`Matched transfer legs ${String(counterLeg._id)} <-> ${String(doc._id)} from mail ${messageId}`);
+      }
       // Only external transfers and ordinary card transactions move money.
       // An internal transfer nets to zero against the single Balance document,
       // and an unresolved one has not been asserted yet.
-      if (p.transferKind === 'internal' || p.transferKind === 'unresolved') {
+      if (transferKind === 'internal' || transferKind === 'unresolved') {
         return 'created';
       }
       await this.applyBalance(p, amount, String(doc._id));
@@ -231,6 +255,28 @@ export class IngestionService {
       this.logger.error(`Failed to persist ${messageId}`, err instanceof Error ? err.stack : String(err));
       return 'failed';
     }
+  }
+
+  /**
+   * The other half of a two-bank internal transfer, if it has already been
+   * ingested and not yet claimed. For a received leg that is a sent leg
+   * classified internal (only those — a genuine external payment of the
+   * same amount is a coincidence); for a sent leg it is a still-unresolved
+   * received leg. Either way: same magnitude, opposite sign, within a day.
+   */
+  private async findCounterLeg(p: ParsedTransaction, amount: number): Promise<{ _id: unknown } | null> {
+    const t = p.occurredAt.getTime();
+    const magnitude = Math.abs(amount);
+    const leg = p.isReceivedTransfer
+      ? { transferKind: 'internal', amount: -magnitude }
+      : { transferKind: 'unresolved', amount: magnitude };
+    return this.txModel.findOne({
+      userId: this.userId,
+      source: 'email',
+      ...leg,
+      timestamp: { $gte: new Date(t - LEG_WINDOW_MS), $lte: new Date(t + LEG_WINDOW_MS) },
+      matchedLegId: { $exists: false },
+    });
   }
 
   private async applyBalance(p: ParsedTransaction, amount: number, txId: string): Promise<void> {
