@@ -28,11 +28,13 @@ describe('CategorizerService rules', () => {
   });
 
   it('falls back to other+needsReview for an unknown merchant with no API key', async () => {
+    complete.mockReset();
     const prev = process.env.MISTRAL_API_KEY;
     delete process.env.MISTRAL_API_KEY;
     const r = await svc.categorize('ZZZ UNKNOWN MERCHANT', allowed);
     expect(r.category).toBe('other');
     expect(r.needsReview).toBe(true);
+    expect(complete).not.toHaveBeenCalled();
     if (prev) process.env.MISTRAL_API_KEY = prev;
   });
 });
@@ -84,5 +86,20 @@ describe('CategorizerService — word boundaries and canonical names', () => {
     const r = await new CategorizerService().categorize(merchant, allowed);
     expect(complete).toHaveBeenCalled();
     expect(r.needsReview).toBe(true);
+  });
+
+  // Real card descriptors that the boundary rewrite must not lose to the
+  // Mistral fallback: one-word brand+suffix forms and Spanish compounds/plurals.
+  it.each([
+    ['STEAMGAMES.COM 4259522985', 'entertainment'],
+    ['HBOMAX', 'entertainment'],
+    ['DISNEYPLUS', 'entertainment'],
+    ['POLICLINICA CENTRAL', 'health'],
+    ['TAXIS DEL ESTE', 'transport'],
+    ['PARQUEOS PLAZA', 'transport'],
+  ])('still matches the descriptor %s as %s by rule', async (merchant, expected) => {
+    const r = await new CategorizerService().categorize(merchant, allowed);
+    expect(complete).not.toHaveBeenCalled();
+    expect(r).toEqual({ category: expected, needsReview: false });
   });
 });

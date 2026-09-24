@@ -10,16 +10,20 @@ export interface CategoryResult {
  * Deterministic rules run first — free, instant, and predictable.
  * Each alternation starts at a word boundary so a keyword cannot match inside
  * a longer word ('cine' in MEDICINE, 'agua' in AGUACATE). Stems carry \w* so
- * Spanish suffixes still match (GASOLINERA, CLINICA, CINEMARK). Bare 'nacional'
+ * Spanish suffixes and plurals still match (GASOLINERA, CLINICA, CINEMARK,
+ * TAXIS, PARQUEOS) and one-word brand+suffix card descriptors still match
+ * (HBOMAX, DISNEYPLUS, STEAMGAMES.COM). \w*clinic\w* also matches a compound
+ * with a leading prefix (POLICLINICA), where a leading \b would fail because
+ * the boundary sits before POLI, not before CLINIC. Bare 'nacional'
  * is deliberately absent: BANCO NACIONAL is a whole word no boundary can exclude.
  */
 const RULES: { pattern: RegExp; category: string }[] = [
   { pattern: /\b(?:uber\s*\*?\s*eats|pedidosya|didi\s*food)\b/i, category: 'food' },
-  { pattern: /\b(?:uber|didi|taxi|parqueo|gasolin\w*|shell|texaco)\b/i, category: 'transport' },
+  { pattern: /\b(?:uber|didi|taxi\w*|parqueo\w*|gasolin\w*|shell|texaco)\b/i, category: 'transport' },
   { pattern: /\b(?:supermercado\w*|jumbo|sirena|bravo|pricesmart)\b/i, category: 'food' },
-  { pattern: /\b(?:farmacia\w*|carol|gbc|hospital\w*|clinic\w*)\b/i, category: 'health' },
+  { pattern: /\b(?:farmacia\w*|carol|gbc|hospital\w*|\w*clinic\w*)\b/i, category: 'health' },
   { pattern: /\b(?:edenorte|edesur|edeeste|claro|altice|viva|agua)\b/i, category: 'housing' },
-  { pattern: /\b(?:netflix|spotify|hbo|disney|cine\w*|steam)\b/i, category: 'entertainment' },
+  { pattern: /\b(?:netflix|spotify|hbo\w*|disney\w*|cine\w*|steam\w*)\b/i, category: 'entertainment' },
   { pattern: /\bcajero\s+autom\w*/i, category: 'other' },
 ];
 
