@@ -1,31 +1,48 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
+import { CategoryReferencesService } from './category-references.service';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
 
-// list() maps each custom row through `_id.toString()`, so the fixture needs
-// an _id even though only name/color/emoji matter for assertValid.
-const mockModel: any = {
-  find: jest.fn(function () { return this; }),
-  lean: jest.fn().mockResolvedValue([{ _id: 'c1', name: 'Gym', color: '#000', emoji: 'x' }]),
-};
+const ID = '64b000000000000000000001';
+const OLD_ID = '64b000000000000000000002';
+
+/** A chainable stand-in for a Mongoose query that resolves to `result`. */
+function query(result: unknown) {
+  const q: any = { sort: jest.fn(() => q), lean: jest.fn(() => Promise.resolve(result)) };
+  return q;
+}
+
+const gym = (overrides: Record<string, unknown> = {}) => ({
+  _id: ID, userId: 1, name: 'gym', emoji: '💪', color: '#3b82f6', active: true, pending: null, ...overrides,
+});
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
+  let model: { find: jest.Mock; findOne: jest.Mock; findOneAndUpdate: jest.Mock; create: jest.Mock; updateOne: jest.Mock };
+  let refs: { usage: jest.Mock; migrate: jest.Mock };
 
   beforeEach(async () => {
-    jest.clearAllMocks();
     process.env.BOSS_USER_ID = '1';
-    mockModel.lean.mockResolvedValue([{ _id: 'c1', name: 'Gym', color: '#000', emoji: 'x' }]);
+    model = {
+      // list(): the active custom categories. 'Gym' keeps the case-sensitivity test meaningful.
+      find: jest.fn(() => query([{ _id: 'c1', name: 'Gym', color: '#000', emoji: 'x' }])),
+      findOne: jest.fn(() => query(null)),
+      findOneAndUpdate: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ _id: 'new1' }),
+      updateOne: jest.fn().mockResolvedValue({}),
+    };
+    refs = { usage: jest.fn().mockResolvedValue(new Map()), migrate: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CategoriesService,
-        { provide: getModelToken(CustomCategory.name), useValue: mockModel },
+        { provide: getModelToken(CustomCategory.name), useValue: model },
+        { provide: CategoryReferencesService, useValue: refs },
       ],
     }).compile();
-    service = module.get<CategoriesService>(CategoriesService);
+    service = module.get(CategoriesService);
   });
 
   describe('assertValid', () => {
@@ -44,6 +61,183 @@ describe('CategoriesService', () => {
 
     it('rejects the wrong case: names are stored verbatim', async () => {
       await expect(service.assertValid('gym')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('create', () => {
+    it('normalizes the name and creates a new category', async () => {
+      await expect(service.create({ name: '  Gym ', emoji: '💪', color: '#3b82f6' })).resolves.toEqual({ id: 'new1' });
+      expect(model.create).toHaveBeenCalledWith({
+        userId: 1, name: 'gym', emoji: '💪', color: '#3b82f6', active: true, pending: null,
+      });
+    });
+
+    it('rejects a bad name, emoji or colour', async () => {
+      await expect(service.create({ name: 'a b', emoji: '💪', color: '#3b82f6' })).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.create({ name: 'gym', emoji: '🦄', color: '#3b82f6' })).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.create({ name: 'gym', emoji: '💪', color: '#123456' })).rejects.toBeInstanceOf(BadRequestException);
+      expect(model.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a name you already have', async () => {
+      model.findOne.mockReturnValueOnce(query(gym()));
+      await expect(service.create({ name: 'gym', emoji: '💪', color: '#3b82f6' })).rejects.toThrow(
+        /already have a category called gym/,
+      );
+    });
+
+    it('rejects a name an unfinished move is still moving away from', async () => {
+      model.findOne.mockReturnValueOnce(query(gym({ active: false, pending: { from: 'gym', to: 'health' } })));
+      await expect(service.create({ name: 'gym', emoji: '💪', color: '#3b82f6' })).rejects.toThrow(/still being moved/);
+    });
+
+    it('revives a deleted category instead of duplicating it', async () => {
+      model.findOneAndUpdate.mockResolvedValueOnce({ _id: OLD_ID });
+      await expect(service.create({ name: 'gym', emoji: '🎯', color: '#ef4444' })).resolves.toEqual({ id: OLD_ID });
+      expect(model.findOneAndUpdate).toHaveBeenCalledWith(
+        { userId: 1, name: 'gym', active: false, pending: null },
+        { $set: { active: true, emoji: '🎯', color: '#ef4444' } },
+        { sort: { _id: -1 }, new: true },
+      );
+      expect(model.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('update', () => {
+    it('changes emoji and colour in place, validating only what was sent', async () => {
+      model.findOne.mockReturnValueOnce(query(gym({ color: '#abcdef' }))); // a legacy colour, not sent
+      await service.update(ID, { emoji: '🎯' });
+      expect(model.updateOne).toHaveBeenCalledWith({ _id: ID, userId: 1 }, { $set: { emoji: '🎯' } });
+      expect(refs.migrate).not.toHaveBeenCalled();
+    });
+
+    it('answers 404 for a built-in or unknown id', async () => {
+      await expect(service.update('food', { emoji: '🎯' })).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.update(ID, { emoji: '🎯' })).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('refuses to edit a category mid-move', async () => {
+      model.findOne.mockReturnValueOnce(query(gym({ pending: { from: 'gym', to: 'fitness' } })));
+      await expect(service.update(ID, { emoji: '🎯' })).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('rejects an invalid emoji, colour or name', async () => {
+      model.findOne.mockReturnValue(query(gym()));
+      await expect(service.update(ID, { emoji: '🦄' })).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.update(ID, { color: '#123456' })).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.update(ID, { name: 'a b' })).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('renames through one guarded write, then moves every reference and clears pending', async () => {
+      model.findOne.mockReturnValueOnce(query(gym()));
+      model.findOneAndUpdate.mockResolvedValueOnce({ _id: ID });
+      await service.update(ID, { name: ' Fitness ' });
+      expect(model.findOneAndUpdate).toHaveBeenCalledWith(
+        { _id: ID, userId: 1, name: 'gym', active: true, pending: null },
+        { $set: { name: 'fitness', pending: { from: 'gym', to: 'fitness' } } },
+      );
+      expect(refs.migrate).toHaveBeenCalledWith('gym', 'fitness');
+      expect(model.updateOne).toHaveBeenCalledWith({ _id: ID }, { $set: { pending: null } });
+      expect(refs.migrate.mock.invocationCallOrder[0]).toBeLessThan(model.updateOne.mock.invocationCallOrder[0]);
+    });
+
+    it('refuses to rename onto a category that already exists', async () => {
+      model.findOne
+        .mockReturnValueOnce(query(gym()))
+        .mockReturnValueOnce(query(gym({ _id: OLD_ID, name: 'fitness' })));
+      await expect(service.update(ID, { name: 'fitness' })).rejects.toThrow(/delete gym and move it there/);
+      expect(refs.migrate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('remove', () => {
+    it('requires a category to move to while it is in use', async () => {
+      model.findOne.mockReturnValueOnce(query(gym()));
+      refs.usage.mockResolvedValue(new Map([['gym', { transactions: 3, recurring: 0, budgets: 0 }]]));
+      await expect(service.remove(ID)).rejects.toThrow(/in use/);
+      expect(model.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('rejects moving to itself or to a category that is not active', async () => {
+      model.findOne.mockReturnValue(query(gym()));
+      await expect(service.remove(ID, 'gym')).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.remove(ID, 'nope')).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('deactivates an unused category without moving anything', async () => {
+      model.findOne.mockReturnValueOnce(query(gym()));
+      model.findOneAndUpdate.mockResolvedValueOnce({ _id: ID });
+      await service.remove(ID);
+      expect(model.findOneAndUpdate).toHaveBeenCalledWith(
+        { _id: ID, userId: 1, active: true, pending: null },
+        { $set: { active: false, pending: null } },
+      );
+      expect(refs.migrate).not.toHaveBeenCalled();
+    });
+
+    it('hides it first, then moves everything and clears pending', async () => {
+      model.findOne.mockReturnValueOnce(query(gym()));
+      refs.usage.mockResolvedValue(new Map([['gym', { transactions: 3, recurring: 1, budgets: 2 }]]));
+      model.findOneAndUpdate.mockResolvedValueOnce({ _id: ID });
+      await service.remove(ID, 'health');
+      expect(model.findOneAndUpdate).toHaveBeenCalledWith(
+        { _id: ID, userId: 1, active: true, pending: null },
+        { $set: { active: false, pending: { from: 'gym', to: 'health' } } },
+      );
+      expect(refs.migrate).toHaveBeenCalledWith('gym', 'health');
+      expect(model.updateOne).toHaveBeenCalledWith({ _id: ID }, { $set: { pending: null } });
+      expect(model.findOneAndUpdate.mock.invocationCallOrder[0]).toBeLessThan(refs.migrate.mock.invocationCallOrder[0]);
+    });
+
+    it('answers 409 when another change got there first', async () => {
+      model.findOne.mockReturnValueOnce(query(gym()));
+      await expect(service.remove(ID, 'health')).rejects.toBeInstanceOf(ConflictException);
+      expect(refs.migrate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('finish', () => {
+    it('re-runs an unfinished move', async () => {
+      model.findOne.mockReturnValueOnce(query(gym({ active: false, pending: { from: 'gym', to: 'health' } })));
+      await expect(service.finish(ID)).resolves.toEqual({ id: ID });
+      expect(refs.migrate).toHaveBeenCalledWith('gym', 'health');
+      expect(model.updateOne).toHaveBeenCalledWith({ _id: ID }, { $set: { pending: null } });
+    });
+
+    it('answers 404 when there is no unfinished move', async () => {
+      model.findOne.mockReturnValueOnce(query(gym()));
+      await expect(service.finish(ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('overview', () => {
+    it('lists built-ins first, then custom by name, with usage, palette and emoji', async () => {
+      const custom = query([
+        gym(),
+        { _id: OLD_ID, name: 'old', emoji: '🎯', color: '#ef4444', active: false, pending: { from: 'old', to: 'food' } },
+      ]);
+      model.find.mockReturnValueOnce(custom);
+      refs.usage.mockResolvedValue(
+        new Map([
+          ['food', { transactions: 5, recurring: 0, budgets: 1 }],
+          ['gym', { transactions: 3, recurring: 1, budgets: 0 }],
+        ]),
+      );
+      const o = await service.overview();
+      expect(model.find).toHaveBeenCalledWith({ userId: 1, $or: [{ active: true }, { pending: { $ne: null } }] });
+      expect(custom.sort).toHaveBeenCalledWith({ name: 1 });
+      expect(o.categories[0]).toEqual({
+        id: null, name: 'food', emoji: '🍔', color: '#10e5a0', isBuiltIn: true, active: true,
+        usage: { transactions: 5, recurring: 0, budgets: 1 }, pending: null,
+      });
+      expect(o.categories.slice(8)).toEqual([
+        { id: ID, name: 'gym', emoji: '💪', color: '#3b82f6', isBuiltIn: false, active: true,
+          usage: { transactions: 3, recurring: 1, budgets: 0 }, pending: null },
+        { id: OLD_ID, name: 'old', emoji: '🎯', color: '#ef4444', isBuiltIn: false, active: false,
+          usage: { transactions: 0, recurring: 0, budgets: 0 }, pending: { from: 'old', to: 'food' } },
+      ]);
+      expect(o.palette).toHaveLength(10);
+      expect(o.emojis).toHaveLength(20);
     });
   });
 });
