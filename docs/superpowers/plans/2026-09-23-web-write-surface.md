@@ -1512,6 +1512,32 @@ The 2B spec review found no Important issues but ran 80 real merchant strings th
 - **Sent-leg claim filter** gains `...NOT_DELETED`, matching `findCounterLeg`; a received leg soft-deleted in the read-to-claim window is no longer flipped and linked.
 - **Recurring schema parity:** the api schema gains `createdAt` (`required, default: Date.now`) to match the bot's — same collection, same shape.
 
+### Task 12d: Phase 2B code-quality polish
+
+From the 2B code-quality review. None blocks Phase 3; done first so the web builds on the final shape.
+
+**Files:** `api/src/categories/categories.service.ts` (+spec), `api/src/transactions/transactions.service.ts` (+spec), `api/src/recurring/recurring.service.ts` (+spec), `repo/src/service/transaction.service.ts`
+
+- [ ] **Step 1 — one category check, where the data lives.** `TransactionsService.assertCategory` and the inline block in `RecurringService.create` are verbatim duplicates (`list()` → names → `includes` → `BadRequestException('unknown category: …')`). Add to `CategoriesService`:
+
+```typescript
+  /** Rejects a category that is neither built-in nor an active custom one. Exact, case-sensitive: names are stored verbatim. */
+  async assertValid(category: string): Promise<void> {
+    const allowed = (await this.list()).map((c) => c.name);
+    if (!allowed.includes(category)) throw new BadRequestException(`unknown category: ${category}`);
+  }
+```
+Both services call `this.categories.assertValid(category)`; delete the two copies. Tests: a `categories.service.spec.ts` case per branch (passes for a built-in, passes for an active custom, rejects unknown, rejects wrong case); the existing transactions/recurring category tests keep passing with the mock gaining `assertValid: jest.fn()` that rejects for `'nope'`/`'gym'` and resolves otherwise.
+
+- [ ] **Step 2 — `compensate` takes an object.** `compensate(id, what, undo, ledgerErr)` has two adjacent `string` params a transposition would silently swap. Change to `compensate({ id, what }, undo, ledgerErr)` and update the four call sites and the four tests.
+
+- [ ] **Step 3 — split the seven-assertion recurring test** (`rejects day outside 1..28, bad type, …`) into three: `rejects a dayOfMonth outside 1..28 or non-integer` (the three day cases), `rejects a bad type or non-positive amount`, `rejects an unknown category or blank name` — matching the sibling file's two-per-test granularity, so a failure names its case.
+
+- [ ] **Step 4 — bot comment pointer.** At the top of the bot's soft-delete block add `// Mirrors api TransactionsService.softDelete — see that comment for the index rationale.` so the two prose explanations cannot drift unnoticed.
+
+- [ ] **Step 5:** `pnpm test` (api) and `npm test` (repo) green; both builds clean.
+- [ ] **Step 6: Commit** — `git commit -m "refactor(api,bot): CategoriesService.assertValid replaces two copies; compensate takes an object; split the recurring validation test"`
+
 ## Phase 3 — Web
 
 > **How Phase 3 is verified.** `web/` has no test runner (`package.json` has no `test` script) and no `*.spec.ts` files, and every route sits behind the Authentik `authGuard`, so an unauthenticated browser pass cannot reach the pages. Each web task is therefore verified by `pnpm run build` (which type-checks the templates under Angular's strict mode) plus code review; the functional smoke test happens on the deployed app after the push, by the user, against the checklist in each task's "Build + preview" step. A `web` entry in `.claude/launch.json` (`pnpm --dir web start`, port 4200) exists for driving the dev server locally when a login is available.
