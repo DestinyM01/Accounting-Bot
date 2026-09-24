@@ -8,6 +8,8 @@ import {
   CategoryPoint,
   ChartPoint,
   CompareResult,
+  CreateRecurringRequest,
+  CreateTransactionRequest,
   MonthlyPoint,
   MonthlySummary,
   RecurringEntry,
@@ -15,6 +17,7 @@ import {
   Tip,
   TopTransaction,
   TransactionPage,
+  UpdateTransactionRequest,
 } from './api.models';
 
 @Injectable({ providedIn: 'root' })
@@ -136,5 +139,25 @@ export class ApiService {
 
   getTransactionChart(name: string): Observable<ChartPoint[]> {
     return this.http.get<ChartPoint[]>(`${this.base}/analytics/chart/${encodeURIComponent(name)}`);
+  }
+
+  createTransaction(body: CreateTransactionRequest): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>(`${this.base}/transactions`, body);
+  }
+
+  updateTransaction(id: string, body: UpdateTransactionRequest): Observable<void> {
+    return this.http.put<void>(`${this.base}/transactions/${id}`, body);
+  }
+
+  deleteTransaction(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/transactions/${id}`);
+  }
+
+  resolveTransfer(id: string, kind: 'internal' | 'external'): Observable<void> {
+    return this.http.patch<void>(`${this.base}/transactions/${id}/transfer-kind`, { kind });
+  }
+
+  createRecurring(body: CreateRecurringRequest): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>(`${this.base}/recurring`, body);
   }
 }

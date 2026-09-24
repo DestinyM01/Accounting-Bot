@@ -115,3 +115,26 @@ export interface CategoryEntry {
   isBuiltIn: boolean;
   id:        string | null;
 }
+
+export interface CreateTransactionRequest {
+  type: 'income' | 'expense';
+  amount: number;
+  name: string;
+  category: string;
+  timestamp?: string;
+}
+
+export interface UpdateTransactionRequest {
+  name?: string;
+  category?: string;
+  amount?: number;
+  timestamp?: string;
+}
+
+export interface CreateRecurringRequest {
+  type: 'income' | 'expense';
+  amount: number;
+  name: string;
+  category: string;
+  dayOfMonth: number;
+}
