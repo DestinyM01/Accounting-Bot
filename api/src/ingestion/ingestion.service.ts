@@ -16,9 +16,17 @@ import { popularParser } from './parsers/popular.parser';
 import { bhdParser } from './parsers/bhd.parser';
 import { santaCruzParser } from './parsers/santacruz.parser';
 import { banreservasParser } from './parsers/banreservas.parser';
-import { matchedPeriod } from './reconciliation.service';
+import { matchedPeriod, RuleLike } from './reconciliation.service';
 
 const BUILT_IN = ['food','transport','housing','health','entertainment','salary','savings','other'];
+
+/** Per-run state shared by every mail: loaded once, never once per mail. */
+interface RunContext {
+  /** Category names the categoriser may choose from: built-ins plus the user's active custom ones. */
+  allowed: string[];
+  /** The user's active recurring rules. */
+  rules: RuleLike[];
+}
 
 /** How far apart the two legs of one internal transfer may be reported by their banks. */
 const LEG_WINDOW_MS = 24 * 3600_000;
@@ -40,12 +48,24 @@ export class IngestionService {
     private readonly fx: FxService,
   ) {}
 
-  @Cron(process.env.INGEST_POLL_CRON || '*/10 * * * *')
+  /** Set while a run is in flight so a slow run is never overlapped by the next tick. */
+  private running = false;
+
+  // waitForCompletion makes the scheduler itself skip ticks while a run is in
+  // flight; the flag covers the same ground for any direct caller of poll().
+  @Cron(process.env.INGEST_POLL_CRON || '*/10 * * * *', { waitForCompletion: true })
   async poll(): Promise<void> {
+    if (this.running) {
+      this.logger.warn('Ingestion poll skipped: previous run still in flight');
+      return;
+    }
+    this.running = true;
     try {
       await this.run();
     } catch (err) {
       this.logger.error('Ingestion poll failed', err instanceof Error ? err.stack : String(err));
+    } finally {
+      this.running = false;
     }
   }
 
@@ -54,11 +74,20 @@ export class IngestionService {
     const senders = this.parsers.flatMap((p) => p.senders);
     const mails = await this.mail.fetchSince(since, senders);
 
+    // Dedupe BEFORE any work. The watermark never advances, so every poll
+    // re-fetches every mail since the start date; without this, each poll
+    // re-ran FX, categorisation (a model call per unknown merchant) and the
+    // rule lookups for every historical mail, only to hit the unique index.
+    const known = await this.alreadyIngested(mails.map((m) => m.messageId));
+    const ctx = await this.loadRunContext();
+
     let created = 0, skipped = 0, failed = 0;
     const ownIdentifiers = (process.env.OWN_ACCOUNT_IDENTIFIERS || '').split(',').map((s) => s.trim()).filter(Boolean);
     const ownCashAccounts = (process.env.OWN_CASH_ACCOUNTS || '').split(',').map((s) => s.trim()).filter(Boolean);
 
     for (const mail of mails) {
+      if (known.has(mail.messageId)) { skipped++; continue; }
+
       const parser = this.parsers.find((p) => p.senders.includes(mail.sender));
       if (!parser) { skipped++; continue; }
 
@@ -85,7 +114,7 @@ export class IngestionService {
         continue;
       }
 
-      const result = await this.persist(parsed, mail.messageId);
+      const result = await this.persist(parsed, mail.messageId, ctx);
       if (result === 'created') created++;
       else if (result === 'duplicate') skipped++;
       else failed++;
@@ -102,7 +131,31 @@ export class IngestionService {
     return isNaN(start.getTime()) ? new Date(Date.now() - 24 * 3600_000) : start;
   }
 
-  private async persist(p: ParsedTransaction, messageId: string): Promise<'created' | 'duplicate' | 'failed'> {
+  /** Message ids among `ids` that already have a transaction. */
+  private async alreadyIngested(ids: string[]): Promise<Set<string>> {
+    if (ids.length === 0) return new Set();
+    const rows = await this.txModel
+      .find({ sourceMessageId: { $in: ids } })
+      .select('sourceMessageId')
+      .lean();
+    return new Set(rows.map((r) => r.sourceMessageId).filter((id): id is string => Boolean(id)));
+  }
+
+  /** What every mail in one run needs; loaded once, not once per mail. */
+  private async loadRunContext(): Promise<RunContext> {
+    const custom = await this.categoryModel.find({ userId: this.userId, active: true }).lean();
+    const rules = await this.recurringModel.find({ userId: this.userId, active: true }).lean();
+    return {
+      allowed: [...BUILT_IN, ...custom.map((c) => c.name)],
+      rules: rules as unknown as RuleLike[],
+    };
+  }
+
+  private async persist(
+    p: ParsedTransaction,
+    messageId: string,
+    ctx: RunContext,
+  ): Promise<'created' | 'duplicate' | 'failed'> {
     // Convert USD at ingest; keep the original for traceability.
     let amount = p.amount;
     let originalAmount: number | undefined;
@@ -113,13 +166,10 @@ export class IngestionService {
       amount = await this.fx.usdToDop(p.amount);
     }
 
-    const custom = await this.categoryModel.find({ userId: this.userId, active: true }).lean();
-    const allowed = [...BUILT_IN, ...custom.map((c) => c.name)];
-
     const { category, needsReview } =
       p.direction === 'income'
         ? { category: 'other', needsReview: true }   // a wire could be salary, a gift, a refund — ask
-        : await this.categorizer.categorize(p.counterparty, allowed);
+        : await this.categorizer.categorize(p.counterparty, ctx.allowed);
 
     const signed = p.direction === 'expense' ? -Math.abs(amount) : Math.abs(amount);
 
@@ -139,8 +189,7 @@ export class IngestionService {
     let recurringId: string | undefined;
     let recurringPeriod: string | undefined;
 
-    const rules = await this.recurringModel.find({ userId: this.userId, active: true }).lean();
-    let rule: (typeof rules)[number] | undefined;
+    let rule: RuleLike | undefined;
     let period: string | null = null;
     let predicted: any = null;
     let allMatchesClaimed = false;
@@ -153,8 +202,8 @@ export class IngestionService {
     // whose period is already claimed (a predicted row with a
     // sourceMessageId) is skipped in favour of the next matching rule; only
     // when every matching rule is already claimed do we fall through.
-    for (const r of rules) {
-      const matched = matchedPeriod(r as any, {
+    for (const r of ctx.rules) {
+      const matched = matchedPeriod(r, {
         userId: this.userId,
         amount: signed,
         timestamp: p.occurredAt,

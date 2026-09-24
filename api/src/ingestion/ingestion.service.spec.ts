@@ -63,7 +63,7 @@ function makeMail(overrides: Partial<FetchedMail> = {}): FetchedMail {
 
 describe('IngestionService', () => {
   let service: IngestionService;
-  let txModel: { create: jest.Mock; findOne: jest.Mock; updateOne: jest.Mock };
+  let txModel: { create: jest.Mock; find: jest.Mock; findOne: jest.Mock; updateOne: jest.Mock };
   let balanceModel: { findOne: jest.Mock; create: jest.Mock };
   let historyModel: { create: jest.Mock };
   let categoryModel: { find: jest.Mock };
@@ -89,6 +89,10 @@ describe('IngestionService', () => {
       create: jest.fn().mockImplementation((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc })),
       findOne: jest.fn().mockResolvedValue(null),
       updateOne: jest.fn().mockResolvedValue({}),
+      // The already-ingested lookup: find(...).select(...).lean() -> rows.
+      find: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
+      }),
     };
     balanceModel = {
       findOne: jest.fn().mockResolvedValue(balanceDoc),
@@ -622,6 +626,68 @@ describe('IngestionService', () => {
     expect(predicted.save).toHaveBeenCalled();
     expect(predicted.sourceMessageId).toBe('msg-42');
     expect(txModel.create).not.toHaveBeenCalled();
+  });
+
+  // The watermark never advances, so every poll re-fetches every mail since
+  // the start date. Dedupe used to happen only at create() (unique index),
+  // AFTER FX, Mistral categorisation and three queries had already run for
+  // each historical mail — a paid model call per unknown merchant, forever.
+  describe('per-run work', () => {
+    it('skips a mail whose id is already ingested before any parsing or categorising', async () => {
+      txModel.find.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockResolvedValue([{ sourceMessageId: 'msg-1' }]),
+        }),
+      });
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'msg-1' })]);
+      parserParseMock.mockReturnValue(makeParsed());
+
+      const result = await service.run();
+
+      expect(result).toEqual({ created: 0, skipped: 1, failed: 0 });
+      expect(txModel.find).toHaveBeenCalledWith({ sourceMessageId: { $in: ['msg-1'] } });
+      expect(parserParseMock).not.toHaveBeenCalled();
+      expect(categorizer.categorize).not.toHaveBeenCalled();
+      expect(fx.usdToDop).not.toHaveBeenCalled();
+      expect(txModel.create).not.toHaveBeenCalled();
+    });
+
+    it('loads custom categories and recurring rules once per run, not once per mail', async () => {
+      mail.fetchSince.mockResolvedValue([
+        makeMail({ messageId: 'm1' }),
+        makeMail({ messageId: 'm2' }),
+        makeMail({ messageId: 'm3' }),
+      ]);
+      parserParseMock.mockReturnValue(makeParsed());
+
+      const result = await service.run();
+
+      expect(result).toEqual({ created: 3, skipped: 0, failed: 0 });
+      expect(categoryModel.find).toHaveBeenCalledTimes(1);
+      expect(recurringModel.find).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not start a second run while one is still in flight', async () => {
+      let release!: () => void;
+      mail.fetchSince.mockReturnValue(
+        new Promise<FetchedMail[]>((resolve) => {
+          release = () => resolve([]);
+        }),
+      );
+
+      const first = service.poll();
+      const second = service.poll();
+      expect(mail.fetchSince).toHaveBeenCalledTimes(1);
+
+      release();
+      await Promise.all([first, second]);
+      expect(mail.fetchSince).toHaveBeenCalledTimes(1);
+
+      // Once the first run has finished, the next poll runs normally.
+      mail.fetchSince.mockResolvedValue([]);
+      await service.poll();
+      expect(mail.fetchSince).toHaveBeenCalledTimes(2);
+    });
   });
 
   // A Popular "transf recibida" email names no sender. The money may be a
