@@ -1503,6 +1503,15 @@ where `categories = { list: jest.fn().mockResolvedValue([{ name: 'food' }, { nam
 
 ---
 
+### Task 12c: Phase 2B review follow-ups (applied in `9b2b6f4`, `ada721b`)
+
+The 2B spec review found no Important issues but ran 80 real merchant strings through the old and new categorizer rules and caught what the Task 12 tests did not: the boundary rewrite lost common one-word card descriptors to the Mistral fallback — safe, but the determinism the rules exist for.
+
+- **Categorizer stems:** `taxi\w*`, `parqueo\w*` (transport); `\w*clinic\w*` so `POLICLINICA`/`MULTICLINICA` match (health); `hbo\w*`, `disney\w*`, `steam\w*` so `HBOMAX`, `DISNEYPLUS`, `STEAMGAMES.COM` match (entertainment). Six regression tests pin them; the four intended exclusions (`BANCO NACIONAL`, `AGUACATE`, `VIVANDA`, `MEDICINE`) still fall through.
+- **Two tests made able to fail:** the "no API key" test now asserts Mistral was not called (with the module-level mock, a removed guard used to pass anyway); the custom-category ingestion test now asserts `'Gym'` reached the categorizer through `CategoriesService.list()`.
+- **Sent-leg claim filter** gains `...NOT_DELETED`, matching `findCounterLeg`; a received leg soft-deleted in the read-to-claim window is no longer flipped and linked.
+- **Recurring schema parity:** the api schema gains `createdAt` (`required, default: Date.now`) to match the bot's — same collection, same shape.
+
 ## Phase 3 — Web
 
 > **How Phase 3 is verified.** `web/` has no test runner (`package.json` has no `test` script) and no `*.spec.ts` files, and every route sits behind the Authentik `authGuard`, so an unauthenticated browser pass cannot reach the pages. Each web task is therefore verified by `pnpm run build` (which type-checks the templates under Angular's strict mode) plus code review; the functional smoke test happens on the deployed app after the push, by the user, against the checklist in each task's "Build + preview" step. A `web` entry in `.claude/launch.json` (`pnpm --dir web start`, port 4200) exists for driving the dev server locally when a login is available.
