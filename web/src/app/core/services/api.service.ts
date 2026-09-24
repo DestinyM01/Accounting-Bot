@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
+  BalanceChangeReason,
+  BalanceHistoryPage,
   BalanceSummary,
   BudgetEntry,
   CategoryEntry,
@@ -10,9 +12,11 @@ import {
   CompareResult,
   CreateRecurringRequest,
   CreateTransactionRequest,
+  DailyBalance,
   MonthlyPoint,
   MonthlySummary,
   RecurringEntry,
+  SetBalanceResult,
   SetBudgetRequest,
   Tip,
   TopTransaction,
@@ -28,6 +32,23 @@ export class ApiService {
 
   getBalance(): Observable<BalanceSummary> {
     return this.http.get<BalanceSummary>(`${this.base}/balance`);
+  }
+
+  /** Sets the balance to the total the user's accounts show; recorded as a manual adjustment. */
+  setBalance(balance: number, note?: string): Observable<SetBalanceResult> {
+    return this.http.put<SetBalanceResult>(`${this.base}/balance`, note ? { balance, note } : { balance });
+  }
+
+  getBalanceHistory(opts: { limit?: number; offset?: number; reason?: BalanceChangeReason } = {}): Observable<BalanceHistoryPage> {
+    let params = new HttpParams();
+    if (opts.limit !== undefined) params = params.set('limit', opts.limit);
+    if (opts.offset !== undefined) params = params.set('offset', opts.offset);
+    if (opts.reason) params = params.set('reason', opts.reason);
+    return this.http.get<BalanceHistoryPage>(`${this.base}/balance/history`, { params });
+  }
+
+  getDailyBalance(days = 90): Observable<DailyBalance[]> {
+    return this.http.get<DailyBalance[]>(`${this.base}/balance/daily`, { params: new HttpParams().set('days', days) });
   }
 
   getTransactions(opts: {

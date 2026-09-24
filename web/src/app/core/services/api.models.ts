@@ -138,3 +138,30 @@ export interface CreateRecurringRequest {
   category: string;
   dayOfMonth: number;
 }
+
+export type BalanceChangeReason = 'income' | 'expense' | 'delete' | 'manual' | 'recurring';
+
+export interface BalanceHistoryItem {
+  id: string;
+  timestamp: string;
+  reason: BalanceChangeReason;
+  delta: number;
+  newBalance: number;
+  name: string | null;
+}
+
+export interface BalanceHistoryPage {
+  items: BalanceHistoryItem[];
+  total: number;
+}
+
+export interface DailyBalance {
+  day: string; // 'YYYY-MM-DD', Santo Domingo
+  balance: number;
+}
+
+export interface SetBalanceResult {
+  previousBalance: number;
+  newBalance: number;
+  delta: number;
+}
