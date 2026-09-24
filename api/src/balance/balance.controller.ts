@@ -1,6 +1,6 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Put, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt.guard';
-import { BalanceService } from './balance.service';
+import { BalanceService, SetBalanceBody } from './balance.service';
 
 @Controller('balance')
 @UseGuards(JwtAuthGuard)
@@ -10,5 +10,20 @@ export class BalanceController {
   @Get()
   get() {
     return this.balanceService.get();
+  }
+
+  @Put()
+  set(@Body() body: SetBalanceBody) {
+    return this.balanceService.set(body);
+  }
+
+  @Get('history')
+  history(@Query('limit') limit?: string, @Query('offset') offset?: string, @Query('reason') reason?: string) {
+    return this.balanceService.history({ limit, offset, reason });
+  }
+
+  @Get('daily')
+  daily(@Query('days') days?: string) {
+    return this.balanceService.daily({ days });
   }
 }
