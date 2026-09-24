@@ -8,6 +8,7 @@ import { ApiService } from '../../core/services/api.service';
 import {
   BalanceSummary, BudgetEntry, MonthlySummary, Transaction, MonthlyPoint
 } from '../../core/services/api.models';
+import { TransactionEventsService } from '../../core/services/transaction-events.service';
 
 Chart.register(...registerables);
 
@@ -40,10 +41,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loading = true;
   private chart: Chart | null = null;
   private refreshSub: Subscription | null = null;
+  private eventsSub: Subscription | null = null;
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private events: TransactionEventsService) {}
 
   ngOnInit() {
+    this.refresh();
+
+    this.refreshSub = timer(60_000, 60_000).subscribe(() => this.refresh());
+    this.eventsSub = this.events.changed$.subscribe(() => this.refresh());
+  }
+
+  ngOnDestroy() {
+    this.refreshSub?.unsubscribe();
+    this.eventsSub?.unsubscribe();
+  }
+
+  private refresh() {
     forkJoin({
       balance:      this.api.getBalance(),
       summary:      this.api.getStatisticsSummary(),
@@ -64,29 +78,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
       error: () => { this.loading = false; },
     });
-
-    this.refreshSub = timer(60_000, 60_000).subscribe(() => {
-      forkJoin({
-        balance:      this.api.getBalance(),
-        summary:      this.api.getStatisticsSummary(),
-        transactions: this.api.getTransactions({ limit: 5 }),
-        budget:       this.api.getBudget(),
-        monthly:      this.api.getMonthlyStats(),
-      }).subscribe({
-        next: ({ balance, summary, transactions, budget, monthly }) => {
-          this.balance  = balance;
-          this.summary  = summary;
-          this.recentTx = transactions.items;
-          this.budgets  = budget;
-          this.monthly  = monthly;
-          this.buildStats(monthly);
-        },
-      });
-    });
-  }
-
-  ngOnDestroy() {
-    this.refreshSub?.unsubscribe();
   }
 
   private buildStats(monthly: MonthlyPoint[]) {

@@ -80,7 +80,7 @@
 
       @for (tx of recentTx; track tx._id) {
         <div class="tx-row">
-          <div class="tx-icon" [class]="tx.isExpense ? 'expense-icon' : 'income-icon'">
+          <div class="tx-icon" [class]="(tx.transferKind === 'internal' || tx.transferKind === 'unresolved') ? '' : (tx.isExpense ? 'expense-icon' : 'income-icon')">
             <mat-icon>{{ txIcon(tx) }}</mat-icon>
           </div>
           <div class="tx-info">
@@ -89,9 +89,13 @@
               {{ tx.timestamp | date:'MMM d, y' }} · {{ tx.category | titlecase }}
             </span>
           </div>
-          <span class="tx-amount" [class]="tx.isExpense ? 'expense' : 'income'">
-            {{ tx.isExpense ? '-' : '+' }}{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}
-          </span>
+          @if (tx.transferKind === 'internal' || tx.transferKind === 'unresolved') {
+            <span class="tx-amount transfer">{{ tx.transferKind === 'internal' ? 'Internal' : 'Unresolved' }} · {{ tx.amount | currency:'USD':'symbol':'1.2-2' }}</span>
+          } @else {
+            <span class="tx-amount" [class]="tx.isExpense ? 'expense' : 'income'">
+              {{ tx.isExpense ? '-' : '+' }}{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}
+            </span>
+          }
         </div>
       } @empty {
         <p class="empty">No transactions this month.</p>

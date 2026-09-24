@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, TitleCasePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/services/api.service';
 import { RecurringEntry } from '../../core/services/api.models';
@@ -12,7 +13,7 @@ Chart.register(...registerables, SankeyController, Flow);
 @Component({
   selector: 'app-recurring',
   standalone: true,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule, TitleCasePipe, FormsModule, MatIconModule],
   templateUrl: './recurring.component.html',
   styleUrls: ['./recurring.component.scss'],
 })
@@ -20,6 +21,21 @@ export class RecurringComponent implements OnInit, OnDestroy {
   items: RecurringEntry[] = [];
   loading = false;
   error = '';
+
+  showForm = false; saving = false;
+  fType: 'income' | 'expense' = 'expense'; fAmount: number | null = null; fName = ''; fCategory = 'other'; fDay = 1;
+  get categories(): string[] { return this.catSvc.all.map(c => c.name); }
+  get formValid() { return !!this.fAmount && this.fAmount > 0 && !!this.fName.trim() && this.fDay >= 1 && this.fDay <= 28; }
+
+  submitForm() {
+    if (!this.formValid || this.saving) return;
+    this.saving = true;
+    this.api.createRecurring({ type: this.fType, amount: this.fAmount!, name: this.fName, category: this.fCategory, dayOfMonth: this.fDay })
+      .subscribe({
+        next: () => { this.saving = false; this.showForm = false; this.fAmount = null; this.fName = ''; this.load(); },
+        error: () => { this.saving = false; this.error = 'Could not create the rule.'; },
+      });
+  }
 
   @ViewChild('flowCanvas') flowCanvas?: ElementRef<HTMLCanvasElement>;
   private flowChart: Chart | null = null;

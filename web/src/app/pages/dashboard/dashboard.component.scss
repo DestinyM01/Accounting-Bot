@@ -100,3 +100,7 @@
 
 // ── Transactions card ──────────────────────────────────────────────────
 .txs-card { margin-top: 0; }
+
+// An internal/unresolved transfer is not spending — tag it instead of the
+// expense/income sign (mirrors the transactions page treatment).
+.tx-amount.transfer { color: var(--text-muted); }
