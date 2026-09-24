@@ -44,6 +44,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   testDigest: 'idle' | 'sending' | 'sent' | 'error' = 'idle';
   testDigestError = '';
   private testDigestTimer: ReturnType<typeof setTimeout> | null = null;
+  private testDigestSub: Subscription | null = null;
   private chart: Chart | null = null;
   private sub: Subscription | null = null;
   private destroyed = false;
@@ -77,6 +78,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     if (this.testDigestTimer) clearTimeout(this.testDigestTimer);
+    this.testDigestSub?.unsubscribe();
     this.destroyed = true;
     this.sub?.unsubscribe();
     this.chart?.destroy();
@@ -85,9 +87,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   sendTestDigest(): void {
     if (this.testDigest === 'sending') return;
+    if (this.testDigestTimer) {
+      clearTimeout(this.testDigestTimer);
+      this.testDigestTimer = null;
+    }
     this.testDigest = 'sending';
     this.testDigestError = '';
-    this.api.sendTestDigest().subscribe({
+    this.testDigestSub = this.api.sendTestDigest().subscribe({
       next: () => {
         this.testDigest = 'sent';
         this.testDigestTimer = setTimeout(() => {
