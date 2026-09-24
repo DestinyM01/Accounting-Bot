@@ -7,14 +7,14 @@
       } @else if (headerError) {
         <p class="fc-error" role="alert">{{ headerError }}</p>
       } @else {
-        <p class="bal-amount">{{ current | currency:'USD':'symbol':'1.2-2' }}</p>
+        <p class="bal-amount">{{ money(current) }}</p>
         @if (balance?.lastActivity) {
           <p class="bal-muted">Last activity {{ balance!.lastActivity | date:'MMM d, h:mm a':'-0400' }}</p>
         }
       }
     </div>
     @if (!formOpen) {
-      <button type="button" class="fc-btn fc-btn--primary" [disabled]="loading" (click)="openForm()">
+      <button type="button" class="fc-btn fc-btn--primary" [disabled]="loading || !!headerError" (click)="openForm()">
         <mat-icon>edit</mat-icon> Set balance
       </button>
     }
@@ -107,6 +107,9 @@
         <button type="button" class="fc-btn fc-btn--ghost bal-more" [disabled]="loadingMore" (click)="loadMore()">
           {{ loadingMore ? 'Loading…' : 'Load more' }}
         </button>
+      }
+      @if (moreError) {
+        <p class="fc-error" role="alert">{{ moreError }}</p>
       }
     }
   </section>

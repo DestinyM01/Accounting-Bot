@@ -63,7 +63,7 @@ Acc_bot/
 ├── api/                    ← REST API for the web dashboard (NestJS 10)
 │   ├── src/
 │   │   ├── auth/           ← JWT guard (Authentik JWKS)
-│   │   ├── balance/        ← GET /api/balance
+│   │   ├── balance/        ← GET/PUT /api/balance, GET /api/balance/history, GET /api/balance/daily
 │   │   ├── transactions/   ← GET /api/transactions, GET /api/transactions/export
 │   │   ├── budget/         ← GET /api/budget
 │   │   ├── statistics/     ← GET /api/statistics/*

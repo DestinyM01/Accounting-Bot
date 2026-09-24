@@ -1,5 +1,5 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
@@ -21,11 +21,13 @@ type Filter = 'all' | BalanceChangeReason;
 const PAGE_SIZE = 20;
 const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const MINUS = '−';
+/** The api rejects totals beyond this; don't offer to send one. */
+const MAX_ABS_BALANCE = 1e12;
 
 @Component({
   selector: 'app-balance',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, DatePipe, FormsModule, MatIconModule],
+  imports: [CommonModule, DatePipe, FormsModule, MatIconModule],
   templateUrl: './balance.component.html',
   styleUrls: ['./balance.component.scss'],
 })
@@ -61,6 +63,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
   listLoading = false;
   loadingMore = false;
   listError = '';
+  moreError = '';
 
   formOpen = false;
   amount: number | null = null;
@@ -97,7 +100,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
 
   /** The adjustment the form would record, or null when the amount is not a usable number. */
   get delta(): number | null {
-    if (this.amount === null || !Number.isFinite(this.amount)) return null;
+    if (this.amount === null || !Number.isFinite(this.amount) || Math.abs(this.amount) > MAX_ABS_BALANCE) return null;
     return Math.round((this.amount - this.current) * 100) / 100;
   }
 
@@ -163,6 +166,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
     this.filter = f;
     this.items = [];
     this.total = 0;
+    this.moreError = '';
     this.loadList();
   }
 
@@ -177,14 +181,15 @@ export class BalanceComponent implements OnInit, OnDestroy {
           next: (page) => {
             this.loadingMore = false;
             if (filter !== this.filter) return;
-            this.items = [...this.items, ...page.items];
+            const seen = new Set(this.items.map((i) => i.id));
+            this.items = [...this.items, ...page.items.filter((i) => !seen.has(i.id))];
             this.total = page.total;
-            this.listError = '';
+            this.moreError = '';
           },
           error: () => {
             this.loadingMore = false;
             if (filter !== this.filter) return;
-            this.listError = "Couldn't load more history.";
+            this.moreError = "Couldn't load more history.";
           },
         }),
     );
@@ -233,6 +238,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
   private loadList(): void {
     const filter = this.filter;
     this.listLoading = true;
+    this.moreError = '';
     this.subs.add(
       this.api
         .getBalanceHistory({ limit: PAGE_SIZE, offset: 0, reason: filter === 'all' ? undefined : filter })
