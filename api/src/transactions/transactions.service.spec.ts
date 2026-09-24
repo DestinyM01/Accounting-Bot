@@ -6,7 +6,7 @@ import { NOT_DELETED, SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 import { LedgerService } from '../shared/ledger/ledger.service';
 import { CategoriesService } from '../categories/categories.service';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, ConflictException } from '@nestjs/common';
 
 const mockTxs = [
   {
@@ -342,6 +342,45 @@ describe('TransactionsService', () => {
         expect.objectContaining({ _id: 'gone', deletedAt: null }),
         expect.anything(),
       );
+    });
+  });
+
+  describe('resolveTransfer', () => {
+    beforeEach(() => { mockModel.findOneAndUpdate = jest.fn(); });
+
+    it('resolving to external applies the balance exactly once, by the stored sign', async () => {
+      mockModel.findOneAndUpdate.mockResolvedValue({ _id: 't1', amount: -20000, transactionName: 'transfer' });
+      await service.resolveTransfer('t1', 'external');
+      expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 't1', transferKind: 'unresolved', deletedAt: null }),
+        { $set: { transferKind: 'external' } },
+      );
+      expect(ledger.apply).toHaveBeenCalledTimes(1);
+      expect(ledger.apply).toHaveBeenCalledWith(-20000, 'expense', 'transfer', 't1');
+    });
+
+    it('a positive unresolved row resolved external is income', async () => {
+      mockModel.findOneAndUpdate.mockResolvedValue({ _id: 't1', amount: 2000, transactionName: 'transferencia recibida' });
+      await service.resolveTransfer('t1', 'external');
+      expect(ledger.apply).toHaveBeenCalledWith(2000, 'income', 'transferencia recibida', 't1');
+    });
+
+    it('resolving to internal moves nothing', async () => {
+      mockModel.findOneAndUpdate.mockResolvedValue({ _id: 't1', amount: -20000 });
+      await service.resolveTransfer('t1', 'internal');
+      expect(ledger.apply).not.toHaveBeenCalled();
+    });
+
+    // The atomic update is the guard: a row that is not unresolved (or was
+    // resolved a moment ago by a racing request) matches nothing → 409.
+    it('409s when the row is not unresolved', async () => {
+      mockModel.findOneAndUpdate.mockResolvedValue(null);
+      await expect(service.resolveTransfer('t1', 'external')).rejects.toThrow(ConflictException);
+      expect(ledger.apply).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown kind', async () => {
+      await expect(service.resolveTransfer('t1', 'unresolved' as any)).rejects.toThrow(/kind/);
     });
   });
 });

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
@@ -246,6 +246,23 @@ export class TransactionsService {
     if (!tx) throw new NotFoundException();
     if (!isNonSpendingTransfer(tx.transferKind)) {
       await this.ledger.reverse(tx.amount, tx.transactionName, id);
+    }
+  }
+
+  /**
+   * The single path from "recorded" to "asserted". The atomic findOneAndUpdate
+   * on transferKind: 'unresolved' is the concurrency guard — two racing
+   * resolutions cannot both apply the balance.
+   */
+  async resolveTransfer(id: string, kind: 'internal' | 'external'): Promise<void> {
+    if (kind !== 'internal' && kind !== 'external') throw new BadRequestException('kind must be internal or external');
+    const tx = await this.transactionModel.findOneAndUpdate(
+      { _id: id, userId: this.userId, transferKind: 'unresolved', ...NOT_DELETED },
+      { $set: { transferKind: kind } },
+    );
+    if (!tx) throw new ConflictException('only an unresolved transfer can be resolved');
+    if (kind === 'external') {
+      await this.ledger.apply(tx.amount, tx.amount < 0 ? 'expense' : 'income', tx.transactionName, id);
     }
   }
 }

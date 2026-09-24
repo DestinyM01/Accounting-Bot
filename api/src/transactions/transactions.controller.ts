@@ -54,6 +54,12 @@ export class TransactionsController {
     await this.transactionsService.setCategory(id, body.category);
   }
 
+  @Patch(':id/transfer-kind')
+  @HttpCode(204)
+  async resolveTransfer(@Param('id') id: string, @Body() body: { kind: 'internal' | 'external' }) {
+    await this.transactionsService.resolveTransfer(id, body.kind);
+  }
+
   @Get('export')
   async exportCsv(
     @Query('type')      type: string,
