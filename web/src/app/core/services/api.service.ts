@@ -157,6 +157,11 @@ export class ApiService {
     return this.http.patch<void>(`${this.base}/transactions/${id}/transfer-kind`, { kind });
   }
 
+  /** Emails the latest weekly digest now, marked [Test]. 503 when email isn't configured on the server. */
+  sendTestDigest(): Observable<void> {
+    return this.http.post<void>(`${this.base}/reports/test`, {});
+  }
+
   createRecurring(body: CreateRecurringRequest): Observable<{ id: string }> {
     return this.http.post<{ id: string }>(`${this.base}/recurring`, body);
   }

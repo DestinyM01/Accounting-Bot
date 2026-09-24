@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { forkJoin, timer, merge, Subscription } from 'rxjs';
@@ -40,6 +41,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   monthly: MonthlyPoint[] = [];
   stats: StatCard[] = [];
   loading = true;
+  testDigest: 'idle' | 'sending' | 'sent' | 'error' = 'idle';
+  testDigestError = '';
+  private testDigestTimer: ReturnType<typeof setTimeout> | null = null;
   private chart: Chart | null = null;
   private sub: Subscription | null = null;
   private destroyed = false;
@@ -72,10 +76,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.testDigestTimer) clearTimeout(this.testDigestTimer);
     this.destroyed = true;
     this.sub?.unsubscribe();
     this.chart?.destroy();
     this.chart = null;
+  }
+
+  sendTestDigest(): void {
+    if (this.testDigest === 'sending') return;
+    this.testDigest = 'sending';
+    this.testDigestError = '';
+    this.api.sendTestDigest().subscribe({
+      next: () => {
+        this.testDigest = 'sent';
+        this.testDigestTimer = setTimeout(() => {
+          this.testDigest = 'idle';
+          this.testDigestTimer = null;
+        }, 5000);
+      },
+      error: (e: HttpErrorResponse) => {
+        this.testDigest = 'error';
+        this.testDigestError =
+          e.status === 503 ? "Email isn't configured on the server" : "Couldn't send the test email";
+      },
+    });
   }
 
   private buildStats(monthly: MonthlyPoint[]) {
