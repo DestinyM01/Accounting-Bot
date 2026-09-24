@@ -3,8 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Cron } from '@nestjs/schedule';
 import { Model } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
-import { Balance } from '../shared/schemas/balance.schema';
-import { BalanceHistory } from '../shared/schemas/balance-history.schema';
+import { LedgerService } from '../shared/ledger/ledger.service';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
@@ -40,8 +39,7 @@ export class IngestionService {
 
   constructor(
     @InjectModel(Transaction.name) private readonly txModel: Model<Transaction>,
-    @InjectModel(Balance.name) private readonly balanceModel: Model<Balance>,
-    @InjectModel(BalanceHistory.name) private readonly historyModel: Model<BalanceHistory>,
+    private readonly ledger: LedgerService,
     @InjectModel(CustomCategory.name) private readonly categoryModel: Model<CustomCategory>,
     @InjectModel(Recurring.name) private readonly recurringModel: Model<Recurring>,
     private readonly mail: MailClient,
@@ -316,7 +314,7 @@ export class IngestionService {
       if (transferKind === 'internal' || transferKind === 'unresolved') {
         return 'created';
       }
-      await this.applyBalance(p, amount, String(doc._id));
+      await this.ledger.apply(signed, p.direction, p.counterparty, String(doc._id));
       return 'created';
     } catch (err) {
       this.logger.error(
@@ -353,31 +351,5 @@ export class IngestionService {
       matchedLegId: { $exists: false },
       ...NOT_DELETED,
     });
-  }
-
-  private async applyBalance(p: ParsedTransaction, amount: number, txId: string): Promise<void> {
-    const balance =
-      (await this.balanceModel.findOne({ userId: this.userId })) ??
-      (await this.balanceModel.create({ userId: this.userId, balance: 0 }));
-
-    const previousBalance = balance.balance;
-    balance.balance += p.direction === 'income' ? amount : -amount;
-    balance.lastActivity = new Date();
-    await balance.save();
-
-    // Mirrors the bot: history failure must never break ingestion.
-    try {
-      await this.historyModel.create({
-        userId: this.userId,
-        previousBalance,
-        newBalance: balance.balance,
-        delta: balance.balance - previousBalance,
-        reason: p.direction,
-        transactionName: p.counterparty,
-        transactionId: txId,
-      });
-    } catch (err) {
-      this.logger.error('Failed to record balance history', String(err));
-    }
   }
 }

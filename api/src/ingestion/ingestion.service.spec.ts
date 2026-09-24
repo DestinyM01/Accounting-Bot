@@ -23,8 +23,7 @@ jest.mock('./parsers/popular.parser', () => ({
 
 import { IngestionService } from './ingestion.service';
 import { Transaction } from '../shared/schemas/transaction.schema';
-import { Balance } from '../shared/schemas/balance.schema';
-import { BalanceHistory } from '../shared/schemas/balance-history.schema';
+import { LedgerService } from '../shared/ledger/ledger.service';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
@@ -71,14 +70,12 @@ describe('IngestionService', () => {
     updateOne: jest.Mock;
     deleteOne: jest.Mock;
   };
-  let balanceModel: { findOne: jest.Mock; create: jest.Mock };
-  let historyModel: { create: jest.Mock };
+  let ledger: { apply: jest.Mock; reverse: jest.Mock };
   let categoryModel: { find: jest.Mock };
   let recurringModel: { find: jest.Mock };
   let mail: { fetchSince: jest.Mock };
   let categorizer: { categorize: jest.Mock };
   let fx: { usdToDop: jest.Mock };
-  let balanceDoc: { balance: number; lastActivity?: Date; save: jest.Mock };
   let loggerErrorSpy: jest.SpyInstance;
   let loggerWarnSpy: jest.SpyInstance;
 
@@ -90,8 +87,6 @@ describe('IngestionService', () => {
     loggerWarnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
 
-    balanceDoc = { balance: 0, save: jest.fn().mockResolvedValue(undefined) };
-
     txModel = {
       create: jest.fn().mockImplementation((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc })),
       findOne: jest.fn().mockResolvedValue(null),
@@ -102,11 +97,13 @@ describe('IngestionService', () => {
         select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
       }),
     };
-    balanceModel = {
-      findOne: jest.fn().mockResolvedValue(balanceDoc),
-      create: jest.fn().mockResolvedValue(balanceDoc),
+    // The ledger is the only thing that moves the balance; ingestion just
+    // hands it the signed delta. Its own behaviour is covered in
+    // ledger.service.spec.ts.
+    ledger = {
+      apply: jest.fn().mockResolvedValue({ previousBalance: 0, newBalance: 0 }),
+      reverse: jest.fn(),
     };
-    historyModel = { create: jest.fn().mockResolvedValue({}) };
     categoryModel = {
       find: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
     };
@@ -122,8 +119,7 @@ describe('IngestionService', () => {
       providers: [
         IngestionService,
         { provide: getModelToken(Transaction.name), useValue: txModel },
-        { provide: getModelToken(Balance.name), useValue: balanceModel },
-        { provide: getModelToken(BalanceHistory.name), useValue: historyModel },
+        { provide: LedgerService, useValue: ledger },
         { provide: getModelToken(CustomCategory.name), useValue: categoryModel },
         { provide: getModelToken(Recurring.name), useValue: recurringModel },
         { provide: MailClient, useValue: mail },
@@ -240,8 +236,7 @@ describe('IngestionService', () => {
     expect(created.originalCurrency).toBe('USD');
   });
 
-  it('applies the balance delta as an unsigned decrease for an expense while the transaction stores the signed amount', async () => {
-    balanceDoc.balance = 1000;
+  it('hands the ledger a negative delta for an expense while the transaction stores the signed amount', async () => {
     mail.fetchSince.mockResolvedValue([makeMail()]);
     parserParseMock.mockReturnValue(makeParsed({ direction: 'expense', amount: 150, currency: 'DOP' }));
 
@@ -250,13 +245,11 @@ describe('IngestionService', () => {
     const created = txModel.create.mock.calls[0][0];
     expect(created.amount).toBe(-150);
     // A double-negation bug (negating an already-negative signed amount again)
-    // would drive the balance to 1150 instead of 850 — this must be 850.
-    expect(balanceDoc.balance).toBe(850);
-    expect(balanceDoc.save).toHaveBeenCalled();
+    // would hand the ledger +150 instead of -150 — this must be -150.
+    expect(ledger.apply).toHaveBeenCalledWith(-150, 'expense', 'Test Merchant', 'tx-id');
   });
 
-  it('applies the balance delta as an unsigned increase for income while the transaction stores the signed amount', async () => {
-    balanceDoc.balance = 1000;
+  it('hands the ledger a positive delta for income while the transaction stores the signed amount', async () => {
     mail.fetchSince.mockResolvedValue([makeMail()]);
     parserParseMock.mockReturnValue(makeParsed({ direction: 'income', amount: 150, currency: 'DOP' }));
 
@@ -264,8 +257,7 @@ describe('IngestionService', () => {
 
     const created = txModel.create.mock.calls[0][0];
     expect(created.amount).toBe(150);
-    expect(balanceDoc.balance).toBe(1150);
-    expect(balanceDoc.save).toHaveBeenCalled();
+    expect(ledger.apply).toHaveBeenCalledWith(150, 'income', 'Test Merchant', 'tx-id');
   });
 
   it('increments failed and logs a warning when the matched parser cannot parse the mail (never silently dropped)', async () => {
@@ -328,8 +320,7 @@ describe('IngestionService', () => {
     expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
     const created = txModel.create.mock.calls[0][0];
     expect(created.transferKind).toBe('internal');
-    expect(balanceDoc.save).not.toHaveBeenCalled();
-    expect(historyModel.create).not.toHaveBeenCalled();
+    expect(ledger.apply).not.toHaveBeenCalled();
   });
 
   it('does not move the balance for an unresolved transfer', async () => {
@@ -341,8 +332,7 @@ describe('IngestionService', () => {
     expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
     const created = txModel.create.mock.calls[0][0];
     expect(created.transferKind).toBe('unresolved');
-    expect(balanceDoc.save).not.toHaveBeenCalled();
-    expect(historyModel.create).not.toHaveBeenCalled();
+    expect(ledger.apply).not.toHaveBeenCalled();
   });
 
   it('still moves the balance for an external transfer', async () => {
@@ -352,7 +342,7 @@ describe('IngestionService', () => {
     const result = await service.run();
 
     expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
-    expect(balanceDoc.save).toHaveBeenCalled();
+    expect(ledger.apply).toHaveBeenCalledWith(-100, 'expense', expect.any(String), expect.any(String));
   });
 
   it('counts a non-transactional email as skipped, not failed, and does not warn', async () => {
@@ -433,8 +423,7 @@ describe('IngestionService', () => {
     expect(txModel.create).not.toHaveBeenCalled();
     // The prediction already moved the balance when it was created by the cron;
     // confirming it in place must not move it a second time.
-    expect(balanceDoc.save).not.toHaveBeenCalled();
-    expect(historyModel.create).not.toHaveBeenCalled();
+    expect(ledger.apply).not.toHaveBeenCalled();
   });
 
   it('does not swallow a genuine second payment of the same amount in one month', async () => {
@@ -665,10 +654,10 @@ describe('IngestionService', () => {
   // balance is never applied — a permanent drift. The created row must be
   // rolled back so the next poll can retry the whole thing cleanly.
   describe('balance failure after create', () => {
-    it('deletes the just-created row and reports failed when applyBalance rejects', async () => {
+    it('deletes the just-created row and reports failed when the ledger rejects', async () => {
       mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'msg-1' })]);
       parserParseMock.mockReturnValue(makeParsed({ direction: 'expense', amount: 100 }));
-      balanceDoc.save.mockRejectedValue(new Error('Mongo write concern timeout'));
+      ledger.apply.mockRejectedValueOnce(new Error('Mongo write concern timeout'));
 
       const result = await service.run();
 
@@ -678,22 +667,21 @@ describe('IngestionService', () => {
       expect(loggerErrorSpy).toHaveBeenCalled();
     });
 
-    it('lets the next poll create the same mail again once the balance update works', async () => {
+    it('lets the next poll create the same mail again once the ledger works', async () => {
       mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'msg-1' })]);
       parserParseMock.mockReturnValue(makeParsed({ direction: 'expense', amount: 100 }));
-      balanceDoc.save.mockRejectedValueOnce(new Error('transient'));
+      ledger.apply.mockRejectedValueOnce(new Error('transient'));
 
       const first = await service.run();
-      // A rejected save() persists nothing; the next poll re-reads the
-      // balance. The mock hands back the same object, so model the re-read.
-      balanceDoc.balance = 0;
       const second = await service.run();
 
       expect(first).toEqual({ created: 0, skipped: 0, failed: 1 });
       expect(second).toEqual({ created: 1, skipped: 0, failed: 0 });
       expect(txModel.create).toHaveBeenCalledTimes(2);
       expect(txModel.deleteOne).toHaveBeenCalledTimes(1);
-      expect(balanceDoc.balance).toBe(-100);
+      // The retry asks the ledger for the same movement again, and it lands.
+      expect(ledger.apply).toHaveBeenCalledTimes(2);
+      expect(ledger.apply).toHaveBeenLastCalledWith(-100, 'expense', expect.any(String), expect.any(String));
     });
   });
 
@@ -813,7 +801,6 @@ describe('IngestionService', () => {
       });
 
     it('records a received leg with no sent leg as unresolved, needing review, without moving the balance', async () => {
-      balanceDoc.balance = 1000;
       mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'rx-mail' })]);
       parserParseMock.mockReturnValue(received());
 
@@ -827,13 +814,10 @@ describe('IngestionService', () => {
       expect(created.categoryNeedsReview).toBe(true);
       expect(created.matchedLegId).toBeUndefined();
       expect(txModel.updateOne).not.toHaveBeenCalled();
-      expect(balanceDoc.balance).toBe(1000);
-      expect(balanceDoc.save).not.toHaveBeenCalled();
+      expect(ledger.apply).not.toHaveBeenCalled();
     });
 
     it('received first, then sent: both legs end internal and point at each other', async () => {
-      balanceDoc.balance = 1000;
-
       // Run 1 — the received leg arrives alone.
       txModel.create.mockImplementationOnce((doc: any) => Promise.resolve({ _id: 'rx-id', ...doc }));
       mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'rx-mail' })]);
@@ -857,13 +841,10 @@ describe('IngestionService', () => {
         { _id: 'rx-id' },
         { $set: { transferKind: 'internal', matchedLegId: 'tx-id' } },
       );
-      expect(balanceDoc.balance).toBe(1000);
-      expect(balanceDoc.save).not.toHaveBeenCalled();
+      expect(ledger.apply).not.toHaveBeenCalled();
     });
 
     it('sent first, then received: the received leg is created internal and linked to the sent leg', async () => {
-      balanceDoc.balance = 1000;
-
       // Run 1 — the sent leg arrives alone; nothing to link yet.
       txModel.create.mockImplementationOnce((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc }));
       mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'tx-mail' })]);
@@ -890,8 +871,7 @@ describe('IngestionService', () => {
         { _id: 'tx-id' },
         { $set: { transferKind: 'internal', matchedLegId: 'rx-id' } },
       );
-      expect(balanceDoc.balance).toBe(1000);
-      expect(balanceDoc.save).not.toHaveBeenCalled();
+      expect(ledger.apply).not.toHaveBeenCalled();
     });
 
     // Only a sent leg that was itself classified internal (destination is one
