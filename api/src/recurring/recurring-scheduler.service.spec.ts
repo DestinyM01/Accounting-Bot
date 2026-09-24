@@ -22,6 +22,8 @@ import { Recurring } from '../shared/schemas/recurring.schema';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { LedgerService } from '../shared/ledger/ledger.service';
+import { RecurringModule } from './recurring.module';
+import { LedgerModule } from '../shared/ledger/ledger.module';
 
 /** Rules are "created" 2026-01-01 unless a test says otherwise: the ObjectId carries the time. */
 const CREATED_HEX = Math.floor(Date.UTC(2026, 0, 1) / 1000).toString(16);
@@ -165,6 +167,99 @@ describe('RecurringSchedulerService', () => {
       await expect(service.bookOccurrence(makeRule(), SEP, NOW)).resolves.toBe('failed');
       expect(txModel.deleteOne).toHaveBeenCalledWith({ _id: 'tx1' });
       expect(recurringModel.updateOne).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('wiring', () => {
+    it('runs hourly at minute 5', () => {
+      const { __cronExpressions } = jest.requireMock('@nestjs/schedule');
+      expect(__cronExpressions).toContain('5 * * * *');
+    });
+
+    it('is a provider of RecurringModule, which imports the ledger', () => {
+      expect(Reflect.getMetadata('providers', RecurringModule)).toContain(RecurringSchedulerService);
+      expect(Reflect.getMetadata('imports', RecurringModule)).toContain(LedgerModule);
+    });
+  });
+
+  describe('sweep', () => {
+    const summary = (booked: number, satisfied: number, skipped: number, failed: number) =>
+      `Recurring sweep: booked ${booked}, satisfied ${satisfied}, skipped ${skipped} (older than 31 days), failed ${failed}`;
+
+    it('reads only the owner’s active rules', async () => {
+      await service.sweep(NOW);
+      expect(recurringModel.find).toHaveBeenCalledWith({ userId: 1, active: true });
+    });
+
+    it('books the September occurrence the bot missed, dated on its day, and reports it', async () => {
+      recurringModel.find.mockResolvedValue([makeRule({ dayOfMonth: 20, lastExecutedAt: new Date('2026-08-20T12:00:05Z') })]);
+      await service.sweep(NOW);
+      expect(txModel.create).toHaveBeenCalledTimes(1);
+      expect(txModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          timestamp: new Date('2026-09-20T12:00:00Z'),
+          recurringPeriod: '2026-09',
+          amount: -5000,
+          source: 'recurring',
+        }),
+      );
+      expect(ledger.apply).toHaveBeenCalledTimes(1);
+      expect(logSpy).toHaveBeenCalledWith(summary(1, 0, 0, 0));
+    });
+
+    it('stops a rule at its first failed occurrence so the marker never passes it', async () => {
+      // Two due occurrences (Aug 26 and Sep 26); the older one's ledger write fails.
+      recurringModel.find.mockResolvedValue([makeRule({ dayOfMonth: 26, lastPeriod: '2026-07' })]);
+      ledger.apply.mockRejectedValueOnce(new Error('balance write failed'));
+      await service.sweep(new Date('2026-09-26T12:00:00Z'));
+      expect(txModel.create).toHaveBeenCalledTimes(1);
+      expect(txModel.create).toHaveBeenCalledWith(expect.objectContaining({ recurringPeriod: '2026-08' }));
+      expect(txModel.deleteOne).toHaveBeenCalledWith({ _id: 'tx1' });
+      expect(recurringModel.updateOne).not.toHaveBeenCalled();
+      expect(logSpy).toHaveBeenCalledWith(summary(0, 0, 0, 1));
+    });
+
+    it('keeps going when one rule throws', async () => {
+      const rent = makeRule({ transactionName: 'rent', lastPeriod: '2026-08' });
+      const loan = makeRule({ transactionName: 'loan', lastPeriod: '2026-08' });
+      recurringModel.find.mockResolvedValue([rent, loan]);
+      txModel.findOne.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce(null);
+      await service.sweep(NOW);
+      expect(txModel.create).toHaveBeenCalledTimes(1);
+      expect(txModel.create).toHaveBeenCalledWith(expect.objectContaining({ transactionName: 'loan' }));
+      expect(errorSpy).toHaveBeenCalledWith(`Recurring ${String(rent._id)} failed`, expect.any(String));
+      expect(logSpy).toHaveBeenCalledWith(summary(1, 0, 0, 1));
+    });
+
+    it('skips occurrences older than 31 days: marks the newest skipped month, books the rest, warns once', async () => {
+      const rule = makeRule({ dayOfMonth: 10, lastPeriod: '2026-06' });
+      recurringModel.find.mockResolvedValue([rule]);
+      await service.sweep(NOW);
+      expect(recurringModel.updateOne).toHaveBeenNthCalledWith(1, ...markedHandled(rule, '2026-08'));
+      expect(recurringModel.updateOne).toHaveBeenNthCalledWith(2, ...markedHandled(rule, '2026-09'));
+      expect(txModel.create).toHaveBeenCalledTimes(1);
+      expect(txModel.create).toHaveBeenCalledWith(expect.objectContaining({ recurringPeriod: '2026-09' }));
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('2026-07, 2026-08'));
+      expect(logSpy).toHaveBeenCalledWith(summary(1, 0, 2, 0));
+    });
+
+    it('does not start a second sweep while one is in flight', async () => {
+      let release!: (rules: unknown[]) => void;
+      recurringModel.find.mockReturnValueOnce(new Promise((resolve) => (release = resolve)));
+      const first = service.sweep(NOW);
+      await service.sweep(NOW);
+      expect(recurringModel.find).toHaveBeenCalledTimes(1);
+      release([]);
+      await first;
+    });
+
+    it('logs a failed rule query instead of throwing, and releases the guard', async () => {
+      recurringModel.find.mockRejectedValueOnce(new Error('mongo down'));
+      await expect(service.sweep(NOW)).resolves.toBeUndefined();
+      expect(errorSpy).toHaveBeenCalledWith('Recurring sweep failed', expect.any(String));
+      await service.sweep(NOW);
+      expect(recurringModel.find).toHaveBeenCalledTimes(2);
     });
   });
 });
