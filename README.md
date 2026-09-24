@@ -1,6 +1,6 @@
 # AccBot — Personal Accounting Bot
 
-A personal finance tracker with two surfaces: a **Telegram bot** for quick transaction entry and a **web dashboard** for analysis and reporting.
+A personal finance tracker: a **web dashboard** for entry, review and reporting, fed by bank-email ingestion. The original **Telegram bot** is retired (scaled to zero, 2026-09).
 
 ---
 
@@ -16,7 +16,7 @@ A personal finance tracker with two surfaces: a **Telegram bot** for quick trans
 
 ## Features
 
-### Telegram Bot (`repo/`)
+### Telegram Bot (`repo/`) — retired 2026-09
 
 | Feature | Description |
 |---|---|
@@ -41,7 +41,7 @@ A personal finance tracker with two surfaces: a **Telegram bot** for quick trans
 | **Statistics** | Monthly income/expense chart and category breakdown |
 | **Compare** | Pick any two months and get a side-by-side summary + Mistral AI narrative |
 | **Analytics** | Top-10 most frequent transactions table; click a row to see its monthly history chart |
-| **Recurring** | Create rules; upcoming billing and what was billed this month. The API books each rule hourly on its day and catches up days missed within 31 days |
+| **Recurring** | Create rules; upcoming billing and what was billed this month. The API checks hourly and books each rule on its day (08:00 local), catching up days missed within 31 days |
 | **Tips** | AI-generated personalised financial tips (Mistral, 1-hour cache) |
 
 ---
@@ -259,7 +259,7 @@ Telegram ──► Telegraf bot (repo/)
                           Browser
 ```
 
-- The bot and the web API share the **same MongoDB database** — the API reads what the bot writes.
+- The retired bot and the web API share the **same MongoDB database**; the API now writes everything (web entries, email ingestion, recurring bookings).
 - Authentication for the web uses **Authentik OIDC** — the Angular app obtains a JWT via the OIDC flow and the API validates it against the Authentik JWKS endpoint.
 - AI features use **Mistral `mistral-small-latest`** for both the Tips page and the Period Compare page.
 
