@@ -128,6 +128,26 @@ describe('ReportSchedulerService', () => {
     expect(logSpy).toHaveBeenCalledWith('Report run: sent 0, skipped 0, failed 1');
   });
 
+  it('keeps going to the monthly when the weekly fails, and names the weekly', async () => {
+    latest.mockReturnValue([WEEKLY, MONTHLY]);
+    sendModel.findOne
+      .mockReturnValueOnce({ lean: jest.fn().mockRejectedValue(new Error('mongo blip')) })
+      .mockReturnValue(found(null));
+    await service.run(NOW);
+    expect(errorSpy).toHaveBeenCalledWith('weekly report 2026-W39 failed', expect.any(String));
+    expect(mailer.send).toHaveBeenCalledWith({ subject: 'monthly', html: '<p>m</p>', text: 'm' });
+    expect(logSpy).toHaveBeenCalledWith('Report run: sent 1, skipped 0, failed 1');
+  });
+
+  it('logs the send error even when releasing the claim also fails', async () => {
+    mailer.send.mockRejectedValue(new Error('SMTP 421'));
+    sendModel.deleteOne.mockRejectedValue(new Error('mongo blip'));
+    await service.run(NOW);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('weekly report 2026-W39 failed; retrying next hour'), expect.any(String));
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Could not release the claim'), expect.any(String));
+    expect(logSpy).toHaveBeenCalledWith('Report run: sent 0, skipped 0, failed 1');
+  });
+
   it('does not send when another pod claimed it first', async () => {
     sendModel.create.mockRejectedValue(Object.assign(new Error('E11000'), { code: 11000 }));
     await service.run(NOW);

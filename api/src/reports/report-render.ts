@@ -95,6 +95,14 @@ export function budgetStatus(b: BudgetLine): string {
   return 'on track';
 }
 
+/** A budget's result for a finished month, in the whole pesos the email shows. */
+export function budgetResult(b: BudgetLine): string {
+  const over = Math.round(b.spent) - Math.round(b.limit);
+  if (over > 0) return `over by ${money(over)}`;
+  if (over === 0) return 'on budget';
+  return `under by ${money(-over)}`;
+}
+
 function healthLines(h: Health): string[] {
   const lines = h.overdueRecurring.map((r) => `Recurring "${r.name}" was due ${day(r.dueAt)} and hasn't been booked.`);
   if (h.lastIngestedAt === null) {
@@ -186,9 +194,7 @@ export function renderMonthly(d: MonthlyReportData, opts: RenderOptions): Render
       title: 'Budgets',
       rows: d.budgets.map((b) => ({
         label: b.category,
-        value: `${money(b.spent)} of ${money(b.limit)} · ${
-          b.spent > b.limit ? `over by ${money(b.spent - b.limit)}` : `under by ${money(b.limit - b.spent)}`
-        }`,
+        value: `${money(b.spent)} of ${money(b.limit)} · ${budgetResult(b)}`,
       })),
     });
   }

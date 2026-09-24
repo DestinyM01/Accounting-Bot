@@ -1,4 +1,4 @@
-import { budgetStatus, renderMonthly, renderWeekly } from './report-render';
+import { budgetResult, budgetStatus, renderMonthly, renderWeekly } from './report-render';
 import { Health, MonthlyReportData, WeeklyReportData } from './report-types';
 
 const at = (iso: string) => new Date(iso);
@@ -55,7 +55,16 @@ function monthly(overrides: Partial<MonthlyReportData> = {}): MonthlyReportData 
 describe('renderWeekly', () => {
   it('names the week and what was spent in the subject', () => {
     expect(renderWeekly(weekly(), opts).subject).toBe('Weekly digest · Sep 21–27 · RD$ 18,450 spent');
+  });
+
+  it('is a complete HTML document with its charset', () => {
     expect(renderWeekly(weekly(), opts).html.startsWith('<!doctype html><html><head><meta charset="utf-8">')).toBe(true);
+  });
+
+  it('escapes the dashboard address in links', () => {
+    const html = renderWeekly(weekly(), { webUrl: 'https://x.example.com/?a=1&b="2"' }).html;
+    expect(html).toContain('href="https://x.example.com/?a=1&amp;b=&quot;2&quot;"');
+    expect(html).not.toContain('b="2"');
   });
 
   it('writes a week across two months in full, and marks a test', () => {
@@ -158,6 +167,14 @@ describe('renderMonthly', () => {
     const text = renderMonthly(monthly({ budgets: [{ category: 'food', limit: 10000, spent: 11500 }] }), opts).text;
     expect(text).toContain('BUDGETS');
     expect(text).toContain('food: RD$ 11,500 of RD$ 10,000 · over by RD$ 1,500');
+  });
+});
+
+describe('budgetResult', () => {
+  it('reads over by, on budget, or under by, in whole pesos', () => {
+    expect(budgetResult({ category: 'food', limit: 10000, spent: 11500 })).toBe('over by RD$ 1,500');
+    expect(budgetResult({ category: 'food', limit: 10000, spent: 10000.2 })).toBe('on budget');
+    expect(budgetResult({ category: 'food', limit: 10000, spent: 7250 })).toBe('under by RD$ 2,750');
   });
 });
 

@@ -2,7 +2,7 @@ import { Controller, HttpCode, Post, ServiceUnavailableException, UseGuards } fr
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { MailerService } from './mailer.service';
 import { ReportDataService } from './report-data.service';
-import { latestPeriods } from './report-periods';
+import { latestWeekly } from './report-periods';
 import { renderWeekly } from './report-render';
 import { dashboardUrl } from './dashboard-url';
 
@@ -26,8 +26,8 @@ export class ReportsController {
       throw new ServiceUnavailableException('Email is not configured on the server');
     }
     const now = new Date();
-    const week = latestPeriods(now).find((p) => p.kind === 'weekly');
-    const email = renderWeekly(await this.data.weekly(week, now), { webUrl: dashboardUrl(), test: true });
+    const period = latestWeekly(now);
+    const email = renderWeekly(await this.data.weekly(period, now), { webUrl: dashboardUrl(), test: true });
     await this.mailer.send(email);
     return { ok: true };
   }

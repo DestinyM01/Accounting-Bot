@@ -32,6 +32,10 @@ export class MailerService {
         port: 465,
         secure: true,
         auth: { user, pass },
+        // A stalled send must not hold the Dashboard's test button for
+        // nodemailer's default of up to ten minutes.
+        connectionTimeout: 30_000,
+        socketTimeout: 60_000,
       });
     }
     await this.transporter.sendMail({

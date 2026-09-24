@@ -50,9 +50,17 @@ export class ReportSchedulerService {
     const tally: Record<Outcome, number> = { sent: 0, skipped: 0, failed: 0 };
     try {
       for (const period of latestPeriods(now)) {
-        const outcome = await this.handle(period, now);
+        let outcome: Outcome | 'not-configured' | 'idle';
+        try {
+          outcome = await this.handle(period, now);
+        } catch (err) {
+          // A database error on one report must say which report it was, and
+          // must not stop the other from going out this hour.
+          this.logger.error(`${period.kind} report ${period.key} failed`, err instanceof Error ? err.stack : String(err));
+          outcome = 'failed';
+        }
         if (outcome === 'not-configured') break;
-        if (outcome) tally[outcome]++;
+        if (outcome !== 'idle') tally[outcome]++;
       }
       if (tally.sent + tally.skipped + tally.failed > 0) {
         this.logger.log(`Report run: sent ${tally.sent}, skipped ${tally.skipped}, failed ${tally.failed}`);
@@ -64,12 +72,12 @@ export class ReportSchedulerService {
     }
   }
 
-  private async handle(period: ReportPeriod, now: Date): Promise<Outcome | 'not-configured' | null> {
+  private async handle(period: ReportPeriod, now: Date): Promise<Outcome | 'not-configured' | 'idle'> {
     const key = { kind: period.kind, period: period.key };
     const existing = await this.sendModel.findOne(key).lean();
 
     if (existing) {
-      if (existing.status !== 'sending') return null; // sent or skipped: final
+      if (existing.status !== 'sending') return 'idle'; // sent or skipped: final
       // A claim this old belongs to a pod that died mid-send. Take it over
       // atomically, so only one pod does; past the window, close it instead.
       const staleBefore = new Date(now.getTime() - STALE_CLAIM_MINUTES * 60_000);
@@ -77,18 +85,18 @@ export class ReportSchedulerService {
         { ...key, status: 'sending', at: { $lt: staleBefore } },
         { $set: period.expired ? { status: 'skipped', at: now } : { at: now } },
       );
-      if (!takenOver) return null; // another pod is sending it right now
-      return period.expired ? this.skipped(period) : this.send(period, now);
+      if (!takenOver) return 'idle'; // another pod is sending it right now
+      return period.expired ? this.logSkipped(period) : this.send(period, now);
     }
 
     if (period.expired) {
       try {
         await this.sendModel.create({ ...key, status: 'skipped', at: now });
       } catch (err: any) {
-        if (err?.code === 11000) return null;
+        if (err?.code === 11000) return 'idle';
         throw err;
       }
-      return this.skipped(period);
+      return this.logSkipped(period);
     }
 
     if (!this.mailer.isConfigured()) {
@@ -99,13 +107,13 @@ export class ReportSchedulerService {
     try {
       await this.sendModel.create({ ...key, status: 'sending', at: now });
     } catch (err: any) {
-      if (err?.code === 11000) return null; // another pod claimed it first
+      if (err?.code === 11000) return 'idle'; // another pod claimed it first
       throw err;
     }
     return this.send(period, now);
   }
 
-  private skipped(period: ReportPeriod): Outcome {
+  private logSkipped(period: ReportPeriod): Outcome {
     const days = period.kind === 'weekly' ? WEEKLY_WINDOW_DAYS : MONTHLY_WINDOW_DAYS;
     this.logger.warn(`Not sending ${period.kind} report ${period.key}: more than ${days} days past due`);
     return 'skipped';
@@ -121,13 +129,18 @@ export class ReportSchedulerService {
           : renderMonthly(await this.data.monthly(period), options);
       await this.mailer.send(email);
     } catch (err) {
-      // Only this run's claim: if a slow send let another pod take the claim
-      // over, that pod's claim is not ours to release.
-      await this.sendModel.deleteOne({ ...key, status: 'sending', at: now });
       this.logger.error(
         `Sending ${period.kind} report ${period.key} failed; retrying next hour`,
         err instanceof Error ? err.stack : String(err),
       );
+      // Only this run's claim: if a slow send let another pod take the claim
+      // over, that pod's claim is not ours to release.
+      try {
+        await this.sendModel.deleteOne({ ...key, status: 'sending', at: now });
+      } catch (releaseErr) {
+        // The claim stays; once it is stale a later run takes it over.
+        this.logger.error(`Could not release the claim on ${period.kind} report ${period.key}`, String(releaseErr));
+      }
       return 'failed';
     }
 

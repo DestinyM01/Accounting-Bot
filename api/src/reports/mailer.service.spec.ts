@@ -39,6 +39,8 @@ describe('MailerService', () => {
       port: 465,
       secure: true,
       auth: { user: 'me@example.com', pass: 'app-password' },
+      connectionTimeout: 30_000,
+      socketTimeout: 60_000,
     });
     expect(sendMail).toHaveBeenCalledWith({
       from: '"AccBot" <me@example.com>',

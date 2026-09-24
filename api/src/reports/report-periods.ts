@@ -1,5 +1,5 @@
 /** 07:00 America/Santo_Domingo — UTC−4 all year; the Dominican Republic has no DST. */
-export const DUE_HOUR_UTC = 11;
+const DUE_HOUR_UTC = 11;
 /** Local midnight in Santo Domingo. */
 const LOCAL_MIDNIGHT_HOUR_UTC = 4;
 export const WEEKLY_WINDOW_DAYS = 3;
@@ -32,7 +32,7 @@ export function latestPeriods(now: Date): ReportPeriod[] {
   return [latestWeekly(now), latestMonthly(now)];
 }
 
-function latestWeekly(now: Date): ReportPeriod {
+export function latestWeekly(now: Date): ReportPeriod {
   const daysSinceMonday = (now.getUTCDay() + 6) % 7;
   let dueAt = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysSinceMonday, DUE_HOUR_UTC),
@@ -51,7 +51,7 @@ function latestWeekly(now: Date): ReportPeriod {
   };
 }
 
-function latestMonthly(now: Date): ReportPeriod {
+export function latestMonthly(now: Date): ReportPeriod {
   let dueAt = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, DUE_HOUR_UTC));
   if (dueAt.getTime() > now.getTime()) {
     dueAt = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, DUE_HOUR_UTC));

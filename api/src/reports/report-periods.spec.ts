@@ -1,8 +1,8 @@
-import { isoWeekKey, latestPeriods, ReportPeriod } from './report-periods';
+import { isoWeekKey, latestMonthly, latestPeriods, latestWeekly } from './report-periods';
 
 const at = (iso: string) => new Date(iso);
-const weekly = (now: Date) => latestPeriods(now).find((p) => p.kind === 'weekly') as ReportPeriod;
-const monthly = (now: Date) => latestPeriods(now).find((p) => p.kind === 'monthly') as ReportPeriod;
+const weekly = latestWeekly;
+const monthly = latestMonthly;
 
 describe('latestPeriods', () => {
   it('keeps the previous digest until 11:00 UTC (07:00 Santo Domingo) on Monday', () => {
@@ -20,6 +20,8 @@ describe('latestPeriods', () => {
       dueAt: at('2026-09-28T11:00:00Z'),
       expired: false,
     });
+    const now = at('2026-09-28T11:00:00Z');
+    expect(latestPeriods(now)).toEqual([latestWeekly(now), latestMonthly(now)]);
   });
 
   it('keys weeks by ISO week-year across New Year', () => {
