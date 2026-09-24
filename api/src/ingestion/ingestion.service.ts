@@ -256,8 +256,9 @@ export class IngestionService {
       this.logger.log(`All matching rules already satisfied for this period; recording ${messageId} separately`);
     }
 
+    let doc: { _id: unknown };
     try {
-      const doc = await this.txModel.create({
+      doc = await this.txModel.create({
         userId: this.userId,
         userName: 'email',
         transactionName: p.counterparty.toLowerCase(),
@@ -281,6 +282,21 @@ export class IngestionService {
         recurringId,
         recurringPeriod,
       });
+    } catch (err: any) {
+      if (err?.code === 11000) {
+        // Unique index on sourceMessageId — already ingested. Expected, not an error.
+        return 'duplicate';
+      }
+      this.logger.error(`Failed to persist ${messageId}`, err instanceof Error ? err.stack : String(err));
+      return 'failed';
+    }
+
+    // Every step after the create is a side effect the row depends on. If one
+    // fails, the row must not survive it: its unique sourceMessageId would
+    // make every later poll report 'duplicate', and the side effect would
+    // never be retried — a permanent balance drift. Delete the row so the
+    // next poll redoes the whole thing.
+    try {
       if (counterLeg) {
         await this.txModel.updateOne(
           { _id: counterLeg._id },
@@ -296,12 +312,16 @@ export class IngestionService {
       }
       await this.applyBalance(p, amount, String(doc._id));
       return 'created';
-    } catch (err: any) {
-      if (err?.code === 11000) {
-        // Unique index on sourceMessageId — already ingested. Expected, not an error.
-        return 'duplicate';
+    } catch (err) {
+      this.logger.error(
+        `Post-create step failed for ${messageId}; rolling back row ${String(doc._id)}`,
+        err instanceof Error ? err.stack : String(err),
+      );
+      try {
+        await this.txModel.deleteOne({ _id: doc._id });
+      } catch (rollbackErr) {
+        this.logger.error(`Rollback of ${String(doc._id)} failed; row is orphaned`, String(rollbackErr));
       }
-      this.logger.error(`Failed to persist ${messageId}`, err instanceof Error ? err.stack : String(err));
       return 'failed';
     }
   }

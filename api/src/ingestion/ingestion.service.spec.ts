@@ -63,7 +63,13 @@ function makeMail(overrides: Partial<FetchedMail> = {}): FetchedMail {
 
 describe('IngestionService', () => {
   let service: IngestionService;
-  let txModel: { create: jest.Mock; find: jest.Mock; findOne: jest.Mock; updateOne: jest.Mock };
+  let txModel: {
+    create: jest.Mock;
+    find: jest.Mock;
+    findOne: jest.Mock;
+    updateOne: jest.Mock;
+    deleteOne: jest.Mock;
+  };
   let balanceModel: { findOne: jest.Mock; create: jest.Mock };
   let historyModel: { create: jest.Mock };
   let categoryModel: { find: jest.Mock };
@@ -89,6 +95,7 @@ describe('IngestionService', () => {
       create: jest.fn().mockImplementation((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc })),
       findOne: jest.fn().mockResolvedValue(null),
       updateOne: jest.fn().mockResolvedValue({}),
+      deleteOne: jest.fn().mockResolvedValue({ deletedCount: 1 }),
       // The already-ingested lookup: find(...).select(...).lean() -> rows.
       find: jest.fn().mockReturnValue({
         select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
@@ -626,6 +633,43 @@ describe('IngestionService', () => {
     expect(predicted.save).toHaveBeenCalled();
     expect(predicted.sourceMessageId).toBe('msg-42');
     expect(txModel.create).not.toHaveBeenCalled();
+  });
+
+  // If the balance update fails after create() succeeded, the row exists with
+  // its unique sourceMessageId: every later poll sees 'duplicate' and the
+  // balance is never applied — a permanent drift. The created row must be
+  // rolled back so the next poll can retry the whole thing cleanly.
+  describe('balance failure after create', () => {
+    it('deletes the just-created row and reports failed when applyBalance rejects', async () => {
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'msg-1' })]);
+      parserParseMock.mockReturnValue(makeParsed({ direction: 'expense', amount: 100 }));
+      balanceDoc.save.mockRejectedValue(new Error('Mongo write concern timeout'));
+
+      const result = await service.run();
+
+      expect(result).toEqual({ created: 0, skipped: 0, failed: 1 });
+      expect(txModel.create).toHaveBeenCalledTimes(1);
+      expect(txModel.deleteOne).toHaveBeenCalledWith({ _id: 'tx-id' });
+      expect(loggerErrorSpy).toHaveBeenCalled();
+    });
+
+    it('lets the next poll create the same mail again once the balance update works', async () => {
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'msg-1' })]);
+      parserParseMock.mockReturnValue(makeParsed({ direction: 'expense', amount: 100 }));
+      balanceDoc.save.mockRejectedValueOnce(new Error('transient'));
+
+      const first = await service.run();
+      // A rejected save() persists nothing; the next poll re-reads the
+      // balance. The mock hands back the same object, so model the re-read.
+      balanceDoc.balance = 0;
+      const second = await service.run();
+
+      expect(first).toEqual({ created: 0, skipped: 0, failed: 1 });
+      expect(second).toEqual({ created: 1, skipped: 0, failed: 0 });
+      expect(txModel.create).toHaveBeenCalledTimes(2);
+      expect(txModel.deleteOne).toHaveBeenCalledTimes(1);
+      expect(balanceDoc.balance).toBe(-100);
+    });
   });
 
   // The watermark never advances, so every poll re-fetches every mail since
