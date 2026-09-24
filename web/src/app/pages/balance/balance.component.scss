@@ -40,6 +40,10 @@
   gap: var(--space-sm);
   margin-top: var(--space-sm);
 
+  > .fc-field {
+    flex: 1 1 160px;
+  }
+
   .bal-note {
     flex: 1 1 240px;
   }

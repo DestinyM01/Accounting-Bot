@@ -33,25 +33,23 @@ const MAX_ABS_BALANCE = 1e12;
 })
 export class BalanceComponent implements OnInit, OnDestroy {
   @ViewChild('chartCanvas') chartCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('setBtn') setBtn?: ElementRef<HTMLButtonElement>;
+  @ViewChild('amountInput') amountInput?: ElementRef<HTMLInputElement>;
 
-  readonly filters: { value: Filter; label: string }[] = [
-    { value: 'all', label: 'All' },
-    { value: 'income', label: 'Income' },
-    { value: 'expense', label: 'Expense' },
-    { value: 'delete', label: 'Deleted' },
-    { value: 'manual', label: 'Set by you' },
-    { value: 'recurring', label: 'Recurring' },
-  ];
-  readonly kindLabel: Record<string, string> = {
+  readonly kindLabel: Record<BalanceChangeReason, string> = {
     income: 'Income',
     expense: 'Expense',
     delete: 'Deleted',
     manual: 'Set by you',
     recurring: 'Recurring',
   };
+  readonly filters: { value: Filter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    ...(Object.keys(this.kindLabel) as BalanceChangeReason[]).map((value) => ({ value, label: this.kindLabel[value] })),
+  ];
 
   balance: BalanceSummary | null = null;
-  loading = true;
+  headerLoading = true;
   headerError = '';
 
   daily: DailyBalance[] = [];
@@ -74,6 +72,9 @@ export class BalanceComponent implements OnInit, OnDestroy {
   private chart: Chart | null = null;
   private readonly subs = new Subscription();
   private destroyed = false;
+  private headerGen = 0;
+  private chartGen = 0;
+  private listGen = 0;
 
   constructor(private api: ApiService, private events: TransactionEventsService) {}
 
@@ -125,7 +126,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
 
   rowName(h: BalanceHistoryItem): string {
     if (h.reason === 'manual') return h.name || 'Balance set';
-    return h.name || this.kindLabel[h.reason] || h.reason;
+    return h.name || this.kindLabel[h.reason];
   }
 
   openForm(): void {
@@ -133,12 +134,18 @@ export class BalanceComponent implements OnInit, OnDestroy {
     this.amount = this.current;
     this.note = '';
     this.formError = '';
+    setTimeout(() => {
+      if (this.destroyed) return;
+      this.amountInput?.nativeElement.focus();
+      this.amountInput?.nativeElement.select();
+    }, 0);
   }
 
   cancelForm(): void {
     if (this.saving) return;
     this.formOpen = false;
     this.formError = '';
+    this.focusSetButton();
   }
 
   confirm(): void {
@@ -151,6 +158,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
         next: () => {
           this.saving = false;
           this.formOpen = false;
+          this.focusSetButton();
           this.events.notify(); // reloads this page (see ngOnInit) and the Dashboard
         },
         error: (e: HttpErrorResponse) => {
@@ -172,27 +180,34 @@ export class BalanceComponent implements OnInit, OnDestroy {
 
   loadMore(): void {
     if (this.loadingMore || !this.hasMore) return;
-    const filter = this.filter;
+    const gen = this.listGen;
     this.loadingMore = true;
     this.subs.add(
       this.api
-        .getBalanceHistory({ limit: PAGE_SIZE, offset: this.items.length, reason: filter === 'all' ? undefined : filter })
+        .getBalanceHistory({ limit: PAGE_SIZE, offset: this.items.length, reason: this.filter === 'all' ? undefined : this.filter })
         .subscribe({
           next: (page) => {
+            if (gen !== this.listGen) return;
             this.loadingMore = false;
-            if (filter !== this.filter) return;
             const seen = new Set(this.items.map((i) => i.id));
             this.items = [...this.items, ...page.items.filter((i) => !seen.has(i.id))];
             this.total = page.total;
             this.moreError = '';
           },
           error: () => {
+            if (gen !== this.listGen) return;
             this.loadingMore = false;
-            if (filter !== this.filter) return;
             this.moreError = "Couldn't load more history.";
           },
         }),
     );
+  }
+
+  /** The Set balance button re-renders when the form closes; give it focus back. */
+  private focusSetButton(): void {
+    setTimeout(() => {
+      if (!this.destroyed) this.setBtn?.nativeElement.focus();
+    }, 0);
   }
 
   private reloadAll(): void {
@@ -202,33 +217,39 @@ export class BalanceComponent implements OnInit, OnDestroy {
   }
 
   private loadHeader(): void {
+    const gen = ++this.headerGen;
     this.subs.add(
       this.api.getBalance().subscribe({
         next: (b) => {
+          if (gen !== this.headerGen) return;
           this.balance = b;
           this.headerError = '';
-          this.loading = false;
+          this.headerLoading = false;
         },
         error: () => {
+          if (gen !== this.headerGen) return;
           this.headerError = "Couldn't load the balance.";
-          this.loading = false;
+          this.headerLoading = false;
         },
       }),
     );
   }
 
   private loadChart(): void {
+    const gen = ++this.chartGen;
     this.subs.add(
       this.api.getDailyBalance(90).subscribe({
         next: (points) => {
+          if (gen !== this.chartGen) return;
           this.daily = points;
           this.chartError = '';
-          // Defer one tick so the canvas is in the DOM before we draw on it.
+          // Build on the next tick, after this change-detection pass has rendered.
           setTimeout(() => {
-            if (!this.destroyed) this.buildChart();
+            if (!this.destroyed && gen === this.chartGen) this.buildChart();
           }, 0);
         },
         error: () => {
+          if (gen !== this.chartGen) return;
           this.chartError = "Couldn't load the chart.";
         },
       }),
@@ -236,22 +257,24 @@ export class BalanceComponent implements OnInit, OnDestroy {
   }
 
   private loadList(): void {
-    const filter = this.filter;
+    const gen = ++this.listGen;
     this.listLoading = true;
+    this.listError = '';
     this.moreError = '';
+    this.loadingMore = false;
     this.subs.add(
       this.api
-        .getBalanceHistory({ limit: PAGE_SIZE, offset: 0, reason: filter === 'all' ? undefined : filter })
+        .getBalanceHistory({ limit: PAGE_SIZE, offset: 0, reason: this.filter === 'all' ? undefined : this.filter })
         .subscribe({
           next: (page) => {
-            if (filter !== this.filter) return; // a newer filter's request owns the list
+            if (gen !== this.listGen) return;
             this.listLoading = false;
             this.items = page.items;
             this.total = page.total;
             this.listError = '';
           },
           error: () => {
-            if (filter !== this.filter) return;
+            if (gen !== this.listGen) return;
             this.listLoading = false;
             this.listError = "Couldn't load the history.";
           },
@@ -282,6 +305,9 @@ export class BalanceComponent implements OnInit, OnDestroy {
             borderWidth: 2,
             stepped: true,
             pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: token('--accent'),
+            pointHoverBorderColor: token('--accent'),
             fill: false,
           },
         ],
@@ -290,6 +316,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
         responsive: true,
         maintainAspectRatio: false,
         animation: isFirstBuild ? undefined : false,
+        interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },
           tooltip: { callbacks: { label: (c) => this.money(c.parsed.y!) } },

@@ -2,7 +2,7 @@
   <div class="bal-header">
     <div>
       <h1>Balance</h1>
-      @if (loading) {
+      @if (headerLoading) {
         <p class="bal-muted">Loading…</p>
       } @else if (headerError) {
         <p class="fc-error" role="alert">{{ headerError }}</p>
@@ -14,7 +14,7 @@
       }
     </div>
     @if (!formOpen) {
-      <button type="button" class="fc-btn fc-btn--primary" [disabled]="loading || !!headerError" (click)="openForm()">
+      <button #setBtn type="button" class="fc-btn fc-btn--primary" [disabled]="headerLoading || !!headerError" (click)="openForm()">
         <mat-icon>edit</mat-icon> Set balance
       </button>
     }
@@ -27,28 +27,28 @@
         Type the total your accounts show now. The difference is recorded as an adjustment you made; it never counts as
         income or expense.
       </p>
-      <div class="bal-form-row">
-        <label class="fc-field">
-          <span>New balance</span>
-          <input class="fc-input" type="number" step="0.01" [(ngModel)]="amount" name="amount" />
-        </label>
-        <label class="fc-field bal-note">
-          <span>Note</span>
-          <input class="fc-input" type="text" maxlength="100" placeholder="Why? (optional)" [(ngModel)]="note" name="note" />
-        </label>
-      </div>
-      @if (preview) {
+      <form (ngSubmit)="confirm()">
+        <div class="bal-form-row">
+          <label class="fc-field">
+            <span>New balance</span>
+            <input #amountInput class="fc-input" type="number" step="0.01" [(ngModel)]="amount" name="amount" />
+          </label>
+          <label class="fc-field bal-note">
+            <span>Note</span>
+            <input class="fc-input" type="text" maxlength="100" placeholder="Why? (optional)" [(ngModel)]="note" name="note" />
+          </label>
+        </div>
         <p class="bal-preview" aria-live="polite">{{ preview }}</p>
-      }
-      @if (formError) {
-        <p class="fc-error" role="alert">{{ formError }}</p>
-      }
-      <div class="bal-actions">
-        <button type="button" class="fc-btn fc-btn--ghost" [disabled]="saving" (click)="cancelForm()">Cancel</button>
-        <button type="button" class="fc-btn fc-btn--primary" [disabled]="!canConfirm" (click)="confirm()">
-          <mat-icon>{{ saving ? 'hourglass_empty' : 'check' }}</mat-icon> {{ saving ? 'Saving…' : 'Confirm' }}
-        </button>
-      </div>
+        @if (formError) {
+          <p class="fc-error" role="alert">{{ formError }}</p>
+        }
+        <div class="bal-actions">
+          <button type="button" class="fc-btn fc-btn--ghost" [disabled]="saving" (click)="cancelForm()">Cancel</button>
+          <button type="submit" class="fc-btn fc-btn--primary" [disabled]="!canConfirm">
+            <mat-icon>{{ saving ? 'hourglass_empty' : 'check' }}</mat-icon> {{ saving ? 'Saving…' : 'Confirm' }}
+          </button>
+        </div>
+      </form>
     </section>
   }
 
@@ -93,7 +93,7 @@
             <div class="bal-row-main">
               <span class="bal-row-name">{{ rowName(h) }}</span>
               <span class="bal-row-meta">
-                {{ h.timestamp | date:'MMM d, h:mm a':'-0400' }} · {{ kindLabel[h.reason] || h.reason }}
+                {{ h.timestamp | date:'MMM d, y · h:mm a':'-0400' }} · {{ kindLabel[h.reason] }}
               </span>
             </div>
             <div class="bal-row-nums">

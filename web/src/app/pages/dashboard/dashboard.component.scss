@@ -118,7 +118,7 @@
   text-decoration: none;
   cursor: pointer;
 
-  &:hover {
+  &:hover, &:focus-visible {
     border-color: var(--accent);
   }
 
