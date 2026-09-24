@@ -7,6 +7,7 @@ import { Telegraf } from 'telegraf';
 import { TransactionType } from '../type/enum/transactionType.enam';
 import { CreateTransactionDto } from '../dto/transaction.dto';
 import { IContext, Transaction } from '../type/interface';
+import { NOT_DELETED } from '../type/transfer-kind';
 import { BUTTONS, DELETE_LAST_MESSAGE, DELETE_LAST_MESSAGE2, PERIOD_NULL } from '../constants';
 import { backTranButton, editTransactionListButtons } from '../buttons';
 
@@ -49,7 +50,7 @@ export class TransactionService {
   async deleteTransactionById(ctx: IContext, transactionId: string): Promise<void> {
     const userId = ctx.from.id;
     try {
-      const transaction = await this.transactionModel.findOne({ _id: transactionId, userId }).exec();
+      const transaction = await this.transactionModel.findOne({ _id: transactionId, userId, ...NOT_DELETED }).exec();
 
       if (!transaction) {
         this.logger.log(`Transaction not found for ID: ${transactionId}`);
@@ -79,7 +80,11 @@ export class TransactionService {
     const language = ctx.session.language;
     const userId = ctx.from.id;
     try {
-      const transactions = await this.transactionModel.find({ userId }).sort({ timestamp: -1 }).limit(count).exec();
+      const transactions = await this.transactionModel
+        .find({ userId, ...NOT_DELETED })
+        .sort({ timestamp: -1 })
+        .limit(count)
+        .exec();
 
       if (transactions.length === 0) {
         await ctx.editMessageText(DELETE_LAST_MESSAGE2[language], backTranButton(ctx.session.language || 'en'));
@@ -118,8 +123,8 @@ export class TransactionService {
     const regex = new RegExp(safeKeyword, 'i');
     const query =
       groupIds && groupIds.length > 0
-        ? { userId: { $in: [...groupIds, userId] }, transactionName: regex }
-        : { userId, transactionName: regex };
+        ? { userId: { $in: [...groupIds, userId] }, transactionName: regex, ...NOT_DELETED }
+        : { userId, transactionName: regex, ...NOT_DELETED };
     return this.transactionModel.find(query).sort({ timestamp: -1 }).limit(30).exec();
   }
 
@@ -139,7 +144,7 @@ export class TransactionService {
     const userId = ctx.from.id;
     try {
       const transactions = await this.transactionModel
-        .find({ userId })
+        .find({ userId, ...NOT_DELETED })
         .sort({ timestamp: -1 })
         .limit(count)
         .exec();
@@ -174,7 +179,7 @@ export class TransactionService {
 
   /** Fetches a single transaction (scoped to userId). Returns null if not found. */
   async getTransactionById(userId: number, txId: string) {
-    return this.transactionModel.findOne({ _id: txId, userId }).exec();
+    return this.transactionModel.findOne({ _id: txId, userId, ...NOT_DELETED }).exec();
   }
 
   /**
@@ -188,13 +193,13 @@ export class TransactionService {
    * date-range lookup could miss it and record the same payment twice.
    */
   async findOneByRecurringPeriod(userId: number, recurringId: string, period: string) {
-    return this.transactionModel.findOne({ userId, recurringId, recurringPeriod: period }).exec();
+    return this.transactionModel.findOne({ userId, recurringId, recurringPeriod: period, ...NOT_DELETED }).exec();
   }
 
   /** Updates only the name of a transaction. No balance change needed. */
   async updateTransactionName(userId: number, txId: string, newName: string): Promise<void> {
     await this.transactionModel
-      .findOneAndUpdate({ _id: txId, userId }, { transactionName: newName.toLowerCase().trim() })
+      .findOneAndUpdate({ _id: txId, userId, ...NOT_DELETED }, { transactionName: newName.toLowerCase().trim() })
       .exec();
     this.logger.log(`Updated name for transaction ${txId} (user ${userId})`);
   }
@@ -204,7 +209,7 @@ export class TransactionService {
    * Reverses old balance effect, updates DB with new signed amount, reapplies new amount.
    */
   async updateTransactionAmount(userId: number, txId: string, newRawAmount: number): Promise<void> {
-    const tx = await this.transactionModel.findOne({ _id: txId, userId }).exec();
+    const tx = await this.transactionModel.findOne({ _id: txId, userId, ...NOT_DELETED }).exec();
     if (!tx) {
       this.logger.warn(`Transaction ${txId} not found for user ${userId} during amount update`);
       return;

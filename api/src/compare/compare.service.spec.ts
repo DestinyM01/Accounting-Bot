@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { CompareService } from './compare.service';
 import { Transaction } from '../shared/schemas/transaction.schema';
+import { NOT_DELETED, SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 
 const MAY_TXS = [
   { amount: 1000, category: 'salary',    timestamp: new Date('2026-05-15') },
@@ -55,6 +56,13 @@ describe('CompareService', () => {
       const months = await service.getAvailableMonths();
       expect(months[0]).toMatch(/^\d{4}-\d{2}$/);
     });
+
+    // A month whose only rows were deleted must not be offered for comparison.
+    it('does not count deleted rows towards an available month', async () => {
+      await service.getAvailableMonths();
+      const pipeline = mockModel.aggregate.mock.calls[0][0];
+      expect(pipeline[0].$match).toEqual(expect.objectContaining(NOT_DELETED));
+    });
   });
 
   describe('compare', () => {
@@ -93,10 +101,10 @@ describe('CompareService', () => {
     // amount — exactly the shape buildPeriodSummary sums — so without this
     // exclusion they inflate totalExpenses and feed the Mistral prompt wrong
     // numbers.
-    it('excludes internal and unresolved transfers from the period query', async () => {
+    it('excludes deleted rows and internal/unresolved transfers from the period query', async () => {
       await service.compare('2026-05', '2026-05');
       const query = (mockModel.find as jest.Mock).mock.calls[0][0];
-      expect(query.transferKind).toEqual({ $nin: ['internal', 'unresolved'] });
+      expect(query).toEqual(expect.objectContaining(SPENDING_ONLY));
     });
   });
 });

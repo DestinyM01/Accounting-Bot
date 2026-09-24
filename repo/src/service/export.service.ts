@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { stringify } from 'csv-stringify/sync';
 import { Transaction } from '../type/interface';
+import { SPENDING_ONLY } from '../type/transfer-kind';
 
 @Injectable()
 export class ExportService {
@@ -16,14 +17,12 @@ export class ExportService {
     endDate: Date,
     groupIds?: number[],
   ): Promise<Buffer> {
-    // Internal transfers move money between the user's own accounts and
-    // unresolved ones have not been asserted, so neither is spending — left
-    // in, they'd print as ordinary expense rows in the CSV.
-    const transferGuard = { transferKind: { $nin: ['internal', 'unresolved'] } };
+    // Left in, an internal transfer or a deleted row would print as an
+    // ordinary expense row in the CSV.
     const query =
       groupIds && groupIds.length > 0
-        ? { userId: { $in: [...groupIds, userId] }, timestamp: { $gte: startDate, $lte: endDate }, ...transferGuard }
-        : { userId, timestamp: { $gte: startDate, $lte: endDate }, ...transferGuard };
+        ? { userId: { $in: [...groupIds, userId] }, timestamp: { $gte: startDate, $lte: endDate }, ...SPENDING_ONLY }
+        : { userId, timestamp: { $gte: startDate, $lte: endDate }, ...SPENDING_ONLY };
 
     const transactions = await this.transactionModel.find(query).sort({ timestamp: -1 }).lean().exec();
     const rows = transactions.map((t) => ({
@@ -39,14 +38,12 @@ export class ExportService {
   }
 
   async exportUserTransactionsCsv(userId: number, groupIds?: number[]): Promise<Buffer> {
-    // Internal transfers move money between the user's own accounts and
-    // unresolved ones have not been asserted, so neither is spending — left
-    // in, they'd print as ordinary expense rows in the CSV.
-    const transferGuard = { transferKind: { $nin: ['internal', 'unresolved'] } };
+    // Left in, an internal transfer or a deleted row would print as an
+    // ordinary expense row in the CSV.
     const query =
       groupIds && groupIds.length > 0
-        ? { userId: { $in: [...groupIds, userId] }, ...transferGuard }
-        : { userId, ...transferGuard };
+        ? { userId: { $in: [...groupIds, userId] }, ...SPENDING_ONLY }
+        : { userId, ...SPENDING_ONLY };
 
     const transactions = await this.transactionModel.find(query).sort({ timestamp: -1 }).lean().exec();
 

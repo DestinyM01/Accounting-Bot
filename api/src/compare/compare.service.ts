@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Mistral } from '@mistralai/mistralai';
 import { Transaction } from '../shared/schemas/transaction.schema';
+import { NOT_DELETED, SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 
 export interface PeriodSummary {
   month: string;
@@ -33,7 +34,7 @@ export class CompareService {
 
   async getAvailableMonths(): Promise<string[]> {
     const results = await this.txModel.aggregate([
-      { $match: { userId: this.userId } },
+      { $match: { userId: this.userId, ...NOT_DELETED } },
       {
         $group: {
           _id: { year: { $year: '$timestamp' }, month: { $month: '$timestamp' } },
@@ -68,9 +69,7 @@ export class CompareService {
       .find({
         userId: this.userId,
         timestamp: { $gte: start, $lt: end },
-        // Internal transfers move money between the user's own accounts and
-        // unresolved ones have not been asserted, so neither is spending.
-        transferKind: { $nin: ['internal', 'unresolved'] },
+        ...SPENDING_ONLY,
       })
       .select('amount category')
       .lean();

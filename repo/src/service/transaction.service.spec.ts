@@ -1,5 +1,6 @@
 import { TransactionService } from './transaction.service';
 import { TransactionType } from '../type/enum/transactionType.enam';
+import { NOT_DELETED } from '../type/transfer-kind';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -12,11 +13,12 @@ function mockFindChain(result: any) {
   return { find, sort, limit, exec };
 }
 
-/** Minimal IContext mock for deleteTransactionById */
+/** Minimal IContext mock for deleteTransactionById and the list pickers */
 function makeCtx(userId = 42) {
   return {
     from: { id: userId },
     session: { language: 'en', lastBotMessage: 1 },
+    editMessageText: jest.fn().mockResolvedValue(undefined),
   } as any;
 }
 
@@ -44,6 +46,7 @@ describe('TransactionService', () => {
     mockTransactionModel.find = jest.fn();
     mockTransactionModel.findOne = jest.fn();
     mockTransactionModel.findByIdAndUpdate = jest.fn();
+    mockTransactionModel.findOneAndUpdate = jest.fn();
     mockTransactionModel.deleteOne = jest.fn();
     mockTransactionModel.deleteMany = jest.fn();
 
@@ -205,6 +208,44 @@ describe('TransactionService', () => {
       expect(mockBalanceService.reverseTransaction).not.toHaveBeenCalled();
       expect(mockTransactionModel.deleteOne).not.toHaveBeenCalled();
     });
+
+    // A row already soft-deleted from the web must read as "not found" here,
+    // or its balance effect would be reversed a second time.
+    it('looks the row up among live rows only', async () => {
+      mockTransactionModel.findOne = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+
+      await service.deleteTransactionById(makeCtx(), 'txid1');
+
+      expect(mockTransactionModel.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 'txid1', userId: 42, ...NOT_DELETED }),
+      );
+    });
+  });
+
+  // ── list pickers ───────────────────────────────────────────────────────────
+
+  describe('showLastNTransactionsWithDeleteOption', () => {
+    it('lists live rows only', async () => {
+      const { find } = mockFindChain([]);
+      mockTransactionModel.find = find;
+
+      await service.showLastNTransactionsWithDeleteOption(makeCtx(), 5);
+
+      expect(find).toHaveBeenCalledWith(expect.objectContaining({ userId: 42, ...NOT_DELETED }));
+    });
+  });
+
+  describe('showLastNTransactionsWithEditOption', () => {
+    it('lists live rows only', async () => {
+      const { find } = mockFindChain([]);
+      mockTransactionModel.find = find;
+
+      await service.showLastNTransactionsWithEditOption(makeCtx(), 5);
+
+      expect(find).toHaveBeenCalledWith(expect.objectContaining({ userId: 42, ...NOT_DELETED }));
+    });
   });
 
   // ── searchTransactions ─────────────────────────────────────────────────────
@@ -218,7 +259,7 @@ describe('TransactionService', () => {
       const results = await service.searchTransactions(1, 'rent');
 
       expect(find).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 1 }),
+        expect.objectContaining({ userId: 1, ...NOT_DELETED }),
       );
       expect(sort).toHaveBeenCalledWith({ timestamp: -1 });
       expect(limit).toHaveBeenCalledWith(30);
@@ -260,6 +301,67 @@ describe('TransactionService', () => {
 
       const query = find.mock.calls[0][0];
       expect(query.transactionName).toBeInstanceOf(RegExp);
+    });
+  });
+
+  // ── point lookups on the edit path ─────────────────────────────────────────
+
+  describe('getTransactionById', () => {
+    it('reads live rows only', async () => {
+      mockTransactionModel.findOne = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+
+      await service.getTransactionById(1, 'txid9');
+
+      expect(mockTransactionModel.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 'txid9', userId: 1, ...NOT_DELETED }),
+      );
+    });
+  });
+
+  describe('findOneByRecurringPeriod', () => {
+    it('reads live rows only', async () => {
+      mockTransactionModel.findOne = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+
+      await service.findOneByRecurringPeriod(1, 'rule-1', '2026-09');
+
+      expect(mockTransactionModel.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 1, recurringId: 'rule-1', recurringPeriod: '2026-09', ...NOT_DELETED }),
+      );
+    });
+  });
+
+  describe('updateTransactionName', () => {
+    it('renames live rows only', async () => {
+      mockTransactionModel.findOneAndUpdate = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+
+      await service.updateTransactionName(1, 'txid9', 'Coffee ');
+
+      expect(mockTransactionModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 'txid9', userId: 1, ...NOT_DELETED }),
+        { transactionName: 'coffee' },
+      );
+    });
+  });
+
+  describe('updateTransactionAmount', () => {
+    it('reads live rows only and does nothing when the row is gone', async () => {
+      mockTransactionModel.findOne = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+
+      await service.updateTransactionAmount(1, 'txid9', 50);
+
+      expect(mockTransactionModel.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 'txid9', userId: 1, ...NOT_DELETED }),
+      );
+      expect(mockBalanceService.reverseTransaction).not.toHaveBeenCalled();
+      expect(mockTransactionModel.findByIdAndUpdate).not.toHaveBeenCalled();
     });
   });
 

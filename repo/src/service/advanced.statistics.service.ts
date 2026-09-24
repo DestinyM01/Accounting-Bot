@@ -6,6 +6,7 @@ import { Transaction } from '../mongodb/schemas/transaction.schemas';
 import { TransactionType } from '../type/enum/transactionType.enam';
 import { Balance } from '../mongodb/schemas/balance.schemas';
 import { GetRefDataDto } from '../dto/ref.dto';
+import { NOT_DELETED, SPENDING_ONLY } from '../type/transfer-kind';
 
 @Injectable()
 export class AdvancedStatisticsService {
@@ -22,7 +23,7 @@ export class AdvancedStatisticsService {
     try {
       const topTransactions = await this.transactionModel
         .aggregate([
-          { $match: { userId } },
+          { $match: { userId, ...NOT_DELETED } },
           { $group: { _id: '$transactionName', count: { $sum: 1 } } },
           { $sort: { count: -1 } },
           { $limit: 10 },
@@ -42,14 +43,7 @@ export class AdvancedStatisticsService {
       const transactions = await this.transactionModel
         .aggregate([
           {
-            $match: {
-              userId,
-              transactionType,
-              // Internal transfers move money between the user's own accounts
-              // and unresolved ones have not been asserted, so neither is
-              // spending.
-              transferKind: { $nin: ['internal', 'unresolved'] },
-            },
+            $match: { userId, transactionType, ...SPENDING_ONLY },
           },
           { $group: { _id: '$transactionName', totalAmount: { $sum: '$amount' } } },
           { $sort: { totalAmount: -1 } },
@@ -91,6 +85,7 @@ export class AdvancedStatisticsService {
             $gte: startDate,
             $lte: endDate,
           },
+          ...NOT_DELETED,
         })
         .exec();
 
@@ -116,6 +111,7 @@ export class AdvancedStatisticsService {
             $gte: startDate,
             $lte: endDate,
           },
+          ...NOT_DELETED,
         })
         .exec();
 
@@ -142,6 +138,7 @@ export class AdvancedStatisticsService {
             $gte: startDate,
             $lte: endDate,
           },
+          ...NOT_DELETED,
         })
         .exec();
 
@@ -154,6 +151,7 @@ export class AdvancedStatisticsService {
     try {
       const topTransactions = await this.transactionModel
         .aggregate([
+          { $match: { ...NOT_DELETED } },
           { $group: { _id: '$transactionName', count: { $sum: 1 } } },
           { $sort: { count: -1 } },
           { $limit: 10 },
@@ -172,6 +170,7 @@ export class AdvancedStatisticsService {
     try {
       const topUsers = await this.transactionModel
         .aggregate([
+          { $match: { ...NOT_DELETED } },
           { $group: { _id: '$userId', transactionCount: { $sum: 1 } } },
           { $sort: { transactionCount: -1 } },
           { $limit: 10 },
@@ -206,10 +205,7 @@ export class AdvancedStatisticsService {
                 $gte: startDate,
                 $lte: endDate,
               },
-              // Internal transfers move money between the user's own accounts
-              // and unresolved ones have not been asserted, so neither is
-              // spending.
-              transferKind: { $nin: ['internal', 'unresolved'] },
+              ...SPENDING_ONLY,
             },
           },
           {

@@ -3,6 +3,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { BudgetService } from './budget.service';
 import { Budget } from '../shared/schemas/budget.schema';
 import { Transaction } from '../shared/schemas/transaction.schema';
+import { SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 
 const mockBudgetModel = {
   find:             jest.fn(function() { return this; }),
@@ -32,13 +33,9 @@ describe('BudgetService', () => {
   });
 
   describe('get', () => {
-    it('excludes internal and unresolved transfers from the spent calculation', async () => {
+    it('excludes deleted rows and internal/unresolved transfers from the spent calculation', async () => {
       await service.get(8, 2026);
-      expect(mockTransactionModel.find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          transferKind: { $nin: ['internal', 'unresolved'] },
-        }),
-      );
+      expect(mockTransactionModel.find).toHaveBeenCalledWith(expect.objectContaining(SPENDING_ONLY));
     });
   });
 });

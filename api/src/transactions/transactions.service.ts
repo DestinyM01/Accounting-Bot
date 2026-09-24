@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
+import { NOT_DELETED, SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 
 export interface TransactionQuery {
   limit?: number;
@@ -51,15 +52,14 @@ export class TransactionsService {
   ) {}
 
   private buildFilter(query: ExportQuery & { needsReview?: boolean; transferKind?: string }): Record<string, any> {
-    const filter: any = { userId: this.userId };
+    const filter: any = { userId: this.userId, ...NOT_DELETED };
     // Internal transfers move money between the user's own accounts and
     // unresolved ones have not been asserted, so neither is spending. They stay
     // visible in an unfiltered listing, tagged, so the money trail is auditable
-    // and an unresolved transfer can actually be found and classified.
-    // $nin also matches documents where the field is absent, which is what
-    // every ordinary card transaction looks like.
+    // and an unresolved transfer can actually be found and classified — so
+    // only the expense view takes the spending-only kind filter.
     if (query.type === 'expense') {
-      filter.transferKind = { $nin: ['internal', 'unresolved'] };
+      filter.transferKind = SPENDING_ONLY.transferKind;
     }
     if (query.type === 'income')  filter.amount = { $gt: 0 };
     if (query.type === 'expense') filter.amount = { $lt: 0 };
@@ -133,7 +133,7 @@ export class TransactionsService {
 
   async setCategory(id: string, category: string): Promise<void> {
     await this.transactionModel.findOneAndUpdate(
-      { _id: id, userId: this.userId },
+      { _id: id, userId: this.userId, ...NOT_DELETED },
       { category, categoryNeedsReview: false },
     );
   }

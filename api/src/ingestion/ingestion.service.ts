@@ -8,6 +8,7 @@ import { BalanceHistory } from '../shared/schemas/balance-history.schema';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
+import { NOT_DELETED } from '../shared/schemas/transfer-kind';
 import { MailClient } from './mail.client';
 import { CategorizerService } from './categorizer.service';
 import { FxService } from './fx.service';
@@ -131,7 +132,11 @@ export class IngestionService {
     return isNaN(start.getTime()) ? new Date(Date.now() - 24 * 3600_000) : start;
   }
 
-  /** Message ids among `ids` that already have a transaction. */
+  /**
+   * Message ids among `ids` that already have a transaction. Deliberately NOT
+   * filtered on deletedAt: a soft-deleted email row keeps its sourceMessageId
+   * precisely so the next poll cannot re-create it.
+   */
   private async alreadyIngested(ids: string[]): Promise<Set<string>> {
     if (ids.length === 0) return new Set();
     const rows = await this.txModel
@@ -215,6 +220,7 @@ export class IngestionService {
         userId: this.userId,
         recurringId: String(r._id),
         recurringPeriod: matched,
+        ...NOT_DELETED,
       });
 
       if (existing && existing.sourceMessageId) {
@@ -345,6 +351,7 @@ export class IngestionService {
       ...leg,
       timestamp: { $gte: new Date(t - LEG_WINDOW_MS), $lte: new Date(t + LEG_WINDOW_MS) },
       matchedLegId: { $exists: false },
+      ...NOT_DELETED,
     });
   }
 

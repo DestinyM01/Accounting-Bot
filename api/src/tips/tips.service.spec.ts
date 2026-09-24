@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { TipsService } from './tips.service';
 import { Transaction } from '../shared/schemas/transaction.schema';
+import { SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 
 let leanResult: any[] = [];
 
@@ -38,24 +39,24 @@ describe('TipsService', () => {
     // Internal transfers post as transactionType EXPENSE with a negative
     // amount — exactly the shape the 3-month category breakdown sums — so
     // without this exclusion they inflate the spending numbers fed to Mistral.
-    it('excludes internal and unresolved transfers from the 3-month category breakdown query', async () => {
+    it('excludes deleted rows and internal/unresolved transfers from the 3-month category breakdown query', async () => {
       await service.getTips();
 
       const calls = (mockModel.find as jest.Mock).mock.calls;
       const categoryCalls = calls.filter(([q]) => q.amount && q.amount.$lt !== undefined);
       expect(categoryCalls.length).toBe(3); // one per of the last 3 months
       for (const [q] of categoryCalls) {
-        expect(q.transferKind).toEqual({ $nin: ['internal', 'unresolved'] });
+        expect(q).toEqual(expect.objectContaining(SPENDING_ONLY));
       }
     });
 
-    it('excludes internal and unresolved transfers from the average income query', async () => {
+    it('excludes deleted rows and internal/unresolved transfers from the average income query', async () => {
       await service.getTips();
 
       const calls = (mockModel.find as jest.Mock).mock.calls;
       const incomeCalls = calls.filter(([q]) => q.amount && q.amount.$gt !== undefined);
       expect(incomeCalls.length).toBe(1);
-      expect(incomeCalls[0][0].transferKind).toEqual({ $nin: ['internal', 'unresolved'] });
+      expect(incomeCalls[0][0]).toEqual(expect.objectContaining(SPENDING_ONLY));
     });
   });
 });

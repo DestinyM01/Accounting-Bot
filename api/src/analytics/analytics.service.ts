@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
+import { SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 
 export interface TopTransaction {
   rank:        number;
@@ -26,12 +27,7 @@ export class AnalyticsService {
   async getTop10(): Promise<TopTransaction[]> {
     const results = await this.txModel.aggregate([
       {
-        $match: {
-          userId: this.userId,
-          // Internal transfers move money between the user's own accounts and
-          // unresolved ones have not been asserted, so neither is spending.
-          transferKind: { $nin: ['internal', 'unresolved'] },
-        },
+        $match: { userId: this.userId, ...SPENDING_ONLY },
       },
       {
         $group: {
@@ -57,13 +53,7 @@ export class AnalyticsService {
       return [];
     }
     const txs = await this.txModel
-      .find({
-        userId: this.userId,
-        transactionName: name,
-        // Internal transfers move money between the user's own accounts and
-        // unresolved ones have not been asserted, so neither is spending.
-        transferKind: { $nin: ['internal', 'unresolved'] },
-      })
+      .find({ userId: this.userId, transactionName: name, ...SPENDING_ONLY })
       .select('timestamp amount')
       .lean();
 

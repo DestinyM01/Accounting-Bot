@@ -1,4 +1,5 @@
 import { ExportService } from './export.service';
+import { SPENDING_ONLY } from '../type/transfer-kind';
 
 /** Build a chainable find mock: find().sort().lean().exec() */
 function mockFindChain(result: any) {
@@ -27,26 +28,26 @@ describe('ExportService', () => {
   // summing "amount" by type in a spreadsheet over-reports spending.
 
   describe('exportUserTransactionsCsvByPeriod', () => {
-    it('excludes internal and unresolved transfers', async () => {
+    it('excludes deleted rows and internal/unresolved transfers', async () => {
       const { find } = mockFindChain([]);
       mockTransactionModel.find = find;
 
       await service.exportUserTransactionsCsvByPeriod(1, new Date(2026, 0, 1), new Date(2026, 0, 31));
 
       const query = find.mock.calls[0][0];
-      expect(query.transferKind).toEqual({ $nin: ['internal', 'unresolved'] });
+      expect(query).toEqual(expect.objectContaining(SPENDING_ONLY));
     });
   });
 
   describe('exportUserTransactionsCsv', () => {
-    it('excludes internal and unresolved transfers', async () => {
+    it('excludes deleted rows and internal/unresolved transfers', async () => {
       const { find } = mockFindChain([]);
       mockTransactionModel.find = find;
 
       await service.exportUserTransactionsCsv(1);
 
       const query = find.mock.calls[0][0];
-      expect(query.transferKind).toEqual({ $nin: ['internal', 'unresolved'] });
+      expect(query).toEqual(expect.objectContaining(SPENDING_ONLY));
     });
   });
 });

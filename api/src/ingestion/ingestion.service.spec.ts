@@ -28,6 +28,7 @@ import { BalanceHistory } from '../shared/schemas/balance-history.schema';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
+import { NOT_DELETED } from '../shared/schemas/transfer-kind';
 import { MailClient, FetchedMail } from './mail.client';
 import { CategorizerService } from './categorizer.service';
 import { FxService } from './fx.service';
@@ -549,6 +550,30 @@ describe('IngestionService', () => {
     expect(created.recurringId).toBe(String(ruleB._id));
   });
 
+  // A prediction the user soft-deleted is not there to confirm; the lookup
+  // must see only live rows.
+  it('looks up the predicted row among live rows only', async () => {
+    const rule = {
+      _id: 'rule-1',
+      userId: 999,
+      amount: 100,
+      dayOfMonth: 1,
+      active: true,
+      transactionType: TransactionType.EXPENSE,
+    };
+    recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([rule]) });
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(
+      makeParsed({ direction: 'expense', amount: 100, currency: 'DOP', occurredAt: new Date(2026, 0, 1) }),
+    );
+
+    await service.run();
+
+    expect(txModel.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ recurringId: String(rule._id), ...NOT_DELETED }),
+    );
+  });
+
   it('leaves an unmatched transaction unlinked', async () => {
     recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([]) });
     mail.fetchSince.mockResolvedValue([makeMail()]);
@@ -689,6 +714,8 @@ describe('IngestionService', () => {
       const result = await service.run();
 
       expect(result).toEqual({ created: 0, skipped: 1, failed: 0 });
+      // Exact, deliberately: a soft-deleted email row must STILL block
+      // re-ingestion, so this query must never filter on deletedAt.
       expect(txModel.find).toHaveBeenCalledWith({ sourceMessageId: { $in: ['msg-1'] } });
       expect(parserParseMock).not.toHaveBeenCalled();
       expect(categorizer.categorize).not.toHaveBeenCalled();
@@ -889,6 +916,18 @@ describe('IngestionService', () => {
       expect(created.transferKind).toBe('unresolved');
       expect(created.matchedLegId).toBeUndefined();
       expect(txModel.updateOne).not.toHaveBeenCalled();
+    });
+
+    // A leg the user soft-deleted must not be paired with a new arrival.
+    it('looks for the counter leg among live rows only', async () => {
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'rx-mail' })]);
+      parserParseMock.mockReturnValue(received());
+
+      await service.run();
+
+      expect(txModel.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ transferKind: 'internal', ...NOT_DELETED }),
+      );
     });
 
     it('does not match legs more than a day apart', async () => {

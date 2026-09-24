@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Budget } from '../shared/schemas/budget.schema';
 import { Transaction } from '../shared/schemas/transaction.schema';
+import { SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 
 @Injectable()
 export class BudgetService {
@@ -32,9 +33,7 @@ export class BudgetService {
         userId: this.userId,
         timestamp: { $gte: start, $lt: end },
         amount: { $lt: 0 },
-        // Internal transfers move money between the user's own accounts and
-        // unresolved ones have not been asserted, so neither is spending.
-        transferKind: { $nin: ['internal', 'unresolved'] },
+        ...SPENDING_ONLY,
       })
       .select('category amount')
       .lean();

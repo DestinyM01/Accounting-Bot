@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { TransactionsService } from './transactions.service';
 import { Transaction } from '../shared/schemas/transaction.schema';
+import { NOT_DELETED, SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 
 const mockTxs = [
   {
@@ -35,6 +36,7 @@ const mockModel = {
   select:         jest.fn(function() { return this; }),
   lean:           jest.fn().mockResolvedValue(mockTxs),
   countDocuments: jest.fn().mockResolvedValue(mockTxs.length),
+  findOneAndUpdate: jest.fn().mockResolvedValue(null),
 };
 
 describe('TransactionsService.exportCsv', () => {
@@ -83,28 +85,41 @@ describe('TransactionsService.exportCsv', () => {
     expect(csv).toContain('"He said, ""lunch"""');
   });
 
-  it('excludes internal and unresolved transfers from expense queries', async () => {
+  it('excludes deleted rows and internal/unresolved transfers from expense queries', async () => {
     await service.findAll({ type: 'expense' });
-    expect(mockModel.find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        transferKind: { $nin: ['internal', 'unresolved'] },
-      }),
-    );
+    expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining(SPENDING_ONLY));
   });
 
   it('excludes them from CSV export too', async () => {
     await service.exportCsv({ type: 'expense' });
-    expect(mockModel.find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        transferKind: { $nin: ['internal', 'unresolved'] },
-      }),
-    );
+    expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining(SPENDING_ONLY));
   });
 
   it('includes internal transfers in an unfiltered listing', async () => {
     await service.findAll({});
     const [filter] = mockModel.find.mock.calls[0] as any[];
     expect(filter).not.toHaveProperty('transferKind');
+  });
+
+  // Soft-deleted rows stay in the collection (an email-sourced row must keep
+  // its sourceMessageId) but must never be listed, counted or exported.
+  it('excludes deleted rows from an unfiltered listing and its count', async () => {
+    await service.findAll({});
+    expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining(NOT_DELETED));
+    expect(mockModel.countDocuments).toHaveBeenCalledWith(expect.objectContaining(NOT_DELETED));
+  });
+
+  it('excludes deleted rows from an unfiltered export', async () => {
+    await service.exportCsv({});
+    expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining(NOT_DELETED));
+  });
+
+  it('does not recategorise a deleted row', async () => {
+    await service.setCategory('tx1', 'food');
+    expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: 'tx1', ...NOT_DELETED }),
+      expect.anything(),
+    );
   });
 
   it('can list only unresolved transfers', async () => {

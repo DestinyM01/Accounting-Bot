@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { AnalyticsService } from './analytics.service';
 import { Transaction } from '../shared/schemas/transaction.schema';
+import { SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 
 const mockAggregateResult = [
   { _id: 'Netflix',   count: 12, totalAmount: 120 },
@@ -58,14 +59,10 @@ describe('AnalyticsService', () => {
       expect(result[0].totalAmount).toBe(120);
     });
 
-    it('excludes internal and unresolved transfers from the match stage', async () => {
+    it('excludes deleted rows and internal/unresolved transfers from the match stage', async () => {
       await service.getTop10();
       const pipeline = mockModel.aggregate.mock.calls[0][0];
-      expect(pipeline[0].$match).toEqual(
-        expect.objectContaining({
-          transferKind: { $nin: ['internal', 'unresolved'] },
-        }),
-      );
+      expect(pipeline[0].$match).toEqual(expect.objectContaining(SPENDING_ONLY));
     });
   });
 
@@ -92,13 +89,9 @@ describe('AnalyticsService', () => {
       result.forEach(p => expect(p.total).toBeGreaterThan(0));
     });
 
-    it('excludes internal and unresolved transfers from the chart query', async () => {
+    it('excludes deleted rows and internal/unresolved transfers from the chart query', async () => {
       await service.getTransactionChart('Netflix');
-      expect(mockModel.find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          transferKind: { $nin: ['internal', 'unresolved'] },
-        }),
-      );
+      expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining(SPENDING_ONLY));
     });
   });
 });

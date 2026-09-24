@@ -5,6 +5,7 @@ import { Model } from 'mongoose';
 import { OpenAiApiService } from '../open-ai-api/open-ai-api.service';
 import { CustomCallbackQuery, IContext, Transaction } from '../type/interface';
 import { Balance } from '../mongodb/schemas/balance.schemas';
+import { SPENDING_ONLY } from '../type/transfer-kind';
 import {
   actionButtonsBeckP,
   actionButtonsBeckPAndRemove,
@@ -57,8 +58,10 @@ export class CompareHandler {
     const lang = ctx.session.language || 'en';
     const userId = ctx.from.id;
 
+    // These rows go into the advisor prompt as raw amounts, so only live,
+    // spending rows belong here.
     const [recentTxs, balanceDoc] = await Promise.all([
-      this.transactionModel.find({ userId }).sort({ timestamp: -1 }).limit(30).lean().exec(),
+      this.transactionModel.find({ userId, ...SPENDING_ONLY }).sort({ timestamp: -1 }).limit(30).lean().exec(),
       this.balanceModel.findOne({ userId }).lean().exec(),
     ]);
 
