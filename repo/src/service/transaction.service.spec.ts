@@ -167,9 +167,9 @@ describe('TransactionService', () => {
       mockTransactionModel.findOne = jest
         .fn()
         .mockReturnValue({ exec: jest.fn().mockResolvedValue(transaction) });
-      mockTransactionModel.deleteOne = jest
+      mockTransactionModel.findOneAndUpdate = jest
         .fn()
-        .mockReturnValue({ exec: jest.fn().mockResolvedValue(undefined) });
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(transaction) });
 
       await service.deleteTransactionById(makeCtx(), 'txid1');
 
@@ -177,7 +177,6 @@ describe('TransactionService', () => {
       expect(mockBalanceService.reverseTransaction).toHaveBeenCalledWith(
         42, -300, 'groceries', 'txid1',
       );
-      expect(mockTransactionModel.deleteOne).toHaveBeenCalledWith({ _id: 'txid1' });
     });
 
     it('calls reverseTransaction with stored amount when deleting income', async () => {
@@ -186,9 +185,9 @@ describe('TransactionService', () => {
       mockTransactionModel.findOne = jest
         .fn()
         .mockReturnValue({ exec: jest.fn().mockResolvedValue(transaction) });
-      mockTransactionModel.deleteOne = jest
+      mockTransactionModel.findOneAndUpdate = jest
         .fn()
-        .mockReturnValue({ exec: jest.fn().mockResolvedValue(undefined) });
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(transaction) });
 
       await service.deleteTransactionById(makeCtx(), 'txid2');
 
@@ -221,6 +220,65 @@ describe('TransactionService', () => {
       expect(mockTransactionModel.findOne).toHaveBeenCalledWith(
         expect.objectContaining({ _id: 'txid1', userId: 42, ...NOT_DELETED }),
       );
+    });
+  });
+
+  describe('deleteTransactionById — soft delete', () => {
+    const chain = (v: any) => ({ exec: jest.fn().mockResolvedValue(v) });
+    const live = { _id: 'txid1', transactionType: TransactionType.EXPENSE, amount: -300, transactionName: 'groceries', transferKind: undefined };
+
+    it('soft-deletes atomically, matching only a live row, and reverses the balance', async () => {
+      mockTransactionModel.findOne = jest.fn().mockReturnValue(chain(live));
+      mockTransactionModel.findOneAndUpdate = jest.fn().mockReturnValue(chain(live));
+      await service.deleteTransactionById(makeCtx(), 'txid1');
+      expect(mockTransactionModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 'txid1', userId: 42, deletedAt: null }),
+        { $set: { deletedAt: expect.any(Date) }, $unset: { recurringId: 1, recurringPeriod: 1 } },
+      );
+      expect(mockBalanceService.reverseTransaction).toHaveBeenCalledWith(42, -300, 'groceries', 'txid1');
+      expect(mockTransactionModel.deleteOne).not.toHaveBeenCalled();   // never a hard delete
+    });
+
+    // internal / unresolved rows never moved the balance; deleting them must not either.
+    it.each(['internal', 'unresolved'])('does not reverse the balance for a %s row', async (kind) => {
+      const row = { ...live, transferKind: kind };
+      mockTransactionModel.findOne = jest.fn().mockReturnValue(chain(row));
+      mockTransactionModel.findOneAndUpdate = jest.fn().mockReturnValue(chain(row));
+      await service.deleteTransactionById(makeCtx(), 'txid1');
+      expect(mockTransactionModel.findOneAndUpdate).toHaveBeenCalled();
+      expect(mockBalanceService.reverseTransaction).not.toHaveBeenCalled();
+    });
+
+    // The atomic update returns null when a concurrent delete already claimed
+    // the row: nothing to reverse, and no second reversal.
+    it('reverses nothing when a concurrent delete already claimed the row', async () => {
+      mockTransactionModel.findOne = jest.fn().mockReturnValue(chain(live));
+      mockTransactionModel.findOneAndUpdate = jest.fn().mockReturnValue(chain(null));
+      await service.deleteTransactionById(makeCtx(), 'txid1');
+      expect(mockBalanceService.reverseTransaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateTransactionAmount — balance guard', () => {
+    const chain = (v: any) => ({ exec: jest.fn().mockResolvedValue(v) });
+
+    it('does not move the balance for an unresolved row but still persists the new amount', async () => {
+      const row = { _id: 'txid2', transactionType: TransactionType.EXPENSE, amount: -100, transactionName: 'transfer', transferKind: 'unresolved' };
+      mockTransactionModel.findOne = jest.fn().mockReturnValue(chain(row));
+      mockTransactionModel.findByIdAndUpdate = jest.fn().mockReturnValue(chain(undefined));
+      await service.updateTransactionAmount(42, 'txid2', 150);
+      expect(mockTransactionModel.findByIdAndUpdate).toHaveBeenCalledWith('txid2', { amount: -150 });
+      expect(mockBalanceService.reverseTransaction).not.toHaveBeenCalled();
+      expect(mockBalanceService.updateBalance).not.toHaveBeenCalled();
+    });
+
+    it('still moves the balance for an ordinary row', async () => {
+      const row = { _id: 'txid3', transactionType: TransactionType.EXPENSE, amount: -100, transactionName: 'colmado', transferKind: undefined };
+      mockTransactionModel.findOne = jest.fn().mockReturnValue(chain(row));
+      mockTransactionModel.findByIdAndUpdate = jest.fn().mockReturnValue(chain(undefined));
+      await service.updateTransactionAmount(42, 'txid3', 150);
+      expect(mockBalanceService.reverseTransaction).toHaveBeenCalledWith(42, -100, 'colmado', 'txid3');
+      expect(mockBalanceService.updateBalance).toHaveBeenCalledWith(42, 150, TransactionType.EXPENSE, 'colmado', 'txid3');
     });
   });
 

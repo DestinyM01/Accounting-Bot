@@ -7,7 +7,7 @@ import { Telegraf } from 'telegraf';
 import { TransactionType } from '../type/enum/transactionType.enam';
 import { CreateTransactionDto } from '../dto/transaction.dto';
 import { IContext, Transaction } from '../type/interface';
-import { NOT_DELETED } from '../type/transfer-kind';
+import { NOT_DELETED, isNonSpendingTransfer } from '../type/transfer-kind';
 import { BUTTONS, DELETE_LAST_MESSAGE, DELETE_LAST_MESSAGE2, PERIOD_NULL } from '../constants';
 import { backTranButton, editTransactionListButtons } from '../buttons';
 
@@ -62,13 +62,22 @@ export class TransactionService {
         );
         return;
       }
-      await this.balanceService.reverseTransaction(
-        userId,
-        transaction.amount,
-        transaction.transactionName,
-        transactionId,
-      );
-      await this.transactionModel.deleteOne({ _id: transactionId }).exec();
+      // Soft-delete, atomically, matching only a LIVE row: an ingested row must
+      // keep its sourceMessageId or the next poll re-creates it, and two
+      // concurrent deletes must not both reverse the balance. The pre-image
+      // returned is the amount to reverse. Unset the recurring link so the row
+      // leaves the partial unique index on (userId, recurringId, recurringPeriod)
+      // — otherwise that period can never be recorded again by email or cron.
+      const deleted: any = await this.transactionModel
+        .findOneAndUpdate(
+          { _id: transactionId, userId, ...NOT_DELETED },
+          { $set: { deletedAt: new Date() }, $unset: { recurringId: 1, recurringPeriod: 1 } },
+        )
+        .exec();
+      if (!deleted) return;   // already deleted by a concurrent request
+      if (!isNonSpendingTransfer(deleted.transferKind)) {
+        await this.balanceService.reverseTransaction(userId, deleted.amount, deleted.transactionName, transactionId);
+      }
 
       this.logger.log(`Deleted transaction with ID: ${transactionId}`);
     } catch (error) {
@@ -209,13 +218,16 @@ export class TransactionService {
    * Reverses old balance effect, updates DB with new signed amount, reapplies new amount.
    */
   async updateTransactionAmount(userId: number, txId: string, newRawAmount: number): Promise<void> {
-    const tx = await this.transactionModel.findOne({ _id: txId, userId, ...NOT_DELETED }).exec();
+    const tx: any = await this.transactionModel.findOne({ _id: txId, userId, ...NOT_DELETED }).exec();
     if (!tx) {
       this.logger.warn(`Transaction ${txId} not found for user ${userId} during amount update`);
       return;
     }
+    // internal / unresolved rows never moved the balance; a new amount must not either.
+    const movesBalance = !isNonSpendingTransfer(tx.transferKind);
+
     // Reverse old balance effect (storedAmount has sign: expense=-n, income=+n)
-    await this.balanceService.reverseTransaction(userId, tx.amount, tx.transactionName, txId);
+    if (movesBalance) await this.balanceService.reverseTransaction(userId, tx.amount, tx.transactionName, txId);
 
     // New stored amount carries the sign
     const newStoredAmount =
@@ -225,7 +237,7 @@ export class TransactionService {
     await this.transactionModel.findByIdAndUpdate(txId, { amount: newStoredAmount }).exec();
 
     // Apply new positive amount to balance (updateBalance handles sign via type)
-    await this.balanceService.updateBalance(userId, newRawAmount, tx.transactionType as TransactionType, tx.transactionName, txId);
+    if (movesBalance) await this.balanceService.updateBalance(userId, newRawAmount, tx.transactionType as TransactionType, tx.transactionName, txId);
 
     this.logger.log(`Updated amount for transaction ${txId}: ${newStoredAmount}`);
   }
