@@ -81,6 +81,57 @@ describe('TransactionsService', () => {
     service = module.get<TransactionsService>(TransactionsService);
   });
 
+  describe('findAll', () => {
+    it('excludes deleted rows and internal/unresolved transfers from expense queries', async () => {
+      await service.findAll({ type: 'expense' });
+      expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining(SPENDING_ONLY));
+    });
+
+    it('includes internal transfers in an unfiltered listing', async () => {
+      await service.findAll({});
+      const [filter] = mockModel.find.mock.calls[0] as any[];
+      expect(filter).not.toHaveProperty('transferKind');
+    });
+
+    // Soft-deleted rows stay in the collection (an email-sourced row must keep
+    // its sourceMessageId) but must never be listed, counted or exported.
+    it('excludes deleted rows from an unfiltered listing and its count', async () => {
+      await service.findAll({});
+      expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining(NOT_DELETED));
+      expect(mockModel.countDocuments).toHaveBeenCalledWith(expect.objectContaining(NOT_DELETED));
+    });
+
+    it('can list only unresolved transfers', async () => {
+      await service.findAll({ transferKind: 'unresolved' });
+      expect(mockModel.find).toHaveBeenCalledWith(
+        expect.objectContaining({ transferKind: 'unresolved' }),
+      );
+    });
+
+    it('selects transferKind so the UI can display it', async () => {
+      await service.findAll({});
+      expect(mockModel.select).toHaveBeenCalledWith(
+        expect.stringContaining('transferKind'),
+      );
+    });
+  });
+
+  describe('setCategory', () => {
+    it('does not recategorise a deleted row', async () => {
+      await service.setCategory('tx1', 'food');
+      expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 'tx1', ...NOT_DELETED }),
+        expect.anything(),
+      );
+    });
+
+    // setCategory — the pre-existing PATCH skipped the allow-list entirely
+    it('setCategory rejects an unknown category', async () => {
+      await expect(service.setCategory('t1', 'nope')).rejects.toThrow(/category/);
+      expect(mockModel.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+  });
+
   describe('exportCsv', () => {
     it('starts with the header row', async () => {
       const csv = await service.exportCsv({});
@@ -114,61 +165,14 @@ describe('TransactionsService', () => {
       expect(csv).toContain('"He said, ""lunch"""');
     });
 
-    it('excludes deleted rows and internal/unresolved transfers from expense queries', async () => {
-      await service.findAll({ type: 'expense' });
-      expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining(SPENDING_ONLY));
-    });
-
     it('excludes them from CSV export too', async () => {
       await service.exportCsv({ type: 'expense' });
       expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining(SPENDING_ONLY));
     });
 
-    it('includes internal transfers in an unfiltered listing', async () => {
-      await service.findAll({});
-      const [filter] = mockModel.find.mock.calls[0] as any[];
-      expect(filter).not.toHaveProperty('transferKind');
-    });
-
-    // Soft-deleted rows stay in the collection (an email-sourced row must keep
-    // its sourceMessageId) but must never be listed, counted or exported.
-    it('excludes deleted rows from an unfiltered listing and its count', async () => {
-      await service.findAll({});
-      expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining(NOT_DELETED));
-      expect(mockModel.countDocuments).toHaveBeenCalledWith(expect.objectContaining(NOT_DELETED));
-    });
-
     it('excludes deleted rows from an unfiltered export', async () => {
       await service.exportCsv({});
       expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining(NOT_DELETED));
-    });
-
-    it('does not recategorise a deleted row', async () => {
-      await service.setCategory('tx1', 'food');
-      expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({ _id: 'tx1', ...NOT_DELETED }),
-        expect.anything(),
-      );
-    });
-
-    // setCategory — the pre-existing PATCH skipped the allow-list entirely
-    it('setCategory rejects an unknown category', async () => {
-      await expect(service.setCategory('t1', 'nope')).rejects.toThrow(/category/);
-      expect(mockModel.findOneAndUpdate).not.toHaveBeenCalled();
-    });
-
-    it('can list only unresolved transfers', async () => {
-      await service.findAll({ transferKind: 'unresolved' });
-      expect(mockModel.find).toHaveBeenCalledWith(
-        expect.objectContaining({ transferKind: 'unresolved' }),
-      );
-    });
-
-    it('selects transferKind so the UI can display it', async () => {
-      await service.findAll({});
-      expect(mockModel.select).toHaveBeenCalledWith(
-        expect.stringContaining('transferKind'),
-      );
     });
 
     // The design says internal/unresolved rows stay visible in an unfiltered
@@ -396,7 +400,10 @@ describe('TransactionsService', () => {
         ledger.reverse.mockClear();
         mockModel.findOneAndUpdate.mockResolvedValue({ _id: 't1', amount: -100, transferKind: kind });
         await service.softDelete('t1');
-        expect(mockModel.findOneAndUpdate).toHaveBeenCalled();
+        expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+          expect.objectContaining({ _id: 't1', deletedAt: null }),
+          expect.anything(),
+        );
         expect(ledger.reverse).not.toHaveBeenCalled();
       }
     });

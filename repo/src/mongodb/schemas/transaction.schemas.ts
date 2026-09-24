@@ -62,7 +62,11 @@ export class Transaction extends Document {
   @Prop()
   matchedLegId?: string;
 
-  /** Soft-delete marker for every row. Never hard-delete: an email-sourced row must keep its sourceMessageId or the next poll re-creates it. */
+  /**
+   * Soft-delete marker for every row. Never hard-delete a row once it has been
+   * returned to a caller: an email-sourced row must keep its sourceMessageId
+   * or the next poll re-creates it.
+   */
   @Prop()
   deletedAt?: Date;
 

@@ -22,6 +22,14 @@ export interface UpdateTransactionBody {
   timestamp?: string;
 }
 
+export interface SetCategoryBody {
+  category: string;
+}
+
+export interface ResolveTransferBody {
+  kind: 'internal' | 'external';
+}
+
 export interface TransactionQuery {
   limit?: number;
   offset?: number;
@@ -179,18 +187,18 @@ export class TransactionsService {
   }
 
   private assertPositive(amount: number): void {
-    if (typeof amount !== 'number' || !(amount > 0)) throw new BadRequestException('amount must be > 0');
+    if (typeof amount !== 'number' || !(amount > 0)) throw new BadRequestException(`amount must be > 0 (got ${amount})`);
   }
 
   async create(body: CreateTransactionBody): Promise<{ id: string }> {
     const { type, amount, name, category, timestamp } = body;
-    if (type !== 'income' && type !== 'expense') throw new BadRequestException('type must be income or expense');
+    if (type !== 'income' && type !== 'expense') throw new BadRequestException(`type must be income or expense (got ${type})`);
     this.assertPositive(amount);
     if (!name?.trim()) throw new BadRequestException('name is required');
     await this.assertCategory(category);
 
     const ts = timestamp ? new Date(timestamp) : new Date();
-    if (isNaN(ts.getTime())) throw new BadRequestException('timestamp is invalid');
+    if (isNaN(ts.getTime())) throw new BadRequestException(`timestamp is invalid (got ${timestamp})`);
 
     const signed = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
     const doc = await this.transactionModel.create({
@@ -222,6 +230,17 @@ export class TransactionsService {
 
     const patch: Record<string, unknown> = {};
 
+    // Same order as create's checks. Type is not editable here, so there is
+    // no type check; the rest lines up: amount, name, category, timestamp.
+    let delta = 0;
+    if (body.amount !== undefined) {
+      this.assertPositive(body.amount);
+      // The stored sign is the direction; never re-derive it from the enum here.
+      const newSigned = tx.amount < 0 ? -Math.abs(body.amount) : Math.abs(body.amount);
+      patch.amount = newSigned;
+      // internal / unresolved rows never moved the balance, so a new amount must not either.
+      if (!isNonSpendingTransfer(tx.transferKind)) delta = newSigned - tx.amount;
+    }
     if (body.name !== undefined) {
       if (!body.name.trim()) throw new BadRequestException('name is required');
       patch.transactionName = body.name.trim().toLowerCase();
@@ -233,18 +252,8 @@ export class TransactionsService {
     }
     if (body.timestamp !== undefined) {
       const ts = new Date(body.timestamp);
-      if (isNaN(ts.getTime())) throw new BadRequestException('timestamp is invalid');
+      if (isNaN(ts.getTime())) throw new BadRequestException(`timestamp is invalid (got ${body.timestamp})`);
       patch.timestamp = ts;
-    }
-
-    let delta = 0;
-    if (body.amount !== undefined) {
-      this.assertPositive(body.amount);
-      // The stored sign is the direction; never re-derive it from the enum here.
-      const newSigned = tx.amount < 0 ? -Math.abs(body.amount) : Math.abs(body.amount);
-      patch.amount = newSigned;
-      // internal / unresolved rows never moved the balance, so a new amount must not either.
-      if (!isNonSpendingTransfer(tx.transferKind)) delta = newSigned - tx.amount;
     }
 
     if (Object.keys(patch).length === 0) return;
@@ -252,7 +261,9 @@ export class TransactionsService {
     // Guarded write: the row must still be live and still carry the amount and
     // kind the delta was computed from. A concurrent delete, edit or resolution
     // changes one of those; the filter then misses and nothing is applied.
-    const written = await this.transactionModel.findOneAndUpdate(
+    // Named `matched`, not `written`: it's only a truthiness check here — `tx`
+    // above still carries the pre-image the delta was computed from.
+    const matched = await this.transactionModel.findOneAndUpdate(
       {
         _id: id,
         userId: this.userId,
@@ -262,7 +273,7 @@ export class TransactionsService {
       },
       { $set: patch },
     );
-    if (!written) throw new ConflictException('transaction changed concurrently; reload and retry');
+    if (!matched) throw new ConflictException('transaction changed concurrently; reload and retry');
 
     if (delta !== 0) {
       try {
@@ -318,12 +329,16 @@ export class TransactionsService {
    * resolutions cannot both apply the balance.
    */
   async resolveTransfer(id: string, kind: 'internal' | 'external'): Promise<void> {
-    if (kind !== 'internal' && kind !== 'external') throw new BadRequestException('kind must be internal or external');
+    if (kind !== 'internal' && kind !== 'external') throw new BadRequestException(`kind must be internal or external (got ${kind})`);
     const tx = await this.transactionModel.findOneAndUpdate(
       { _id: id, userId: this.userId, transferKind: 'unresolved', ...NOT_DELETED },
       { $set: { transferKind: kind } },
     );
     if (!tx) {
+      // This second query only runs on the failure path, to tell apart WHY the
+      // atomic update above missed: "no live row" (404) from "live but not
+      // unresolved" (409). Either way the balance is unreachable from here —
+      // a row this query would find was never asserted by this call.
       const live = await this.transactionModel.exists({ _id: id, userId: this.userId, ...NOT_DELETED });
       if (!live) throw new NotFoundException();
       throw new ConflictException('only an unresolved transfer can be resolved');

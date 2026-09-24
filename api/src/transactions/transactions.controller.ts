@@ -1,7 +1,14 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt.guard';
-import { TransactionsService, TransactionPage, CreateTransactionBody, UpdateTransactionBody } from './transactions.service';
+import {
+  TransactionsService,
+  TransactionPage,
+  CreateTransactionBody,
+  UpdateTransactionBody,
+  SetCategoryBody,
+  ResolveTransferBody,
+} from './transactions.service';
 
 @Controller('transactions')
 @UseGuards(JwtAuthGuard)
@@ -50,13 +57,13 @@ export class TransactionsController {
 
   @Patch(':id/category')
   @HttpCode(204)
-  async setCategory(@Param('id') id: string, @Body() body: { category: string }) {
+  async setCategory(@Param('id') id: string, @Body() body: SetCategoryBody) {
     await this.transactionsService.setCategory(id, body.category);
   }
 
   @Patch(':id/transfer-kind')
   @HttpCode(204)
-  async resolveTransfer(@Param('id') id: string, @Body() body: { kind: 'internal' | 'external' }) {
+  async resolveTransfer(@Param('id') id: string, @Body() body: ResolveTransferBody) {
     await this.transactionsService.resolveTransfer(id, body.kind);
   }
 
