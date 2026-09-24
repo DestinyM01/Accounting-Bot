@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { TransactionType } from '../../type/enum/transactionType.enam';
 import { Category } from '../../type/enum/category.enum';
+import { TransferKind } from '../../type/transfer-kind';
 
 @Schema()
 export class Transaction extends Document {
@@ -53,8 +54,9 @@ export class Transaction extends Document {
   @Prop()
   externalRef?: string;
 
-  @Prop()
-  transferKind?: string;
+  /** How this transfer relates to the user's own accounts. Absent for ordinary card transactions. */
+  @Prop({ type: String })
+  transferKind?: TransferKind;
 
   /** The other leg of an internal transfer reported by two banks. Set on both rows once reconciled. */
   @Prop()

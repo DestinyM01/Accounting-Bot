@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { TransactionType } from './transaction-type.enum';
 import { Category } from './category.enum';
+import { TransferKind } from './transfer-kind';
 
 @Schema()
 export class Transaction extends Document {
@@ -23,8 +24,8 @@ export class Transaction extends Document {
   @Prop() isWithdrawal?: boolean;
   @Prop() externalRef?: string;
 
-  /** 'external' | 'internal' | 'unresolved'. Absent for ordinary card transactions. */
-  @Prop() transferKind?: string;
+  /** How this transfer relates to the user's own accounts. Absent for ordinary card transactions. */
+  @Prop({ type: String }) transferKind?: TransferKind;
 
   /**
    * The other leg of an internal transfer reported by two banks (sent by one,
