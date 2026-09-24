@@ -188,7 +188,16 @@ export class TransactionsService {
       category,
       source: 'manual',
     });
-    await this.ledger.apply(signed, type, name.trim(), String(doc._id));
+    try {
+      await this.ledger.apply(signed, type, doc.transactionName, String(doc._id));
+    } catch (err) {
+      // The row exists but the balance did not move. Remove the row so a retry
+      // starts clean; leaving it would invite a DELETE that reverses a movement
+      // that never happened. Permitted hard delete: a row this call created
+      // milliseconds ago, with no sourceMessageId — the same rule as ingestion's rollback.
+      await this.transactionModel.deleteOne({ _id: doc._id });
+      throw err;
+    }
     return { id: String(doc._id) };
   }
 
@@ -224,8 +233,32 @@ export class TransactionsService {
     }
 
     if (Object.keys(patch).length === 0) return;
-    await this.transactionModel.updateOne({ _id: id }, { $set: patch });
-    if (delta !== 0) await this.ledger.apply(delta, 'manual', tx.transactionName, id);
+
+    // Guarded write: the row must still be live and still carry the amount and
+    // kind the delta was computed from. A concurrent delete, edit or resolution
+    // changes one of those; the filter then misses and nothing is applied.
+    const written = await this.transactionModel.findOneAndUpdate(
+      {
+        _id: id,
+        userId: this.userId,
+        ...NOT_DELETED,
+        amount: tx.amount,
+        transferKind: tx.transferKind ?? null,   // null matches an absent field
+      },
+      { $set: patch },
+    );
+    if (!written) throw new ConflictException('transaction changed concurrently; reload and retry');
+
+    if (delta !== 0) {
+      try {
+        await this.ledger.apply(delta, 'manual', tx.transactionName, id);
+      } catch (err) {
+        // The amount was stored but the balance did not move. Put the amount
+        // back so a retry starts from a consistent row instead of drifting.
+        await this.transactionModel.updateOne({ _id: id }, { $set: { amount: tx.amount } });
+        throw err;
+      }
+    }
   }
 
   async softDelete(id: string): Promise<void> {
@@ -245,7 +278,20 @@ export class TransactionsService {
     );
     if (!tx) throw new NotFoundException();
     if (!isNonSpendingTransfer(tx.transferKind)) {
-      await this.ledger.reverse(tx.amount, tx.transactionName, id);
+      try {
+        await this.ledger.reverse(tx.amount, tx.transactionName, id);
+      } catch (err) {
+        // Put the row back exactly as it was so the delete can be retried;
+        // otherwise the deletedAt guard 404s forever and the balance never reverses.
+        const restore: Record<string, unknown> = {};
+        if (tx.recurringId) restore.recurringId = tx.recurringId;
+        if (tx.recurringPeriod) restore.recurringPeriod = tx.recurringPeriod;
+        await this.transactionModel.updateOne(
+          { _id: id },
+          Object.keys(restore).length ? { $unset: { deletedAt: 1 }, $set: restore } : { $unset: { deletedAt: 1 } },
+        );
+        throw err;
+      }
     }
   }
 
@@ -260,9 +306,18 @@ export class TransactionsService {
       { _id: id, userId: this.userId, transferKind: 'unresolved', ...NOT_DELETED },
       { $set: { transferKind: kind } },
     );
-    if (!tx) throw new ConflictException('only an unresolved transfer can be resolved');
+    if (!tx) {
+      const live = await this.transactionModel.exists({ _id: id, userId: this.userId, ...NOT_DELETED });
+      if (!live) throw new NotFoundException();
+      throw new ConflictException('only an unresolved transfer can be resolved');
+    }
     if (kind === 'external') {
-      await this.ledger.apply(tx.amount, tx.amount < 0 ? 'expense' : 'income', tx.transactionName, id);
+      try {
+        await this.ledger.apply(tx.amount, tx.amount < 0 ? 'expense' : 'income', tx.transactionName, id);
+      } catch (err) {
+        await this.transactionModel.updateOne({ _id: id }, { $set: { transferKind: 'unresolved' } });
+        throw err;
+      }
     }
   }
 }

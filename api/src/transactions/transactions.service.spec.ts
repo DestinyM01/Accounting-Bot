@@ -58,6 +58,9 @@ describe('TransactionsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // Matches the userId: 1 baked into the update describe's `live()` fixture
+    // (same pattern as ledger.service.spec.ts and ingestion.service.spec.ts).
+    process.env.BOSS_USER_ID = '1';
     // clearAllMocks() wipes call history but keeps the resolved values below,
     // so every test starts from this same baseline unless it overrides one.
     mockModel.lean.mockResolvedValue(mockTxs);
@@ -202,20 +205,22 @@ describe('TransactionsService', () => {
   });
 
   describe('create', () => {
-    beforeEach(() => mockModel.create.mockResolvedValue({ _id: 'new1' }));
+    // Echoes the doc back the way Mongoose would, so doc.transactionName in the
+    // service reflects the stored (lowercased) name, not the raw input.
+    beforeEach(() => mockModel.create.mockImplementation((doc: any) => Promise.resolve({ _id: 'new1', ...doc })));
 
     it('stores an expense negative, via the enum, as source manual, and moves the balance', async () => {
       await service.create({ type: 'expense', amount: 150, name: 'Colmado', category: 'food' });
       expect(mockModel.create).toHaveBeenCalledWith(expect.objectContaining({
         transactionType: TransactionType.EXPENSE, amount: -150, transactionName: 'colmado', category: 'food', source: 'manual',
       }));
-      expect(ledger.apply).toHaveBeenCalledWith(-150, 'expense', 'Colmado', 'new1');
+      expect(ledger.apply).toHaveBeenCalledWith(-150, 'expense', 'colmado', 'new1');
     });
 
     it('stores income positive', async () => {
       await service.create({ type: 'income', amount: 2000, name: 'Freelance', category: 'other' });
       expect(mockModel.create).toHaveBeenCalledWith(expect.objectContaining({ transactionType: TransactionType.INCOME, amount: 2000 }));
-      expect(ledger.apply).toHaveBeenCalledWith(2000, 'income', 'Freelance', 'new1');
+      expect(ledger.apply).toHaveBeenCalledWith(2000, 'income', 'freelance', 'new1');
     });
 
     it('rejects a non-positive amount', async () => {
@@ -242,19 +247,28 @@ describe('TransactionsService', () => {
     const live = (over: Partial<any> = {}) => ({
       _id: 't1', userId: 1, amount: -100, transactionName: 'old', category: 'food', transferKind: undefined, ...over,
     });
-    beforeEach(() => { mockModel.findOne = jest.fn(); mockModel.updateOne = jest.fn().mockResolvedValue({}); });
+    beforeEach(() => {
+      mockModel.findOne = jest.fn();
+      mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({});
+    });
 
     it('applies the net delta when an ordinary expense amount changes', async () => {
       mockModel.findOne.mockResolvedValue(live());
       await service.update('t1', { amount: 130 });
-      expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { amount: -130 } });
+      expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 't1', userId: 1, deletedAt: null, amount: -100, transferKind: null }),
+        { $set: { amount: -130 } },
+      );
       expect(ledger.apply).toHaveBeenCalledWith(-30, 'manual', 'old', 't1');
     });
 
     it('keeps the stored sign: income stays positive', async () => {
       mockModel.findOne.mockResolvedValue(live({ amount: 500 }));
       await service.update('t1', { amount: 450 });
-      expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { amount: 450 } });
+      expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 't1', userId: 1, deletedAt: null, amount: 500, transferKind: null }),
+        { $set: { amount: 450 } },
+      );
       expect(ledger.apply).toHaveBeenCalledWith(-50, 'manual', 'old', 't1');
     });
 
@@ -264,7 +278,10 @@ describe('TransactionsService', () => {
         ledger.apply.mockClear();
         mockModel.findOne.mockResolvedValue(live({ transferKind: kind }));
         await service.update('t1', { amount: 999 });
-        expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { amount: -999 } });
+        expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+          expect.objectContaining({ _id: 't1', userId: 1, deletedAt: null, amount: -100, transferKind: kind }),
+          { $set: { amount: -999 } },
+        );
         expect(ledger.apply).not.toHaveBeenCalled();
       }
     });
@@ -272,7 +289,10 @@ describe('TransactionsService', () => {
     it('edits name and category without touching the balance', async () => {
       mockModel.findOne.mockResolvedValue(live());
       await service.update('t1', { name: ' Super ', category: 'other' });
-      expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { transactionName: 'super', category: 'other', categoryNeedsReview: false } });
+      expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 't1', userId: 1, deletedAt: null, amount: -100, transferKind: null }),
+        { $set: { transactionName: 'super', category: 'other', categoryNeedsReview: false } },
+      );
       expect(ledger.apply).not.toHaveBeenCalled();
     });
 
@@ -286,6 +306,25 @@ describe('TransactionsService', () => {
       mockModel.findOne.mockResolvedValue(live());
       await expect(service.update('t1', { category: 'nope' })).rejects.toThrow(/category/);
       await expect(service.update('t1', { amount: -5 })).rejects.toThrow(/amount/);
+    });
+
+    // The guarded write is the concurrency protection: a delete, another edit or a
+    // resolution changes deletedAt, amount or transferKind, the filter misses, and
+    // no delta is applied for a row that no longer matches what we read.
+    it('409s and applies nothing when the row changed between read and write', async () => {
+      mockModel.findOne.mockResolvedValue(live());
+      mockModel.findOneAndUpdate.mockResolvedValue(null);
+      await expect(service.update('t1', { amount: 130 })).rejects.toThrow(ConflictException);
+      expect(ledger.apply).not.toHaveBeenCalled();
+    });
+
+    it('restores the stored amount and rethrows when the ledger fails after the write', async () => {
+      mockModel.findOne.mockResolvedValue(live());
+      mockModel.findOneAndUpdate.mockResolvedValue({});
+      mockModel.updateOne = jest.fn().mockResolvedValue({});
+      ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
+      await expect(service.update('t1', { amount: 130 })).rejects.toThrow('ledger down');
+      expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { amount: -100 } });
     });
   });
 
@@ -304,12 +343,6 @@ describe('TransactionsService', () => {
       );
       expect(ledger.reverse).toHaveBeenCalledWith(-100, 'uber', 't1');
       expect(mockModel.deleteOne).not.toHaveBeenCalled();   // never a hard delete
-    });
-
-    it('a concurrent second delete finds no live row and reverses nothing', async () => {
-      mockModel.findOneAndUpdate.mockResolvedValue(null);
-      await expect(service.softDelete('t1')).rejects.toThrow(NotFoundException);
-      expect(ledger.reverse).not.toHaveBeenCalled();
     });
 
     // A deleted row must leave the partial unique index on
@@ -335,13 +368,14 @@ describe('TransactionsService', () => {
       }
     });
 
-    it('404s for a missing or already-deleted row, matching only live rows', async () => {
+    it('404s and reverses nothing when no live row matches (missing, deleted, or claimed by a concurrent delete)', async () => {
       mockModel.findOneAndUpdate.mockResolvedValue(null);
       await expect(service.softDelete('gone')).rejects.toThrow(NotFoundException);
       expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
         expect.objectContaining({ _id: 'gone', deletedAt: null }),
         expect.anything(),
       );
+      expect(ledger.reverse).not.toHaveBeenCalled();
     });
   });
 
@@ -371,16 +405,63 @@ describe('TransactionsService', () => {
       expect(ledger.apply).not.toHaveBeenCalled();
     });
 
-    // The atomic update is the guard: a row that is not unresolved (or was
-    // resolved a moment ago by a racing request) matches nothing → 409.
-    it('409s when the row is not unresolved', async () => {
+    it('404s when no live row exists', async () => {
       mockModel.findOneAndUpdate.mockResolvedValue(null);
+      mockModel.exists = jest.fn().mockResolvedValue(null);
+      await expect(service.resolveTransfer('gone', 'external')).rejects.toThrow(NotFoundException);
+      expect(mockModel.exists).toHaveBeenCalledWith(expect.objectContaining({ _id: 'gone', deletedAt: null }));
+      expect(ledger.apply).not.toHaveBeenCalled();
+    });
+
+    // The atomic update is the guard: a live row that is not unresolved (or was
+    // resolved a moment ago by a racing request) matches nothing → 409.
+    it('409s when the live row is not unresolved', async () => {
+      mockModel.findOneAndUpdate.mockResolvedValue(null);
+      mockModel.exists = jest.fn().mockResolvedValue({ _id: 't1' });
       await expect(service.resolveTransfer('t1', 'external')).rejects.toThrow(ConflictException);
       expect(ledger.apply).not.toHaveBeenCalled();
     });
 
     it('rejects an unknown kind', async () => {
       await expect(service.resolveTransfer('t1', 'unresolved' as any)).rejects.toThrow(/kind/);
+    });
+  });
+
+  describe('ledger failure rollback', () => {
+    beforeEach(() => { mockModel.updateOne = jest.fn().mockResolvedValue({}); mockModel.deleteOne = jest.fn().mockResolvedValue({}); });
+
+    // A manual row created milliseconds ago with no sourceMessageId may be hard-
+    // deleted: leaving it would invite a DELETE that reverses a movement that never
+    // happened. This is the one permitted hard delete, same as ingestion's rollback.
+    it('create removes the new row when the ledger fails', async () => {
+      mockModel.create.mockResolvedValue({ _id: 'new1', transactionName: 'colmado' });
+      ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
+      await expect(service.create({ type: 'expense', amount: 10, name: 'Colmado', category: 'food' })).rejects.toThrow('ledger down');
+      expect(mockModel.deleteOne).toHaveBeenCalledWith({ _id: 'new1' });
+    });
+
+    it('softDelete restores the row, including its recurring link, when the ledger fails', async () => {
+      mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({ _id: 't1', amount: -100, transactionName: 'rent', recurringId: 'r1', recurringPeriod: '2026-10' });
+      ledger.reverse.mockRejectedValueOnce(new Error('ledger down'));
+      await expect(service.softDelete('t1')).rejects.toThrow('ledger down');
+      expect(mockModel.updateOne).toHaveBeenCalledWith(
+        { _id: 't1' },
+        { $unset: { deletedAt: 1 }, $set: { recurringId: 'r1', recurringPeriod: '2026-10' } },
+      );
+    });
+
+    it('softDelete restores a row with no recurring link without a $set', async () => {
+      mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({ _id: 't1', amount: -100, transactionName: 'x' });
+      ledger.reverse.mockRejectedValueOnce(new Error('ledger down'));
+      await expect(service.softDelete('t1')).rejects.toThrow('ledger down');
+      expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $unset: { deletedAt: 1 } });
+    });
+
+    it('resolveTransfer puts the row back to unresolved when the ledger fails', async () => {
+      mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({ _id: 't1', amount: -100, transactionName: 'transfer' });
+      ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
+      await expect(service.resolveTransfer('t1', 'external')).rejects.toThrow('ledger down');
+      expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { transferKind: 'unresolved' } });
     });
   });
 });
