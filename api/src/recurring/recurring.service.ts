@@ -1,14 +1,48 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
+import { CategoriesService } from '../categories/categories.service';
+
+export interface CreateRecurringBody {
+  type: 'income' | 'expense';
+  amount: number;
+  name: string;
+  category: string;
+  dayOfMonth: number;
+}
 
 @Injectable()
 export class RecurringService {
   private readonly userId = parseInt(process.env.BOSS_USER_ID || '0', 10);
 
-  constructor(@InjectModel(Recurring.name) private model: Model<Recurring>) {}
+  constructor(
+    @InjectModel(Recurring.name) private model: Model<Recurring>,
+    private readonly categories: CategoriesService,
+  ) {}
+
+  async create(body: CreateRecurringBody): Promise<{ id: string }> {
+    const { type, amount, name, category, dayOfMonth } = body;
+    if (type !== 'income' && type !== 'expense') throw new BadRequestException(`type must be income or expense (got ${type})`);
+    if (typeof amount !== 'number' || !(amount > 0)) throw new BadRequestException(`amount must be > 0 (got ${amount})`);
+    if (!name?.trim()) throw new BadRequestException('name is required');
+    if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 28) throw new BadRequestException(`dayOfMonth must be an integer 1..28 (got ${dayOfMonth})`);
+    const allowed = (await this.categories.list()).map((c) => c.name);
+    if (!allowed.includes(category)) throw new BadRequestException(`unknown category: ${category}`);
+
+    const doc = await this.model.create({
+      userId: this.userId,
+      userName: 'web',
+      transactionName: name.trim().toLowerCase(),
+      transactionType: type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
+      amount: Math.abs(amount),          // the cron signs it by type when it fires
+      dayOfMonth,
+      category,
+      active: true,
+    });
+    return { id: String(doc._id) };
+  }
 
   async list() {
     const items = await this.model

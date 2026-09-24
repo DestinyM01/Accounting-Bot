@@ -1,6 +1,6 @@
-import { Controller, Delete, Get, HttpCode, Param, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt.guard';
-import { RecurringService } from './recurring.service';
+import { RecurringService, CreateRecurringBody } from './recurring.service';
 
 @Controller('recurring')
 @UseGuards(JwtAuthGuard)
@@ -10,6 +10,11 @@ export class RecurringController {
   @Get()
   list() {
     return this.recurringService.list();
+  }
+
+  @Post()
+  create(@Body() body: CreateRecurringBody) {
+    return this.recurringService.create(body);
   }
 
   @Delete(':id')
