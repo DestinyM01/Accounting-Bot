@@ -6,6 +6,7 @@ import { NOT_DELETED, SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 import { LedgerService } from '../shared/ledger/ledger.service';
 import { CategoriesService } from '../categories/categories.service';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
+import { NotFoundException } from '@nestjs/common';
 
 const mockTxs = [
   {
@@ -31,7 +32,7 @@ const mockTxs = [
   },
 ];
 
-const mockModel = {
+const mockModel: any = {
   find:           jest.fn(function() { return this; }),
   sort:           jest.fn(function() { return this; }),
   skip:           jest.fn(function() { return this; }),
@@ -234,6 +235,57 @@ describe('TransactionsService', () => {
     it('uses the provided timestamp, else now', async () => {
       await service.create({ type: 'expense', amount: 1, name: 'x', category: 'food', timestamp: '2026-09-01T12:00:00Z' });
       expect(mockModel.create).toHaveBeenCalledWith(expect.objectContaining({ timestamp: new Date('2026-09-01T12:00:00Z') }));
+    });
+  });
+
+  describe('update', () => {
+    const live = (over: Partial<any> = {}) => ({
+      _id: 't1', userId: 1, amount: -100, transactionName: 'old', category: 'food', transferKind: undefined, ...over,
+    });
+    beforeEach(() => { mockModel.findOne = jest.fn(); mockModel.updateOne = jest.fn().mockResolvedValue({}); });
+
+    it('applies the net delta when an ordinary expense amount changes', async () => {
+      mockModel.findOne.mockResolvedValue(live());
+      await service.update('t1', { amount: 130 });
+      expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { amount: -130 } });
+      expect(ledger.apply).toHaveBeenCalledWith(-30, 'manual', 'old', 't1');
+    });
+
+    it('keeps the stored sign: income stays positive', async () => {
+      mockModel.findOne.mockResolvedValue(live({ amount: 500 }));
+      await service.update('t1', { amount: 450 });
+      expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { amount: 450 } });
+      expect(ledger.apply).toHaveBeenCalledWith(-50, 'manual', 'old', 't1');
+    });
+
+    // These rows never moved the balance; editing them must not either.
+    it('does not move the balance for an internal or unresolved row', async () => {
+      for (const kind of ['internal', 'unresolved']) {
+        ledger.apply.mockClear();
+        mockModel.findOne.mockResolvedValue(live({ transferKind: kind }));
+        await service.update('t1', { amount: 999 });
+        expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { amount: -999 } });
+        expect(ledger.apply).not.toHaveBeenCalled();
+      }
+    });
+
+    it('edits name and category without touching the balance', async () => {
+      mockModel.findOne.mockResolvedValue(live());
+      await service.update('t1', { name: ' Super ', category: 'other' });
+      expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { transactionName: 'super', category: 'other', categoryNeedsReview: false } });
+      expect(ledger.apply).not.toHaveBeenCalled();
+    });
+
+    it('looks up only live rows and 404s otherwise', async () => {
+      mockModel.findOne.mockResolvedValue(null);
+      await expect(service.update('gone', { name: 'x' })).rejects.toThrow(NotFoundException);
+      expect(mockModel.findOne).toHaveBeenCalledWith(expect.objectContaining({ _id: 'gone', deletedAt: null }));
+    });
+
+    it('rejects an unknown category and a non-positive amount', async () => {
+      mockModel.findOne.mockResolvedValue(live());
+      await expect(service.update('t1', { category: 'nope' })).rejects.toThrow(/category/);
+      await expect(service.update('t1', { amount: -5 })).rejects.toThrow(/amount/);
     });
   });
 });

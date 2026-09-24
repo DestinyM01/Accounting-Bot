@@ -1,7 +1,7 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt.guard';
-import { TransactionsService, TransactionPage, CreateTransactionBody } from './transactions.service';
+import { TransactionsService, TransactionPage, CreateTransactionBody, UpdateTransactionBody } from './transactions.service';
 
 @Controller('transactions')
 @UseGuards(JwtAuthGuard)
@@ -34,6 +34,12 @@ export class TransactionsController {
   @Post()
   create(@Body() body: CreateTransactionBody) {
     return this.transactionsService.create(body);
+  }
+
+  @Put(':id')
+  @HttpCode(204)
+  async update(@Param('id') id: string, @Body() body: UpdateTransactionBody) {
+    await this.transactionsService.update(id, body);
   }
 
   @Patch(':id/category')

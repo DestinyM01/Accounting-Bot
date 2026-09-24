@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
@@ -12,6 +12,13 @@ export interface CreateTransactionBody {
   amount: number;
   name: string;
   category: string;
+  timestamp?: string;
+}
+
+export interface UpdateTransactionBody {
+  name?: string;
+  category?: string;
+  amount?: number;
   timestamp?: string;
 }
 
@@ -183,5 +190,41 @@ export class TransactionsService {
     });
     await this.ledger.apply(signed, type, name.trim(), String(doc._id));
     return { id: String(doc._id) };
+  }
+
+  async update(id: string, body: UpdateTransactionBody): Promise<void> {
+    const tx = await this.transactionModel.findOne({ _id: id, userId: this.userId, ...NOT_DELETED });
+    if (!tx) throw new NotFoundException();
+
+    const patch: Record<string, unknown> = {};
+
+    if (body.name !== undefined) {
+      if (!body.name.trim()) throw new BadRequestException('name is required');
+      patch.transactionName = body.name.trim().toLowerCase();
+    }
+    if (body.category !== undefined) {
+      await this.assertCategory(body.category);
+      patch.category = body.category;
+      patch.categoryNeedsReview = false;
+    }
+    if (body.timestamp !== undefined) {
+      const ts = new Date(body.timestamp);
+      if (isNaN(ts.getTime())) throw new BadRequestException('timestamp is invalid');
+      patch.timestamp = ts;
+    }
+
+    let delta = 0;
+    if (body.amount !== undefined) {
+      this.assertPositive(body.amount);
+      // The stored sign is the direction; never re-derive it from the enum here.
+      const newSigned = tx.amount < 0 ? -Math.abs(body.amount) : Math.abs(body.amount);
+      patch.amount = newSigned;
+      // internal / unresolved rows never moved the balance, so a new amount must not either.
+      if (!isNonSpendingTransfer(tx.transferKind)) delta = newSigned - tx.amount;
+    }
+
+    if (Object.keys(patch).length === 0) return;
+    await this.transactionModel.updateOne({ _id: id }, { $set: patch });
+    if (delta !== 0) await this.ledger.apply(delta, 'manual', tx.transactionName, id);
   }
 }
