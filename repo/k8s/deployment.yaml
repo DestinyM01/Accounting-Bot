@@ -22,7 +22,7 @@ spec:
   # one is ready, giving zero-downtime deploys. maxSurge: 1 allows a brief
   # overlap where both old and new pods are running — during that window both
   # call getUpdates, so a small number of messages may be processed twice.
-  # Acceptable trade-off for a single-replica bot; keep replicas: 1.
+  # Acceptable trade-off while the bot ran as a single replica (retired: now 0).
   strategy:
     type: RollingUpdate
     rollingUpdate:

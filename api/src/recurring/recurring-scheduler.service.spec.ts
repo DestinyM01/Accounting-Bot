@@ -33,6 +33,11 @@ const ruleId = () => new Types.ObjectId(CREATED_HEX + String(++idSeq).padStart(1
 function makeRule(overrides: Record<string, unknown> = {}): any {
   return {
     _id: ruleId(),
+    // What Mongoose puts in a legacy rule stored without createdAt: "now". The
+    // sweep must ignore it and read the creation time from the ObjectId, or
+    // every legacy rule's due occurrences look older than the rule and nothing
+    // is ever booked.
+    createdAt: NOW,
     userId: 1,
     userName: 'web',
     transactionName: 'loan',
