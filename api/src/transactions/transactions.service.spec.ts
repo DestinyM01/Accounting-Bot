@@ -288,4 +288,60 @@ describe('TransactionsService', () => {
       await expect(service.update('t1', { amount: -5 })).rejects.toThrow(/amount/);
     });
   });
+
+  describe('softDelete', () => {
+    // One atomic findOneAndUpdate matching only a LIVE row. It returns the
+    // pre-image, so the amount we reverse comes from the same operation that won
+    // the race. Two concurrent deletes cannot both reverse the balance.
+    beforeEach(() => { mockModel.findOneAndUpdate = jest.fn(); mockModel.deleteOne = jest.fn(); });
+
+    it('marks the row deleted atomically and reverses the balance for an ordinary expense', async () => {
+      mockModel.findOneAndUpdate.mockResolvedValue({ _id: 't1', amount: -100, transactionName: 'uber', transferKind: undefined });
+      await service.softDelete('t1');
+      expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 't1', deletedAt: null }),
+        { $set: { deletedAt: expect.any(Date) }, $unset: { recurringId: 1, recurringPeriod: 1 } },
+      );
+      expect(ledger.reverse).toHaveBeenCalledWith(-100, 'uber', 't1');
+      expect(mockModel.deleteOne).not.toHaveBeenCalled();   // never a hard delete
+    });
+
+    it('a concurrent second delete finds no live row and reverses nothing', async () => {
+      mockModel.findOneAndUpdate.mockResolvedValue(null);
+      await expect(service.softDelete('t1')).rejects.toThrow(NotFoundException);
+      expect(ledger.reverse).not.toHaveBeenCalled();
+    });
+
+    // A deleted row must leave the partial unique index on
+    // (userId, recurringId, recurringPeriod), or the bank email for that period
+    // can never be recorded: its create collides with the deleted row and every
+    // poll re-parses the mail. Unsetting the link is what frees the slot.
+    it('unsets the recurring link so the period can be recorded again', async () => {
+      mockModel.findOneAndUpdate.mockResolvedValue({ _id: 't2', amount: -20000, transactionName: 'rent', recurringId: 'r1', recurringPeriod: '2026-10' });
+      await service.softDelete('t2');
+      expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ $unset: { recurringId: 1, recurringPeriod: 1 } }),
+      );
+    });
+
+    it('does not touch the balance for internal or unresolved rows', async () => {
+      for (const kind of ['internal', 'unresolved']) {
+        ledger.reverse.mockClear();
+        mockModel.findOneAndUpdate.mockResolvedValue({ _id: 't1', amount: -100, transferKind: kind });
+        await service.softDelete('t1');
+        expect(mockModel.findOneAndUpdate).toHaveBeenCalled();
+        expect(ledger.reverse).not.toHaveBeenCalled();
+      }
+    });
+
+    it('404s for a missing or already-deleted row, matching only live rows', async () => {
+      mockModel.findOneAndUpdate.mockResolvedValue(null);
+      await expect(service.softDelete('gone')).rejects.toThrow(NotFoundException);
+      expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 'gone', deletedAt: null }),
+        expect.anything(),
+      );
+    });
+  });
 });

@@ -227,4 +227,25 @@ export class TransactionsService {
     await this.transactionModel.updateOne({ _id: id }, { $set: patch });
     if (delta !== 0) await this.ledger.apply(delta, 'manual', tx.transactionName, id);
   }
+
+  async softDelete(id: string): Promise<void> {
+    // One atomic step that matches only a LIVE row and marks it. It returns the
+    // pre-image, so the amount reversed below comes from the same operation that
+    // won the race: two concurrent deletes cannot both reverse the balance.
+    //
+    // $unset the recurring link so the row leaves the partial unique index on
+    // (userId, recurringId, recurringPeriod). Otherwise the bank email for that
+    // period can never be recorded — its create collides with this deleted row —
+    // and, having no sourceMessageId to dedupe on, is re-parsed on every poll.
+    // ($exists: false is not allowed in a partialFilterExpression, so the index
+    // itself cannot be taught to ignore deleted rows.)
+    const tx = await this.transactionModel.findOneAndUpdate(
+      { _id: id, userId: this.userId, ...NOT_DELETED },
+      { $set: { deletedAt: new Date() }, $unset: { recurringId: 1, recurringPeriod: 1 } },
+    );
+    if (!tx) throw new NotFoundException();
+    if (!isNonSpendingTransfer(tx.transferKind)) {
+      await this.ledger.reverse(tx.amount, tx.transactionName, id);
+    }
+  }
 }
