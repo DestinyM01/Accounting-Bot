@@ -2,7 +2,8 @@ import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/co
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
-import { forkJoin, timer, Subscription } from 'rxjs';
+import { forkJoin, timer, merge, Subscription } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
 import { Chart, registerables } from 'chart.js';
 import { ApiService } from '../../core/services/api.service';
 import {
@@ -40,44 +41,41 @@ export class DashboardComponent implements OnInit, OnDestroy {
   stats: StatCard[] = [];
   loading = true;
   private chart: Chart | null = null;
-  private refreshSub: Subscription | null = null;
-  private eventsSub: Subscription | null = null;
+  private sub: Subscription | null = null;
+  private destroyed = false;
 
   constructor(private api: ApiService, private events: TransactionEventsService) {}
 
   ngOnInit() {
-    this.refresh();
-
-    this.refreshSub = timer(60_000, 60_000).subscribe(() => this.refresh());
-    this.eventsSub = this.events.changed$.subscribe(() => this.refresh());
+    this.sub = merge(timer(0, 60_000), this.events.changed$)
+      .pipe(switchMap(() => forkJoin({
+        balance:      this.api.getBalance(),
+        summary:      this.api.getStatisticsSummary(),
+        transactions: this.api.getTransactions({ limit: 5 }),
+        budget:       this.api.getBudget(),
+        monthly:      this.api.getMonthlyStats(),
+      })))
+      .subscribe({
+        next: (d) => {
+          this.balance  = d.balance;
+          this.summary  = d.summary;
+          this.recentTx = d.transactions.items;
+          this.budgets  = d.budget;
+          this.monthly  = d.monthly;
+          this.buildStats(d.monthly);
+          this.loading  = false;
+          // defer one tick so *ngIf renders the canvas before we grab it
+          setTimeout(() => { if (!this.destroyed) this.buildChart(); }, 0);
+        },
+        error: () => { this.loading = false; },
+      });
   }
 
   ngOnDestroy() {
-    this.refreshSub?.unsubscribe();
-    this.eventsSub?.unsubscribe();
-  }
-
-  private refresh() {
-    forkJoin({
-      balance:      this.api.getBalance(),
-      summary:      this.api.getStatisticsSummary(),
-      transactions: this.api.getTransactions({ limit: 5 }),
-      budget:       this.api.getBudget(),
-      monthly:      this.api.getMonthlyStats(),
-    }).subscribe({
-      next: (d) => {
-        this.balance  = d.balance;
-        this.summary  = d.summary;
-        this.recentTx = d.transactions.items;
-        this.budgets  = d.budget;
-        this.monthly  = d.monthly;
-        this.buildStats(d.monthly);
-        this.loading  = false;
-        // defer one tick so *ngIf renders the canvas before we grab it
-        setTimeout(() => this.buildChart(), 0);
-      },
-      error: () => { this.loading = false; },
-    });
+    this.destroyed = true;
+    this.sub?.unsubscribe();
+    this.chart?.destroy();
+    this.chart = null;
   }
 
   private buildStats(monthly: MonthlyPoint[]) {

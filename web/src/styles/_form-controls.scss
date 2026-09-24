@@ -22,7 +22,6 @@
   &:hover:not(:disabled) { opacity: 0.85; }
 }
 .fc-btn--ghost   { background: none; border: 1px solid var(--border); color: var(--text-muted);
-  &:hover { background: var(--color-surface-hover); }
+  &:hover:not(:disabled) { background: var(--color-surface-hover); }
 }
-.fc-btn--danger  { background: none; border: 1px solid var(--expense); color: var(--expense); }
 .fc-error { margin: 0; color: var(--expense); font-size: 0.8rem; }

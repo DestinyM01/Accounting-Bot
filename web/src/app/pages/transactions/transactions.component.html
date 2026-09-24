@@ -128,15 +128,21 @@
 
           <div class="tx-cell align-right tx-actions">
             @if (tx.transferKind === 'unresolved') {
-              <button class="act-btn" (click)="resolve(tx, 'internal')" title="Money moved between my own accounts">Internal</button>
-              <button class="act-btn" (click)="resolve(tx, 'external')" title="A real payment or income">Expense</button>
+              <button class="act-btn" [disabled]="pendingId === tx._id" (click)="resolve(tx, 'internal')" title="Money moved between my own accounts">Internal</button>
+              <button class="act-btn" [disabled]="pendingId === tx._id" (click)="resolve(tx, 'external')" title="A real payment or income">Expense</button>
             }
-            @if (confirmingDelete === tx._id) {
-              <button class="act-btn danger" (click)="confirmDelete(tx)">Confirm</button>
-              <button class="act-btn" (click)="cancelDelete()">Cancel</button>
-            } @else {
+            @if (confirmingDelete !== tx._id) {
               <button class="icon-act" (click)="edit(tx)" aria-label="Edit"><mat-icon>edit</mat-icon></button>
-              <button class="icon-act" (click)="askDelete(tx)" aria-label="Delete"><mat-icon>delete_outline</mat-icon></button>
+            }
+            <button #delBtn class="icon-act" [class.danger]="confirmingDelete === tx._id"
+                    [attr.aria-label]="confirmingDelete === tx._id ? 'Confirm delete' : 'Delete'"
+                    [disabled]="pendingId === tx._id"
+                    (click)="confirmingDelete === tx._id ? confirmDelete(tx) : askDelete(tx)"
+                    (keydown.escape)="cancelDelete(delBtn)">
+              <mat-icon>{{ confirmingDelete === tx._id ? 'check' : 'delete_outline' }}</mat-icon>
+            </button>
+            @if (confirmingDelete === tx._id) {
+              <button class="icon-act" aria-label="Cancel delete" [disabled]="pendingId === tx._id" (click)="cancelDelete(delBtn)"><mat-icon>close</mat-icon></button>
             }
           </div>
         </div>

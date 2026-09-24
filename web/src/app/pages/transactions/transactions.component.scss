@@ -251,13 +251,16 @@
 .act-btn {
   background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 8px;
   color: var(--text); font-family: var(--font-body); font-size: 0.75rem; padding: 4px 10px; cursor: pointer;
-  &:hover { background: var(--color-surface-hover); }
+  &:hover:not(:disabled) { background: var(--color-surface-hover); }
   &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
   &.danger { border-color: var(--expense); color: var(--expense); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .icon-act {
   background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 8px;
   mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
-  &:hover { background: var(--color-surface-hover); color: var(--text); }
+  &:hover:not(:disabled) { background: var(--color-surface-hover); color: var(--text); }
   &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  &.danger { color: var(--expense); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
 }

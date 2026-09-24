@@ -23,7 +23,7 @@
         <mat-icon>{{ saving ? 'hourglass_empty' : 'check' }}</mat-icon>
         {{ saving ? 'Saving…' : 'Set Limit' }}
       </button>
-      <button class="fc-btn fc-btn--ghost bf-cancel" (click)="closeForm()">
+      <button class="fc-btn fc-btn--ghost bf-cancel" aria-label="Cancel" (click)="closeForm()">
         <mat-icon>close</mat-icon>
       </button>
     </div>

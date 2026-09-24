@@ -15,7 +15,6 @@ const mockModel: any = {
 };
 
 const categoriesService = {
-  list: jest.fn().mockResolvedValue([{ name: 'food' }, { name: 'other' }]),
   assertValid: jest.fn(async (c: string) => {
     if (!['food', 'other'].includes(c)) throw new BadRequestException(`unknown category: ${c}`);
   }),
@@ -28,7 +27,6 @@ describe('RecurringService', () => {
     jest.clearAllMocks();
     process.env.BOSS_USER_ID = '1';
     mockModel.lean.mockResolvedValue([]);
-    categoriesService.list.mockResolvedValue([{ name: 'food' }, { name: 'other' }]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

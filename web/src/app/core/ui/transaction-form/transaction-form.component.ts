@@ -87,8 +87,16 @@ export class TransactionFormComponent implements OnInit, OnDestroy {
     setTimeout(() => this.trigger?.focus(), 0);
   }
 
+  /** Cancel button, backdrop click and Escape all dismiss the form this way —
+   *  ignored mid-save so a request that completes after the user dismisses
+   *  can't close a form they've since reopened. */
+  dismiss() {
+    if (this.saving) return;
+    this.close();
+  }
+
   @HostListener('document:keydown.escape')
-  onEscape() { if (this.open) this.close(); }
+  onEscape() { if (this.open) this.dismiss(); }
 
   save() {
     if (!this.valid || this.saving) return;

@@ -1,9 +1,9 @@
 @if (open) {
-  <div class="tf-scrim" (click)="close()" aria-hidden="true"></div>
+  <div class="tf-scrim" (click)="dismiss()" aria-hidden="true"></div>
   <div class="tf-panel card" role="dialog" aria-modal="true" [attr.aria-label]="mode === 'edit' ? 'Edit transaction' : 'New transaction'">
     <div class="tf-header">
       <h2>{{ mode === 'edit' ? 'Edit transaction' : 'New transaction' }}</h2>
-      <button class="tf-close" type="button" (click)="close()" aria-label="Close"><mat-icon>close</mat-icon></button>
+      <button class="tf-close" type="button" (click)="dismiss()" aria-label="Close"><mat-icon>close</mat-icon></button>
     </div>
 
     @if (mode === 'create') {
@@ -39,7 +39,7 @@
     @if (error) { <p class="fc-error" role="alert">{{ error }}</p> }
 
     <div class="tf-actions">
-      <button type="button" class="fc-btn fc-btn--ghost" (click)="close()">Cancel</button>
+      <button type="button" class="fc-btn fc-btn--ghost" [disabled]="saving" (click)="dismiss()">Cancel</button>
       <button type="button" class="fc-btn fc-btn--primary" [disabled]="!valid || saving" (click)="save()">
         <mat-icon>{{ saving ? 'hourglass_empty' : 'check' }}</mat-icon>
         {{ saving ? 'Saving…' : (mode === 'edit' ? 'Save changes' : 'Add') }}

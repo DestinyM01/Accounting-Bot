@@ -36,8 +36,10 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   get categories(): string[] { return this.catSvc.all.map(c => c.name); }
 
   confirmingDelete: string | null = null;
+  pendingId: string | null = null;
 
   private search$ = new Subject<string>();
+  private searchSub!: Subscription;
   private eventsSub!: Subscription;
 
   constructor(
@@ -48,13 +50,14 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.search$.pipe(debounceTime(300), distinctUntilChanged())
+    this.searchSub = this.search$.pipe(debounceTime(300), distinctUntilChanged())
       .subscribe(() => { this.offset = 0; this.load(false); });
     this.eventsSub = this.events.changed$.subscribe(() => this.reloadInPlace());
     this.load(false);
   }
 
   ngOnDestroy() {
+    this.searchSub?.unsubscribe();
     this.eventsSub?.unsubscribe();
   }
 
@@ -83,7 +86,10 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         this.loading = this.loadingMore = false;
         this.error   = null;
       },
-      error: () => { this.loading = this.loadingMore = false; },
+      error: () => {
+        this.loading = this.loadingMore = false;
+        this.error = 'Could not load transactions — reload the page.';
+      },
     });
   }
 
@@ -161,11 +167,21 @@ export class TransactionsComponent implements OnInit, OnDestroy {
 
   edit(tx: Transaction)      { this.formSvc.openEdit(tx); }
   askDelete(tx: Transaction) { this.confirmingDelete = tx._id; }
-  cancelDelete()             { this.confirmingDelete = null; }
+  cancelDelete(btn?: HTMLElement) {
+    this.confirmingDelete = null;
+    btn?.focus();
+  }
   confirmDelete(tx: Transaction) {
+    if (this.pendingId) return;
+    this.pendingId = tx._id;
     this.api.deleteTransaction(tx._id).subscribe({
-      next: () => { this.confirmingDelete = null; this.events.notify(); },
+      next: () => {
+        this.pendingId = null;
+        this.confirmingDelete = null;
+        this.events.notify();
+      },
       error: (e: { status?: number }) => {
+        this.pendingId = null;
         this.confirmingDelete = null;
         alert(this.writeErrorMessage(e, 'Could not delete. Please try again.'));
         // A 404/409 means the row is stale (deleted or changed elsewhere) —
@@ -175,9 +191,12 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     });
   }
   resolve(tx: Transaction, kind: 'internal' | 'external') {
+    if (this.pendingId) return;
+    this.pendingId = tx._id;
     this.api.resolveTransfer(tx._id, kind).subscribe({
-      next: () => this.events.notify(),
+      next: () => { this.pendingId = null; this.events.notify(); },
       error: (e: { status?: number }) => {
+        this.pendingId = null;
         alert(this.writeErrorMessage(e, 'Could not resolve this transfer.'));
         this.events.notify();
       },

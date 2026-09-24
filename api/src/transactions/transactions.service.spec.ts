@@ -50,7 +50,6 @@ const ledger = {
 };
 
 const categoriesService = {
-  list: jest.fn().mockResolvedValue([{ name: 'food' }, { name: 'other' }, { name: 'Gym' }]),
   assertValid: jest.fn(async (c: string) => {
     if (!['food', 'other', 'Gym'].includes(c)) throw new BadRequestException(`unknown category: ${c}`);
   }),
@@ -71,7 +70,6 @@ describe('TransactionsService', () => {
     mockModel.findOneAndUpdate.mockResolvedValue(null);
     ledger.apply.mockResolvedValue({ previousBalance: 0, newBalance: 0 });
     ledger.reverse.mockResolvedValue({ previousBalance: 0, newBalance: 0 });
-    categoriesService.list.mockResolvedValue([{ name: 'food' }, { name: 'other' }, { name: 'Gym' }]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
