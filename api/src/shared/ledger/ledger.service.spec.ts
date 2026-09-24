@@ -64,4 +64,50 @@ describe('LedgerService', () => {
     balanceModel.findOneAndUpdate.mockResolvedValueOnce({ userId: 1, balance: 990 });
     await expect(service.apply(-10, 'expense')).resolves.toEqual({ previousBalance: 1000, newBalance: 990 });
   });
+
+  describe('setTo', () => {
+    it('sets an absolute total in one atomic write and records the difference as manual', async () => {
+      balanceModel.findOneAndUpdate.mockResolvedValueOnce({ userId: 1, balance: 52400 });
+      const r = await service.setTo(51170, 'cash not tracked');
+      expect(balanceModel.findOneAndUpdate).toHaveBeenCalledWith(
+        { userId: 1 },
+        { $set: { balance: 51170, lastActivity: expect.any(Date) } },
+        { upsert: true, new: false, setDefaultsOnInsert: true },
+      );
+      expect(historyModel.create).toHaveBeenCalledWith({
+        userId: 1,
+        previousBalance: 52400,
+        newBalance: 51170,
+        delta: -1230,
+        reason: 'manual',
+        transactionName: 'cash not tracked',
+      });
+      expect(r).toEqual({ previousBalance: 52400, newBalance: 51170, delta: -1230 });
+    });
+
+    it('records nothing when the total is unchanged', async () => {
+      balanceModel.findOneAndUpdate.mockResolvedValueOnce({ userId: 1, balance: 500 });
+      const r = await service.setTo(500);
+      expect(historyModel.create).not.toHaveBeenCalled();
+      expect(r).toEqual({ previousBalance: 500, newBalance: 500, delta: 0 });
+    });
+
+    it('starts from zero when no balance exists yet', async () => {
+      balanceModel.findOneAndUpdate.mockResolvedValueOnce(null);
+      const r = await service.setTo(100);
+      expect(r).toEqual({ previousBalance: 0, newBalance: 100, delta: 100 });
+      expect(historyModel.create).toHaveBeenCalledWith(expect.objectContaining({ previousBalance: 0, delta: 100 }));
+    });
+
+    it('rounds the difference to cents', async () => {
+      balanceModel.findOneAndUpdate.mockResolvedValueOnce({ userId: 1, balance: 0.1 });
+      expect((await service.setTo(0.3)).delta).toBe(0.2);
+    });
+
+    it('keeps the correction when writing history fails', async () => {
+      balanceModel.findOneAndUpdate.mockResolvedValueOnce({ userId: 1, balance: 10 });
+      historyModel.create.mockRejectedValueOnce(new Error('history down'));
+      await expect(service.setTo(20)).resolves.toEqual({ previousBalance: 10, newBalance: 20, delta: 10 });
+    });
+  });
 });

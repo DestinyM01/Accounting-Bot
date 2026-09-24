@@ -64,4 +64,40 @@ export class LedgerService {
   ): Promise<{ previousBalance: number; newBalance: number }> {
     return this.apply(-storedAmount, 'delete', transactionName, transactionId);
   }
+
+  /**
+   * Sets the balance to an absolute total: the user's correction against their
+   * real accounts. One atomic write; the replaced value comes from the
+   * pre-image, so no movement landing at the same moment can be lost. An
+   * unchanged total records nothing.
+   */
+  async setTo(
+    target: number,
+    note?: string,
+  ): Promise<{ previousBalance: number; newBalance: number; delta: number }> {
+    const before = await this.balanceModel.findOneAndUpdate(
+      { userId: this.userId },
+      { $set: { balance: target, lastActivity: new Date() } },
+      { upsert: true, new: false, setDefaultsOnInsert: true },
+    );
+    const previousBalance = before?.balance ?? 0;
+    const delta = Math.round((target - previousBalance) * 100) / 100;
+
+    if (delta !== 0) {
+      // History failure must never break the correction that already happened.
+      try {
+        await this.historyModel.create({
+          userId: this.userId,
+          previousBalance,
+          newBalance: target,
+          delta,
+          reason: 'manual',
+          transactionName: note,
+        });
+      } catch (err) {
+        this.logger.error('Failed to record balance history', String(err));
+      }
+    }
+    return { previousBalance, newBalance: target, delta };
+  }
 }
