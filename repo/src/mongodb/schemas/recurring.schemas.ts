@@ -34,6 +34,14 @@ export class Recurring extends Document {
 
   @Prop()
   lastExecutedAt: Date;
+
+  /**
+   * Mirror of api/src/shared/schemas/recurring.schema.ts — same collection.
+   * Written only by the api's recurring sweep: the last occurrence handled, as
+   * 'YYYY-MM'. Only ever moves forward.
+   */
+  @Prop()
+  lastPeriod?: string;
 }
 
 export const RecurringSchema = SchemaFactory.createForClass(Recurring);
