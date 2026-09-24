@@ -151,6 +151,7 @@ export class TransactionsService {
   }
 
   async setCategory(id: string, category: string): Promise<void> {
+    await this.assertCategory(category);
     await this.transactionModel.findOneAndUpdate(
       { _id: id, userId: this.userId, ...NOT_DELETED },
       { category, categoryNeedsReview: false },

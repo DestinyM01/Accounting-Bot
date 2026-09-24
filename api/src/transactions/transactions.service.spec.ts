@@ -151,6 +151,12 @@ describe('TransactionsService', () => {
       );
     });
 
+    // setCategory — the pre-existing PATCH skipped the allow-list entirely
+    it('setCategory rejects an unknown category', async () => {
+      await expect(service.setCategory('t1', 'nope')).rejects.toThrow(/category/);
+      expect(mockModel.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
     it('can list only unresolved transfers', async () => {
       await service.findAll({ transferKind: 'unresolved' });
       expect(mockModel.find).toHaveBeenCalledWith(
@@ -241,6 +247,19 @@ describe('TransactionsService', () => {
       await service.create({ type: 'expense', amount: 1, name: 'x', category: 'food', timestamp: '2026-09-01T12:00:00Z' });
       expect(mockModel.create).toHaveBeenCalledWith(expect.objectContaining({ timestamp: new Date('2026-09-01T12:00:00Z') }));
     });
+
+    it('rejects an invalid timestamp', async () => {
+      await expect(service.create({ type: 'expense', amount: 1, name: 'x', category: 'food', timestamp: 'not-a-date' })).rejects.toThrow(/timestamp/);
+      expect(mockModel.create).not.toHaveBeenCalled();
+    });
+
+    // Category names are exact: custom categories keep their case ('Gym'), and
+    // the allow-list is the stored spelling, so 'gym' must not pass.
+    it('matches categories exactly, including case', async () => {
+      mockModel.create.mockResolvedValue({ _id: 'n', transactionName: 'x' });
+      await expect(service.create({ type: 'expense', amount: 1, name: 'x', category: 'Gym' })).resolves.toEqual({ id: 'n' });
+      await expect(service.create({ type: 'expense', amount: 1, name: 'x', category: 'gym' })).rejects.toThrow(/category/);
+    });
   });
 
   describe('update', () => {
@@ -306,6 +325,20 @@ describe('TransactionsService', () => {
       mockModel.findOne.mockResolvedValue(live());
       await expect(service.update('t1', { category: 'nope' })).rejects.toThrow(/category/);
       await expect(service.update('t1', { amount: -5 })).rejects.toThrow(/amount/);
+    });
+
+    it('rejects an invalid timestamp and a blank name', async () => {
+      mockModel.findOne.mockResolvedValue(live());
+      await expect(service.update('t1', { timestamp: 'nope' })).rejects.toThrow(/timestamp/);
+      await expect(service.update('t1', { name: '   ' })).rejects.toThrow(/name/);
+      expect(mockModel.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('an empty body writes nothing and moves nothing', async () => {
+      mockModel.findOne.mockResolvedValue(live());
+      await service.update('t1', {});
+      expect(mockModel.findOneAndUpdate).not.toHaveBeenCalled();
+      expect(ledger.apply).not.toHaveBeenCalled();
     });
 
     // The guarded write is the concurrency protection: a delete, another edit or a
