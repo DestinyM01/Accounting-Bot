@@ -2143,7 +2143,8 @@ cd web && pnpm run build
 ```bash
 git grep -n "\$nin: \['internal'" -- api/src repo/src        # only transfer-kind.ts
 git grep -nE "deleteOne\(\{ *_id" -- api/src repo/src          # no hard deletes of transactions remain
-git diff <start>..HEAD | grep -nE "6728|0010|1311|7574|4492|SUERO|ANDUJAR|KENNY|JANIA|JOEL|sueroandujar" || echo clean
+git diff <start>..HEAD | grep -nE "$PII_PATTERN" || echo clean
+(`PII_PATTERN` is a shell variable holding the real identifiers, kept outside the repo — never write the list itself into a tracked file.)
 ```
 
 ---
@@ -2175,3 +2176,16 @@ git diff <start>..HEAD | grep -nE "6728|0010|1311|7574|4492|SUERO|ANDUJAR|KENNY|
 **Placeholder scan:** Task 11's tests are described with the assertions to make rather than full mock plumbing because they must match `repo/`'s existing hand-built mocks; every assertion is named. Task 12 gives the exact regex transformation and the exact replacement lines. No "add validation" or "similar to Task N".
 
 **Type consistency:** `LedgerService.apply(delta, reason, name?, id?)` is used with that signature in Tasks 4, 6, 7, 9; `reverse(storedAmount, name?, id?)` in 4, 8. `isNonSpendingTransfer`, `NOT_DELETED`, `SPENDING_ONLY` are the same names in both packages (Task 1) and used in 3, 7, 8, 9, 11. `CreateTransactionBody`/`UpdateTransactionBody` (api) mirror `CreateTransactionRequest`/`UpdateTransactionRequest` (web). `TransactionFormService.openEdit(tx)` is called from Task 15 with the `Transaction` model defined in Task 13.
+
+### Phase 3 follow-ups (from the code-quality review, 2026-09-24)
+
+Approved with minor follow-ups. The three Important items (dashboard refresh stream torn down on destroy, in-flight guard on delete/resolve, delete-confirm keeps focus) were fixed in the same batch as the one-liners. Deferred, in rough priority order:
+
+- **Overlay focus trap** — Tab from "Add" leaves the dialog into the scrimmed page. Cheapest: `inert` on the shell while open, or a Tab-cycle keydown in `.tf-panel`. Also `aria-labelledby` instead of an `aria-label` that duplicates the `<h2>`; arrow keys / roving tabindex on the `role="radio"` type toggle, or `aria-pressed` toggles which match the behaviour; `aria-expanded` on the recurring "New Rule" button.
+- **Initial bundle +37.7 kB raw** — `@angular/forms` entered the initial bundle because the eager `TransactionFormComponent` imports `FormsModule` (inferred from chunk deltas). `@defer` the panel, or the whole `<app-transaction-form />` on first open.
+- **Shared helpers** — `describeWriteError(e, fallback)` in core with `HttpErrorResponse` (the error shape is hand-typed three ways and the 404/409 wording is split between the overlay and `writeErrorMessage`); `CategoryService.names` (the `get categories()` getter is in four components); `isTransfer(tx)` shared with the dashboard template; one `localDate(key, h, m, s)` helper that takes a `Date`.
+- **FAB states** — `data-state="loading|error|success"` selectors have no producer. Drive them from the form service, or drop the inert selectors.
+- **Missing states** — `.tf-type-btn` hover/active, `.tf-close` active, `.fc-input:disabled`.
+- **Naming** — `--fab-clearance` token for the 88px bottom padding; `API_MAX_PAGE` for the 200 reload cap (the cap lives in `transactions.service.ts` `findAll`); the z-index ladder comment on the overlay's 1100/1101; the recurring form's `f`-prefixed fields.
+- **`window.alert()`** for 404/409 write errors is the app's existing idiom; replace with inline messages page by page.
+- Earlier noted, unchanged: advancing ingestion watermark; `@Cron` reads env at import; `Balance.userId` unique index.
