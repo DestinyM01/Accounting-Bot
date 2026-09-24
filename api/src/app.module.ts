@@ -13,6 +13,7 @@ import { CompareModule } from './compare/compare.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { CategoriesModule } from './categories/categories.module';
 import { IngestionModule } from './ingestion/ingestion.module';
+import { ReportsModule } from './reports/reports.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -33,6 +34,7 @@ import { HealthController } from './health/health.controller';
     AnalyticsModule,
     CategoriesModule,
     IngestionModule,
+    ReportsModule,
   ],
   controllers: [HealthController],
 })
