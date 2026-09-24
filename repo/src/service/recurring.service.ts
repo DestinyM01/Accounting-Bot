@@ -1,21 +1,17 @@
-﻿import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Cron } from '@nestjs/schedule';
 import { Recurring } from '../mongodb/schemas/recurring.schemas';
-import { TransactionService } from './transaction.service';
-import { BalanceService } from './balance.service';
 import { TransactionType } from '../type/enum/transactionType.enam';
 
+/**
+ * Recurring rules as the bot manages them. Booking moved to the api's hourly
+ * sweep (api/src/recurring/recurring-scheduler.service.ts) on 2026-09-24; the
+ * bot is scaled to zero and must never book on its own again.
+ */
 @Injectable()
 export class RecurringService {
-  private readonly logger: Logger = new Logger(RecurringService.name);
-
-  constructor(
-    @InjectModel('Recurring') private readonly recurringModel: Model<Recurring>,
-    private readonly transactionService: TransactionService,
-    private readonly balanceService: BalanceService,
-  ) {}
+  constructor(@InjectModel('Recurring') private readonly recurringModel: Model<Recurring>) {}
 
   async createRecurring(
     userId: number,
@@ -45,96 +41,4 @@ export class RecurringService {
   async deleteRecurring(userId: number, recurringId: string): Promise<void> {
     await this.recurringModel.findOneAndUpdate({ _id: recurringId, userId }, { active: false }).exec();
   }
-
-  @Cron('0 8 * * *', { timeZone: process.env.CRON_TIMEZONE || 'America/Santo_Domingo' })
-  async processRecurring(): Promise<void> {
-    const today = new Date().getDate();
-    this.logger.log(`Processing recurring transactions for day ${today}`);
-
-    const period = currentPeriodKey();
-    const due = await this.recurringModel.find({ dayOfMonth: today, active: true }).exec();
-    for (const r of due) {
-      try {
-        // lastExecutedAt was previously written but never read, so two runs on
-        // the same day created two transactions for one payment.
-        if (r.lastExecutedAt && isSameMonth(new Date(r.lastExecutedAt), new Date())) {
-          this.logger.log(`Recurring "${r.transactionName}" already executed this month — skipping`);
-          continue;
-        }
-
-        // The bank email may already have recorded this payment. The email is
-        // evidence the money moved; the rule is only a prediction. Looked up
-        // by the same recurringPeriod stamp the ingestion side writes, not a
-        // date range, so a payment posted near a month boundary is still found
-        // regardless of which calendar month its own timestamp falls in.
-        const alreadyIngested = await this.transactionService.findOneByRecurringPeriod(
-          r.userId,
-          String(r._id),
-          period,
-        );
-        if (alreadyIngested) {
-          this.logger.log(`Recurring "${r.transactionName}" already satisfied by ingested mail — skipping`);
-          r.lastExecutedAt = new Date();
-          await r.save();
-          continue;
-        }
-
-        let created;
-        try {
-          created = await this.transactionService.createTransaction({
-            userId: r.userId,
-            userName: r.userName,
-            transactionName: r.transactionName,
-            transactionType: r.transactionType,
-            amount: r.amount,
-            category: r.category,
-            recurringId: String(r._id),
-            recurringPeriod: period,
-          });
-        } catch (err: any) {
-          // The partial unique index on (userId, recurringId, recurringPeriod)
-          // says this period is already satisfied — the bank email landed
-          // between our lookup above and this create. Not a failure: no
-          // balance movement, and stamp the rule so tomorrow does not retry.
-          if (err?.code === 11000) {
-            this.logger.log(`Recurring "${r.transactionName}" already satisfied for ${period} (unique index) — skipping`);
-            r.lastExecutedAt = new Date();
-            await r.save();
-            continue;
-          }
-          throw err;
-        }
-        await this.balanceService.updateBalance(
-          r.userId,
-          r.amount,
-          r.transactionType,
-          r.transactionName,
-          (created as any)._id?.toString(),
-        );
-        r.lastExecutedAt = new Date();
-        await r.save();
-        this.logger.log(`Processed recurring "${r.transactionName}" for user ${r.userId}`);
-      } catch (err) {
-        this.logger.error(`Failed to process recurring ${r._id}`, err);
-      }
-    }
-  }
-}
-
-function isSameMonth(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
-}
-
-/**
- * The calendar month "now" belongs to, as 'YYYY-MM'.
- *
- * Must stay in sync with api's reconciliation.service.ts periodKey() format —
- * repo/ cannot import from api/, so this is a small local re-implementation.
- * Both sides stamp and query this same string so a recurring rule and the
- * bank email that satisfies it agree on which occurrence they're talking
- * about, even when the payment posts right at a month boundary.
- */
-function currentPeriodKey(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }

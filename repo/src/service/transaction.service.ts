@@ -192,20 +192,6 @@ export class TransactionService {
     return this.transactionModel.findOne({ _id: txId, userId, ...NOT_DELETED }).exec();
   }
 
-  /**
-   * Finds an ingested transaction already recorded for a given recurring rule
-   * and period. Used to skip firing a recurring rule when the bank email has
-   * already recorded the real-world payment it predicts.
-   *
-   * Queries the explicit recurringPeriod stamp rather than a timestamp range:
-   * a payment posted near a month boundary can carry a timestamp in a
-   * different calendar month than the occurrence it actually satisfies, so a
-   * date-range lookup could miss it and record the same payment twice.
-   */
-  async findOneByRecurringPeriod(userId: number, recurringId: string, period: string) {
-    return this.transactionModel.findOne({ userId, recurringId, recurringPeriod: period, ...NOT_DELETED }).exec();
-  }
-
   /** Updates only the name of a transaction. No balance change needed. */
   async updateTransactionName(userId: number, txId: string, newName: string): Promise<void> {
     await this.transactionModel

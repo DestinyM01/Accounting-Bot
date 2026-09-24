@@ -378,20 +378,6 @@ describe('TransactionService', () => {
     });
   });
 
-  describe('findOneByRecurringPeriod', () => {
-    it('reads live rows only', async () => {
-      mockTransactionModel.findOne = jest
-        .fn()
-        .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
-
-      await service.findOneByRecurringPeriod(1, 'rule-1', '2026-09');
-
-      expect(mockTransactionModel.findOne).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 1, recurringId: 'rule-1', recurringPeriod: '2026-09', ...NOT_DELETED }),
-      );
-    });
-  });
-
   describe('updateTransactionName', () => {
     it('renames live rows only', async () => {
       mockTransactionModel.findOneAndUpdate = jest
