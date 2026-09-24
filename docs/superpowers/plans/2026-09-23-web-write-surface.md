@@ -1109,6 +1109,53 @@ The Phase 2A spec review found four Important gaps in the endpoints as planned a
 - **`transferKind` typed** as `TransferKind` in both schemas; the union is spelled only in the two `transfer-kind.ts` files.
 - **Ingestion counter-leg link** requires `transferKind: 'unresolved'` in its `updateOne` filter for the received-leg case — a received leg the user resolved to `external` in the meantime already moved the balance and must not be flipped to `internal`. The sent-leg case needs no guard: a sent leg is created `internal` directly and is never a resolve target.
 
+### Task 9c: Re-review polish — compensation errors, the no-op guard test, the dangling leg link
+
+**Files:** `api/src/transactions/transactions.service.ts` + spec, `api/src/transactions/transactions.controller.spec.ts`, `api/src/ingestion/ingestion.service.ts` + spec
+
+Five Minors from the re-review of the fix batch. Two are real silent-failure paths; one is a test that cannot fail.
+
+- [ ] **Step 1: A compensation that fails must not mask the ledger error or stay silent.** In every `catch` that runs a compensation (`create` → `deleteOne`, `update` → restore, `softDelete` → un-delete, `resolveTransfer` → back to `unresolved`), the compensation itself can throw — and today its error *replaces* the ledger error and nothing is logged, leaving a row no retry can repair with no trace. Add `private readonly logger = new Logger(TransactionsService.name);` and route every compensation through one helper:
+
+```typescript
+  /**
+   * Runs a compensation after a failed ledger call, then rethrows the LEDGER
+   * error — that is the one worth surfacing. If the compensation itself fails
+   * the row is in a state no retry can repair: say so loudly, with the id.
+   */
+  private async compensate(id: string, what: string, undo: () => Promise<unknown>, ledgerErr: unknown): Promise<never> {
+    try {
+      await undo();
+    } catch (undoErr) {
+      this.logger.error(`Rollback of ${what} for ${id} failed; row needs manual repair`, String(undoErr));
+    }
+    throw ledgerErr;
+  }
+```
+and each catch becomes e.g. `catch (err) { return this.compensate(id, 'delete', () => this.transactionModel.updateOne(…), err); }`.
+
+**Tests (fail first):** for each of the four endpoints, ledger rejects with `new Error('ledger down')` **and** the compensation's model call rejects with `new Error('db down')` → the promise rejects with `'ledger down'` (not `'db down'`), and `logger.error` was called with a message containing the id. Spy with `jest.spyOn((service as any).logger, 'error').mockImplementation(() => {})`.
+
+- [ ] **Step 2: `update`'s compensation restores every patched field**, so a failed request changed nothing. Replace the `amount`-only restore with the pre-image of exactly the keys in `patch`:
+
+```typescript
+        const restore: Record<string, unknown> = {};
+        for (const k of Object.keys(patch)) restore[k] = (tx as any)[k] ?? null;
+        return this.compensate(id, 'update', () => this.transactionModel.updateOne({ _id: id }, { $set: restore }), err);
+```
+**Test (fail first):** co-edit `{ amount: 130, name: 'New' }`, ledger rejects → `updateOne` called with `$set: { amount: -100, transactionName: 'old' }`.
+
+- [ ] **Step 3: Delete the guard test that cannot fail.** In `transactions.controller.spec.ts` remove `no handler opts out of the class guard`: Nest merges method guards *additively* onto class guards, so there is no opt-out for it to detect. Keep `is protected by JwtAuthGuard at class level`, which does fail with the decorator removed. Add a one-line comment saying why there is no per-method test.
+
+- [ ] **Step 4: The ingestion sent-case leg link must check `matchedCount`.** In `ingestion.service.ts`, where the newly-arrived *sent* leg links a previously-recorded received leg with `updateOne({ _id, transferKind: 'unresolved' }, …)`: if `matchedCount === 0` the received leg was resolved in the meantime — log at `warn` (`Counter leg <id> no longer unresolved; recording <messageId> unlinked`) and create the sent row **without** `matchedLegId`, instead of logging "Matched transfer legs" and pointing at a row that is not internal.
+
+**Test (fail first):** in the sent-then-received leg test's mirror (sent arrives second), mock `updateOne` to resolve `{ matchedCount: 0 }` → the created document has no `matchedLegId` and `logger.warn` was called.
+
+- [ ] **Step 5:** `pnpm test` all green; `pnpm run build` clean.
+- [ ] **Step 6: Commit** — `git commit -m "fix(api): log and surface the ledger error when a rollback also fails; restore full pre-image on update; drop the no-op guard test; guard the sent-leg link"`
+
+---
+
 ### Task 10: `POST /recurring`
 
 **Files:** `api/src/recurring/recurring.service.ts`, `recurring.controller.ts`, and a new `recurring.service.spec.ts` (create it following `transactions.service.spec.ts`'s harness, mocking `CategoriesService.list` as in Task 6).
@@ -1413,6 +1460,31 @@ In `askMistral`, replace `return allowed.includes(text) ? text : null;` with:
 
 - [ ] **Step 4: Run** — `pnpm test categorizer` all green, including the six pre-existing rule tests (`UBER*EATS…`, `PedidosYa*…`, `UBER*RIDES`, `Cajero Automatico`, `FARMACIA CAROL`, `EDENORTE DOMINICANA`) — if any of those breaks, a boundary is wrong; fix the pattern, not the test.
 - [ ] **Step 5: Commit** — `git commit -m "fix(ingestion): categorizer returns canonical names and matches rules on word boundaries"`
+
+---
+
+### Task 12b: One source of truth for the category allow-list
+
+The spec's `POST /transactions` section says the allow-list helper is "extracted once and reused by ingestion (which currently carries its own copy)". Review found it was not scheduled. `api/src/ingestion/ingestion.service.ts:21` keeps a private `BUILT_IN` array and queries `CustomCategory` itself (`:149-152`, once per run since batch A5); `api/src/categories/categories.service.ts:6-15` is the real list, with colours and emoji. Two sources drift.
+
+**Files:** `api/src/ingestion/ingestion.module.ts`, `ingestion.service.ts`, `ingestion.service.spec.ts`
+
+- [ ] **Step 1: Failing test.** In `ingestion.service.spec.ts`, replace the `CustomCategory` model provider (`{ provide: getModelToken(CustomCategory.name), useValue: categoryModel }`) with
+```typescript
+        { provide: CategoriesService, useValue: categories },
+```
+where `categories = { list: jest.fn().mockResolvedValue([{ name: 'food' }, { name: 'other' }, { name: 'Gym' }]) }` is declared beside the other mocks. Change the load-once assertion (`expect(categoryModel.find).toHaveBeenCalledTimes(1)`) to `expect(categories.list).toHaveBeenCalledTimes(1)`. Add one test: a mail whose merchant Mistral classifies as `'Gym'` is persisted with `category: 'Gym'` — the custom name reaches the categorizer through `list()`. Run → DI failure (`CategoriesService` not injected) — observed red.
+
+- [ ] **Step 2: Implement.**
+  - `ingestion.module.ts`: import `CategoriesModule`; remove `CustomCategory` from `forFeature` if nothing else in the module uses it (nothing does).
+  - `ingestion.service.ts`: delete `BUILT_IN`; replace the `@InjectModel(CustomCategory.name) categoryModel` constructor param with `private readonly categories: CategoriesService`; replace the run-context build at `:149-152` with
+```typescript
+      allowed: (await this.categories.list()).map((c) => c.name),
+```
+    Remove the now-unused `CustomCategory` import.
+
+- [ ] **Step 3:** `pnpm test` all green (the ingestion suite's count unchanged +1); `pnpm run build` clean; `git grep -n "BUILT_IN" -- api/src` hits only `categories.service.ts`.
+- [ ] **Step 4: Commit** — `git commit -m "refactor(ingestion): take the category allow-list from CategoriesService instead of a private copy"`
 
 ---
 
