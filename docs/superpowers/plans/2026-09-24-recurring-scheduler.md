@@ -1285,3 +1285,18 @@ Expected: only the pin test line; `6`; clean tree. The controller runs the priva
 2. Private-identifier gate on the whole tracked tree, then push `main`.
 3. Hand the user: Argo scales the bot to zero on its own; run `kubectl -n accounting-bot rollout restart deployment/accounting-api`; after the next :05, `kubectl -n accounting-bot logs deploy/accounting-api --since=2h | grep "Recurring sweep"` should show the Sep 18–24 occurrences booked, and the Recurring page's "last run" updates.
 4. Update project memory: the bot is at zero replicas; recurring lives in the api.
+
+---
+
+## As built (2026-09-24)
+
+Tasks 1–6 landed as written in `0ebb56c`, `78feacd`, `dce5a13`, `1d83d44`, `da5ccbb`, `b47178e`, with no deviations from the plan's code. Counts matched at every step: api 28 suites / 277 tests, repo 13 / 81.
+
+**Spec review:** compliant. The reviewer ran the money scenarios against the compiled code with an in-memory store that enforces the unique index, in six time zones from UTC−12 to UTC+14. It booted `RecurringModule` and `AppModule` with the real scheduler (one cron, `5 * * * *`, `waitForCompletion: true`). It also ran 13 mutations against a scratch copy. One gap: nothing pinned that the sweep dates rules by their ObjectId rather than the `createdAt` field. Mongoose fills that field with "now" on legacy rules, so reading it would silently stop every legacy rule from booking. Fixed in `f0aeb86`: test rules now carry `createdAt: now`, and the "read the field" mutation fails 4 tests. The same commit fixed two stale comments (the manifest's `keep replicas: 1`, the transaction schema's "bot's cron").
+
+## Follow-ups (from the spec review)
+
+- **A failure at the very edge of the window becomes a permanent skip.** An occurrence exactly 31 days old that fails at the ledger is too old by the next hour, so it is skipped with a warning instead of retried. It only arises after a ~31-day outage.
+- **The "billed" date on the Recurring page is the booking time, not the due day.** `lastExecutedAt` is set to the sweep time, and the web's "billed this month" list reads it. On first deploy, the rules due Sep 18–24 show as billed on deploy day. A Sep 28 occurrence caught up on Oct 2 would appear in October's list. Setting `lastExecutedAt` to `dueAt` for booked and satisfied occurrences fixes both, but it needs a one-line spec change.
+- **The api schema does not enforce `dayOfMonth` ≤ 28.** Only the bot's schema and the api's create path check it, and `planOccurrences` assumes it. A value of 29–31 from a raw database edit would produce next-month dates. Add a guard, or `min`/`max` on the api schema.
+- **Rollout check.** A Sep 18–24 payment that was already recorded but not linked to its rule (a manual row, or an email whose amount didn't exactly match) gets a second row from the first sweep. The user was told not to backfill by hand, and emails from before `INGEST_START_AT` were never ingested, so the only exposure is an email received after go-live for a rule due Sep 21–24 whose amount differs from the rule.
