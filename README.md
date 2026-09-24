@@ -8,7 +8,7 @@ A personal finance tracker with two surfaces: a **Telegram bot** for quick trans
 
 | Surface | Tech | Purpose |
 |---|---|---|
-| **Telegram bot** | NestJS + Telegraf + MongoDB | Transaction entry, budgets, recurring items, CSV export, AI insights |
+| **Telegram bot** | NestJS + Telegraf + MongoDB | Retired (scaled to zero, 2026-09). Recurring bookings now run in the API |
 | **Web dashboard** | Angular 17 | Review, filter, export, compare periods, view analytics |
 | **REST API** | NestJS 10 + Mongoose | JWT-guarded backend for the web dashboard |
 
@@ -22,7 +22,7 @@ A personal finance tracker with two surfaces: a **Telegram bot** for quick trans
 |---|---|
 | **Transactions** | Income and expense entry with categories, comma-separated multi-entry |
 | **Budgets** | Per-category monthly limits with proactive alerts at ≥80% and over |
-| **Recurring** | Scheduled recurring transactions, processed daily at 08:00 |
+| **Recurring** | Moved to the API (2026-09): booked hourly, catching up missed days |
 | **CSV Export** | Export all time / this month / last month as a CSV file |
 | **Statistics** | Category pie chart and daily transaction chart for any month |
 | **Balance History** | Full audit trail of every balance change |
@@ -41,7 +41,7 @@ A personal finance tracker with two surfaces: a **Telegram bot** for quick trans
 | **Statistics** | Monthly income/expense chart and category breakdown |
 | **Compare** | Pick any two months and get a side-by-side summary + Mistral AI narrative |
 | **Analytics** | Top-10 most frequent transactions table; click a row to see its monthly history chart |
-| **Recurring** | Upcoming next billing and what was billed this month |
+| **Recurring** | Create rules; upcoming billing and what was billed this month. The API books each rule hourly on its day and catches up days missed within 31 days |
 | **Tips** | AI-generated personalised financial tips (Mistral, 1-hour cache) |
 
 ---

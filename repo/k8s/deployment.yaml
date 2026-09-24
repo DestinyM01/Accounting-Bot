@@ -8,7 +8,13 @@ metadata:
   annotations:
     bot/polling-mode: "long-poll"
 spec:
-  replicas: 1
+  # RETIRED (2026-09-24). Telegram is no longer used, and recurring bookings
+  # moved to the api's hourly sweep, which catches up missed days. Kept at
+  # zero replicas rather than deleted: this Argo CD application (path
+  # repo/k8s/) also owns namespace.yaml and mongodb-statefulset.yaml.
+  # NEVER delete this Argo app or this folder — it would delete the namespace
+  # and the database the api and web depend on.
+  replicas: 0
   selector:
     matchLabels:
       app: accounting-bot
