@@ -7,4 +7,8 @@ describe('RecurringService (bot)', () => {
   it('no longer books recurring transactions', () => {
     expect((RecurringService.prototype as any).processRecurring).toBeUndefined();
   });
+
+  it('depends on nothing but its own model, so it cannot write transactions or move balances', () => {
+    expect(Reflect.getMetadata('design:paramtypes', RecurringService)).toHaveLength(1);
+  });
 });

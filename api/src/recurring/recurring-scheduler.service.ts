@@ -35,7 +35,9 @@ export class RecurringSchedulerService {
     private readonly ledger: LedgerService,
   ) {}
 
-  /** Hourly at minute 5 — between the ingestion polls, which run every 10 minutes from :00. */
+  // Hourly at minute 5, between the ingestion polls (every 10 minutes from :00).
+  // waitForCompletion makes the scheduler itself skip ticks while a sweep is in
+  // flight; the running flag covers the same ground for any direct caller of sweep().
   @Cron('5 * * * *', { waitForCompletion: true })
   async poll(): Promise<void> {
     await this.sweep(new Date());
@@ -98,7 +100,16 @@ export class RecurringSchedulerService {
     }
 
     for (const occurrence of plan.due) {
-      const outcome = await this.bookOccurrence(rule, occurrence, now);
+      let outcome: BookingOutcome;
+      try {
+        outcome = await this.bookOccurrence(rule, occurrence, now);
+      } catch (err) {
+        this.logger.error(
+          `Recurring ${String(rule._id)} ${occurrence.period} failed`,
+          err instanceof Error ? err.stack : String(err),
+        );
+        outcome = 'failed';
+      }
       tally[outcome]++;
       // lastPeriod only moves forward: booking a newer month after a failure
       // would carry the marker past the failed one, and it would never retry.
@@ -115,13 +126,8 @@ export class RecurringSchedulerService {
   async bookOccurrence(rule: Recurring, occurrence: Occurrence, now: Date): Promise<BookingOutcome> {
     const recurringId = String(rule._id);
 
-    // MUST go through the enum: its values are the legacy strings 'Доход'/'Расход'.
-    // Sign by type, never by the stored sign. Anything else fails closed.
-    const magnitude = Math.abs(rule.amount);
-    let signed: number;
-    if (rule.transactionType === TransactionType.EXPENSE) signed = -magnitude;
-    else if (rule.transactionType === TransactionType.INCOME) signed = magnitude;
-    else {
+    const signed = signedAmount(rule.transactionType, rule.amount);
+    if (signed === null) {
       this.logger.error(`Recurring ${recurringId} has unknown transactionType "${rule.transactionType}"; not booked`);
       return 'failed';
     }
@@ -134,6 +140,7 @@ export class RecurringSchedulerService {
     });
     if (existing) {
       await this.markHandled(rule, occurrence.period, now);
+      this.logger.log(`Recurring ${recurringId} for ${occurrence.period} already recorded`);
       return 'satisfied';
     }
 
@@ -156,6 +163,7 @@ export class RecurringSchedulerService {
       // another writer recorded this occurrence between our lookup and insert.
       if (err?.code === 11000) {
         await this.markHandled(rule, occurrence.period, now);
+        this.logger.log(`Recurring ${recurringId} for ${occurrence.period} already recorded`);
         return 'satisfied';
       }
       throw err;
@@ -165,19 +173,39 @@ export class RecurringSchedulerService {
     try {
       await this.ledger.apply(signed, 'recurring', rule.transactionName, id);
     } catch (err) {
+      this.logger.error(
+        `Ledger failed booking recurring ${recurringId} for ${occurrence.period}; rolling back row ${id}`,
+        err instanceof Error ? err.stack : String(err),
+      );
       // A linked row whose money never moved would be found as 'satisfied' next
       // hour and never retried. Remove it — created milliseconds ago, no
-      // sourceMessageId, never returned to a caller — so the next sweep redoes both.
+      // sourceMessageId, not yet returned to any HTTP caller — so the next sweep
+      // redoes both. (A second api pod sweeping at the same instant during a
+      // rollout could still see it and mark the month handled; that needs a
+      // rollout straddling :05 and a ledger failure together, and is accepted.)
       try {
         await this.txModel.deleteOne({ _id: created._id });
       } catch (rollbackErr) {
-        this.logger.error(`Rollback of ${id} failed; row is orphaned`, String(rollbackErr));
+        this.logger.error(
+          `Rollback of ${id} (recurring ${recurringId} ${occurrence.period}) failed: the row exists but the ` +
+            `balance did not move, and the next sweep will count it satisfied. Needs manual repair.`,
+          String(rollbackErr),
+        );
       }
-      this.logger.error(`Ledger failed booking recurring ${recurringId} for ${occurrence.period}; rolled back`, String(err));
       return 'failed';
     }
 
-    await this.markHandled(rule, occurrence.period, now);
+    try {
+      await this.markHandled(rule, occurrence.period, now);
+    } catch (err) {
+      // The money moved; only the marker is behind. The next sweep finds the
+      // linked row, counts it satisfied and moves the marker, so this heals itself.
+      this.logger.warn(
+        `Booked recurring ${recurringId} for ${occurrence.period} but could not update its marker; ` +
+          `the next sweep will: ${String(err)}`,
+      );
+    }
+    this.logger.log(`Booked recurring ${recurringId} for ${occurrence.period}`);
     return 'booked';
   }
 
@@ -188,4 +216,16 @@ export class RecurringSchedulerService {
       { $set: { lastPeriod: period, lastExecutedAt: now } },
     );
   }
+}
+
+/**
+ * Signs a rule's amount by its type, never by its stored sign. MUST go through
+ * the enum — its values are the legacy strings 'Доход'/'Расход'. Anything else,
+ * including the English words, is null: fail closed.
+ */
+function signedAmount(type: string, amount: number): number | null {
+  const magnitude = Math.abs(amount);
+  if (type === TransactionType.EXPENSE) return -magnitude;
+  if (type === TransactionType.INCOME) return magnitude;
+  return null;
 }

@@ -4,14 +4,14 @@ import { Logger } from '@nestjs/common';
 import { Types } from 'mongoose';
 
 // @nestjs/schedule ships ESM-only and Jest here does not transform it (see
-// ingestion.service.spec.ts). This stub also records every cron expression it
-// is given, so the schedule itself can be asserted.
+// ingestion.service.spec.ts). This stub also records every cron expression and
+// its options it is given, so the schedule itself can be asserted.
 jest.mock('@nestjs/schedule', () => {
-  const cronExpressions: string[] = [];
+  const crons: Array<[string, unknown]> = [];
   return {
-    __cronExpressions: cronExpressions,
-    Cron: (expression: string) => {
-      cronExpressions.push(expression);
+    __crons: crons,
+    Cron: (expression: string, options?: unknown) => {
+      crons.push([expression, options]);
       return () => undefined;
     },
   };
@@ -29,6 +29,9 @@ import { LedgerModule } from '../shared/ledger/ledger.module';
 const CREATED_HEX = Math.floor(Date.UTC(2026, 0, 1) / 1000).toString(16);
 let idSeq = 0;
 const ruleId = () => new Types.ObjectId(CREATED_HEX + String(++idSeq).padStart(16, '0'));
+
+const NOW = new Date('2026-09-25T15:00:00Z');
+const SEP = { period: '2026-09', dueAt: new Date('2026-09-20T12:00:00Z') };
 
 function makeRule(overrides: Record<string, unknown> = {}): any {
   return {
@@ -49,9 +52,6 @@ function makeRule(overrides: Record<string, unknown> = {}): any {
     ...overrides,
   };
 }
-
-const NOW = new Date('2026-09-25T15:00:00Z');
-const SEP = { period: '2026-09', dueAt: new Date('2026-09-20T12:00:00Z') };
 
 describe('RecurringSchedulerService', () => {
   let service: RecurringSchedulerService;
@@ -173,12 +173,21 @@ describe('RecurringSchedulerService', () => {
       expect(txModel.deleteOne).toHaveBeenCalledWith({ _id: 'tx1' });
       expect(recurringModel.updateOne).not.toHaveBeenCalled();
     });
+
+    it('reports a failed rollback as needing repair, and still returns failed', async () => {
+      ledger.apply.mockRejectedValue(new Error('balance write failed'));
+      txModel.deleteOne.mockRejectedValue(new Error('delete failed'));
+      await expect(service.bookOccurrence(makeRule(), SEP, NOW)).resolves.toBe('failed');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Needs manual repair'), expect.any(String));
+      expect(errorSpy).not.toHaveBeenCalledWith(expect.stringContaining('rolled back'), expect.anything());
+      expect(recurringModel.updateOne).not.toHaveBeenCalled();
+    });
   });
 
   describe('wiring', () => {
-    it('runs hourly at minute 5', () => {
-      const { __cronExpressions } = jest.requireMock('@nestjs/schedule');
-      expect(__cronExpressions).toContain('5 * * * *');
+    it('runs hourly at minute 5, never overlapping itself', () => {
+      const { __crons } = jest.requireMock('@nestjs/schedule');
+      expect(__crons).toContainEqual(['5 * * * *', { waitForCompletion: true }]);
     });
 
     it('is a provider of RecurringModule, which imports the ledger', () => {
@@ -232,7 +241,7 @@ describe('RecurringSchedulerService', () => {
       await service.sweep(NOW);
       expect(txModel.create).toHaveBeenCalledTimes(1);
       expect(txModel.create).toHaveBeenCalledWith(expect.objectContaining({ transactionName: 'loan' }));
-      expect(errorSpy).toHaveBeenCalledWith(`Recurring ${String(rent._id)} failed`, expect.any(String));
+      expect(errorSpy).toHaveBeenCalledWith(`Recurring ${String(rent._id)} 2026-09 failed`, expect.any(String));
       expect(logSpy).toHaveBeenCalledWith(summary(1, 0, 0, 1));
     });
 
@@ -265,6 +274,25 @@ describe('RecurringSchedulerService', () => {
       expect(errorSpy).toHaveBeenCalledWith('Recurring sweep failed', expect.any(String));
       await service.sweep(NOW);
       expect(recurringModel.find).toHaveBeenCalledTimes(2);
+    });
+
+    it('heals a booking whose marker update failed: counted booked, and the next sweep moves no money', async () => {
+      const rule = makeRule({ lastPeriod: '2026-08' });
+      recurringModel.find.mockResolvedValue([rule]);
+      recurringModel.updateOne.mockRejectedValueOnce(new Error('write conflict'));
+      await service.sweep(NOW);
+      expect(ledger.apply).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('could not update its marker'));
+      expect(logSpy).toHaveBeenCalledWith(summary(1, 0, 0, 0));
+
+      // The booked row is now there; the marker is still behind.
+      txModel.findOne.mockResolvedValue({ _id: 'tx1' });
+      const later = new Date('2026-09-25T16:05:00Z');
+      await service.sweep(later);
+      expect(txModel.create).toHaveBeenCalledTimes(1);
+      expect(ledger.apply).toHaveBeenCalledTimes(1);
+      expect(recurringModel.updateOne).toHaveBeenLastCalledWith(...markedHandled(rule, '2026-09', later));
+      expect(logSpy).toHaveBeenCalledWith(summary(0, 1, 0, 0));
     });
   });
 });

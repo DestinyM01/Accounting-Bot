@@ -55,6 +55,9 @@ export function planOccurrences(rule: SchedulableRule, now: Date): { due: Occurr
     if (dueAt.getTime() > now.getTime()) continue; // not yet due
     if (dueAt.getTime() < rule.createdAt.getTime()) continue; // before the rule existed
 
+    // periodKey reads local time. Noon UTC on day 1–28 falls in the same calendar
+    // month in every zone from UTC−12 to UTC+14, so the key never depends on
+    // where the process runs.
     const occurrence = { period: periodKey(dueAt), dueAt };
     if (dueAt.getTime() < windowStart) tooOld.push(occurrence);
     else due.push(occurrence);
