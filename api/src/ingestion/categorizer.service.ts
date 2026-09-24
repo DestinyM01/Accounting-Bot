@@ -6,15 +6,21 @@ export interface CategoryResult {
   needsReview: boolean;
 }
 
-/** Deterministic rules run first — free, instant, and predictable. */
+/**
+ * Deterministic rules run first — free, instant, and predictable.
+ * Each alternation starts at a word boundary so a keyword cannot match inside
+ * a longer word ('cine' in MEDICINE, 'agua' in AGUACATE). Stems carry \w* so
+ * Spanish suffixes still match (GASOLINERA, CLINICA, CINEMARK). Bare 'nacional'
+ * is deliberately absent: BANCO NACIONAL is a whole word no boundary can exclude.
+ */
 const RULES: { pattern: RegExp; category: string }[] = [
-  { pattern: /uber\s*\*?\s*eats|pedidosya|didi\s*food/i, category: 'food' },
-  { pattern: /uber|didi|taxi|parqueo|gasolin|shell|texaco/i, category: 'transport' },
-  { pattern: /supermercado|nacional|jumbo|sirena|bravo|pricesmart/i, category: 'food' },
-  { pattern: /farmacia|carol|gbc|hospital|clinic/i, category: 'health' },
-  { pattern: /edenorte|edesur|edeeste|claro|altice|viva|agua/i, category: 'housing' },
-  { pattern: /netflix|spotify|hbo|disney|cine|steam/i, category: 'entertainment' },
-  { pattern: /cajero\s+autom/i, category: 'other' },
+  { pattern: /\b(?:uber\s*\*?\s*eats|pedidosya|didi\s*food)\b/i, category: 'food' },
+  { pattern: /\b(?:uber|didi|taxi|parqueo|gasolin\w*|shell|texaco)\b/i, category: 'transport' },
+  { pattern: /\b(?:supermercado\w*|jumbo|sirena|bravo|pricesmart)\b/i, category: 'food' },
+  { pattern: /\b(?:farmacia\w*|carol|gbc|hospital\w*|clinic\w*)\b/i, category: 'health' },
+  { pattern: /\b(?:edenorte|edesur|edeeste|claro|altice|viva|agua)\b/i, category: 'housing' },
+  { pattern: /\b(?:netflix|spotify|hbo|disney|cine\w*|steam)\b/i, category: 'entertainment' },
+  { pattern: /\bcajero\s+autom\w*/i, category: 'other' },
 ];
 
 @Injectable()
@@ -55,7 +61,10 @@ export class CategorizerService {
       });
       const raw = res.choices?.[0]?.message?.content;
       const text = (typeof raw === 'string' ? raw : '').trim().toLowerCase();
-      return allowed.includes(text) ? text : null;
+      // Return the caller's canonical spelling: custom categories keep their case
+      // ('Gym'), and a lowercased reply must map back to it or it can never be assigned.
+      const hit = allowed.find((a) => a.toLowerCase() === text);
+      return hit ?? null;
     } catch (err) {
       this.logger.error('Mistral categorization failed', err instanceof Error ? err.stack : String(err));
       return null;
