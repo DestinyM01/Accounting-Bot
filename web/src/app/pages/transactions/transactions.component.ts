@@ -49,7 +49,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.search$.pipe(debounceTime(300), distinctUntilChanged())
       .subscribe(() => { this.offset = 0; this.load(false); });
-    this.eventsSub = this.events.changed$.subscribe(() => { this.offset = 0; this.load(false); });
+    this.eventsSub = this.events.changed$.subscribe(() => this.reloadInPlace());
     this.load(false);
   }
 
@@ -57,18 +57,24 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     this.eventsSub?.unsubscribe();
   }
 
-  load(append: boolean) {
-    if (append) this.loadingMore = true;
-    else        this.loading     = true;
-
-    this.api.getTransactions({
-      limit:       this.limit,
-      offset:      this.offset,
+  private currentFilters() {
+    return {
       category:    this.categoryFilter || undefined,
       type:        (this.typeFilter as 'income' | 'expense') || undefined,
       startDate:   this.startDate || undefined,
       endDate:     this.endDate   || undefined,
       needsReview: this.needsReviewOnly || undefined,
+    };
+  }
+
+  load(append: boolean) {
+    if (append) this.loadingMore = true;
+    else        this.loading     = true;
+
+    this.api.getTransactions({
+      limit:  this.limit,
+      offset: this.offset,
+      ...this.currentFilters(),
     }).subscribe({
       next: (page: TransactionPage) => {
         this.items   = append ? [...this.items, ...page.items] : page.items;
@@ -76,6 +82,23 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         this.loading = this.loadingMore = false;
       },
       error: () => { this.loading = this.loadingMore = false; },
+    });
+  }
+
+  /**
+   * Re-fetch what is on screen without the blocking "Loading…" state, keeping
+   * scroll position, paged rows and the focused element. Cap at the API's max.
+   */
+  private reloadInPlace() {
+    const count = Math.min(Math.max(this.items.length, this.limit), 200);
+    this.api.getTransactions({ ...this.currentFilters(), limit: count, offset: 0 }).subscribe({
+      next: (page: TransactionPage) => {
+        this.items  = page.items;
+        this.total  = page.total;
+        // Keep paging consistent: the next "Load More" continues after what is shown.
+        this.offset = Math.max(0, page.items.length - this.limit);
+      },
+      error: () => {},
     });
   }
 
@@ -139,14 +162,28 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   confirmDelete(tx: Transaction) {
     this.api.deleteTransaction(tx._id).subscribe({
       next: () => { this.confirmingDelete = null; this.events.notify(); },
-      error: () => { this.confirmingDelete = null; alert('Could not delete. Please try again.'); },
+      error: (e: { status?: number }) => {
+        this.confirmingDelete = null;
+        alert(this.writeErrorMessage(e, 'Could not delete. Please try again.'));
+        // A 404/409 means the row is stale (deleted or changed elsewhere) —
+        // refresh the list so it stops showing a row that no longer matches.
+        this.events.notify();
+      },
     });
   }
   resolve(tx: Transaction, kind: 'internal' | 'external') {
     this.api.resolveTransfer(tx._id, kind).subscribe({
       next: () => this.events.notify(),
-      error: () => alert('Could not resolve this transfer.'),
+      error: (e: { status?: number }) => {
+        alert(this.writeErrorMessage(e, 'Could not resolve this transfer.'));
+        this.events.notify();
+      },
     });
+  }
+  private writeErrorMessage(e: { status?: number }, fallback: string): string {
+    if (e?.status === 404) return 'That transaction no longer exists.';
+    if (e?.status === 409) return 'It changed elsewhere — the list has been refreshed.';
+    return fallback;
   }
   isTransfer(tx: Transaction) { return tx.transferKind === 'internal' || tx.transferKind === 'unresolved'; }
 }
