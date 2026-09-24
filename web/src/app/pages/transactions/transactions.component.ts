@@ -1,12 +1,14 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
-import { debounceTime, distinctUntilChanged, Subject } from 'rxjs';
+import { debounceTime, distinctUntilChanged, Subject, Subscription } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { Transaction, TransactionPage } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
+import { TransactionEventsService } from '../../core/services/transaction-events.service';
+import { TransactionFormService } from '../../core/services/transaction-form.service';
 
 @Component({
   selector: 'app-transactions',
@@ -16,7 +18,7 @@ import { CategoryService } from '../../core/services/category.service';
   templateUrl: './transactions.component.html',
   styleUrls: ['./transactions.component.scss'],
 })
-export class TransactionsComponent implements OnInit {
+export class TransactionsComponent implements OnInit, OnDestroy {
   items:       Transaction[] = [];
   total        = 0;
   offset       = 0;
@@ -31,16 +33,28 @@ export class TransactionsComponent implements OnInit {
   endDate        = '';
   needsReviewOnly = false;
   get categories(): string[] { return this.catSvc.all.map(c => c.name); }
-  get reviewCategories(): string[] { return this.catSvc.all.map(c => c.name); }
+
+  confirmingDelete: string | null = null;
 
   private search$ = new Subject<string>();
+  private eventsSub!: Subscription;
 
-  constructor(private api: ApiService, private catSvc: CategoryService) {}
+  constructor(
+    private api: ApiService,
+    private catSvc: CategoryService,
+    private events: TransactionEventsService,
+    private formSvc: TransactionFormService,
+  ) {}
 
   ngOnInit() {
     this.search$.pipe(debounceTime(300), distinctUntilChanged())
       .subscribe(() => { this.offset = 0; this.load(false); });
+    this.eventsSub = this.events.changed$.subscribe(() => { this.offset = 0; this.load(false); });
     this.load(false);
+  }
+
+  ngOnDestroy() {
+    this.eventsSub?.unsubscribe();
   }
 
   load(append: boolean) {
@@ -118,4 +132,21 @@ export class TransactionsComponent implements OnInit {
 
   catColor(cat: string) { return this.catSvc.color(cat); }
   catIcon(cat: string)  { return this.catSvc.icon(cat);  }
+
+  edit(tx: Transaction)      { this.formSvc.openEdit(tx); }
+  askDelete(tx: Transaction) { this.confirmingDelete = tx._id; }
+  cancelDelete()             { this.confirmingDelete = null; }
+  confirmDelete(tx: Transaction) {
+    this.api.deleteTransaction(tx._id).subscribe({
+      next: () => { this.confirmingDelete = null; this.events.notify(); },
+      error: () => { this.confirmingDelete = null; alert('Could not delete. Please try again.'); },
+    });
+  }
+  resolve(tx: Transaction, kind: 'internal' | 'external') {
+    this.api.resolveTransfer(tx._id, kind).subscribe({
+      next: () => this.events.notify(),
+      error: () => alert('Could not resolve this transfer.'),
+    });
+  }
+  isTransfer(tx: Transaction) { return tx.transferKind === 'internal' || tx.transferKind === 'unresolved'; }
 }

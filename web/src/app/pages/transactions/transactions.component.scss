@@ -149,7 +149,7 @@
 
 .tx-table-header {
   display: grid;
-  grid-template-columns: 2fr 1fr 120px 80px;
+  grid-template-columns: 2fr 1fr 120px 80px minmax(0, auto);
   padding: 12px 24px;
   font-size: 0.7rem;
   font-weight: 600;
@@ -160,13 +160,13 @@
 
   @media (max-width: 640px) {
     grid-template-columns: 1fr 1fr 100px;
-    span:last-child { display: none; }
+    span:nth-child(4), span:nth-child(5) { display: none; }
   }
 }
 
 .tx-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 120px 80px;
+  grid-template-columns: 2fr 1fr 120px 80px minmax(0, auto);
   padding: 14px 24px;
   align-items: center;
   border-bottom: 1px solid var(--border);
@@ -177,7 +177,8 @@
 
   @media (max-width: 640px) {
     grid-template-columns: 1fr 1fr 100px;
-    .tx-cell:last-child { display: none; }
+    .tx-cell:nth-child(4) { display: none; }
+    .tx-actions { grid-column: 1 / -1; justify-content: flex-start; margin-top: 8px; }
   }
 }
 
@@ -243,4 +244,20 @@
   &:focus-visible:not(:disabled) { background: rgba(255,255,255,0.04); color: var(--color-ink); outline: 2px solid var(--color-focus); outline-offset: 2px; }
   &:disabled { opacity: 0.5; cursor: default; }
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+
+// ── Row actions ────────────────────────────────────────────────────────
+.tx-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.act-btn {
+  background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-family: var(--font-body); font-size: 0.75rem; padding: 4px 10px; cursor: pointer;
+  &:hover { background: var(--color-surface-hover); }
+  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  &.danger { border-color: var(--expense); color: var(--expense); }
+}
+.icon-act {
+  background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 8px;
+  mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
+  &:hover { background: var(--color-surface-hover); color: var(--text); }
+  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }

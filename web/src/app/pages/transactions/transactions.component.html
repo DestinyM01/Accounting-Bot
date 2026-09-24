@@ -70,14 +70,14 @@
         <span>CATEGORY</span>
         <span class="align-right">AMOUNT</span>
         <span class="align-right">STATUS</span>
+        <span class="align-right">ACTIONS</span>
       </div>
 
       @for (tx of filtered; track tx._id) {
         <div class="tx-row">
           <div class="tx-cell tx-main">
             <div class="tx-icon"
-                 [class]="(tx.transferKind === 'internal' || tx.transferKind === 'unresolved')
-                            ? '' : (tx.isExpense ? 'expense-icon' : 'income-icon')">
+                 [class]="isTransfer(tx) ? '' : (tx.isExpense ? 'expense-icon' : 'income-icon')">
               <mat-icon>{{ catIcon(tx.category) }}</mat-icon>
             </div>
             <div class="tx-info">
@@ -91,7 +91,7 @@
               <select class="review-select"
                       (change)="assignCategory(tx, $any($event.target).value)">
                 <option value="" disabled selected>Needs review…</option>
-                @for (cat of reviewCategories; track cat) {
+                @for (cat of categories; track cat) {
                   <option [value]="cat">{{ cat | titlecase }}</option>
                 }
               </select>
@@ -106,7 +106,7 @@
           </div>
 
           <div class="tx-cell align-right">
-            @if (tx.transferKind === 'internal' || tx.transferKind === 'unresolved') {
+            @if (isTransfer(tx)) {
               <span class="cat-pill transfer-pill">
                 {{ tx.transferKind === 'internal' ? 'Internal' : 'Unresolved' }}
               </span>
@@ -120,6 +120,20 @@
 
           <div class="tx-cell align-right">
             <mat-icon class="status-icon ok">check_circle</mat-icon>
+          </div>
+
+          <div class="tx-cell align-right tx-actions">
+            @if (tx.transferKind === 'unresolved') {
+              <button class="act-btn" (click)="resolve(tx, 'internal')" title="Money moved between my own accounts">Internal</button>
+              <button class="act-btn" (click)="resolve(tx, 'external')" title="A real payment or income">Expense</button>
+            }
+            @if (confirmingDelete === tx._id) {
+              <button class="act-btn danger" (click)="confirmDelete(tx)">Confirm</button>
+              <button class="act-btn" (click)="cancelDelete()">Cancel</button>
+            } @else {
+              <button class="icon-act" (click)="edit(tx)" aria-label="Edit"><mat-icon>edit</mat-icon></button>
+              <button class="icon-act" (click)="askDelete(tx)" aria-label="Delete"><mat-icon>delete_outline</mat-icon></button>
+            }
           </div>
         </div>
       } @empty {
