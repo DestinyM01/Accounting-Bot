@@ -2,9 +2,21 @@ import { BankParser, ParseInput, ParsedTransaction, toAmount } from './types';
 import { parseSpanishLongDate } from './dates';
 import { matchesOwn } from './own-party';
 
-/** Banreservas puts the label on one line and its value on the NEXT line. */
+/** Strips a trailing colon and surrounding whitespace, for exact label comparison. */
+function normaliseLabel(line: string): string {
+  return line.trim().replace(/:\s*$/, '').toLowerCase();
+}
+
+/**
+ * Banreservas puts the label on one line and its value on the NEXT line.
+ *
+ * The label line must match EXACTLY (after stripping the trailing colon), not
+ * merely start with `label` — otherwise a longer label sharing a prefix can
+ * silently win and hand back the wrong value. Same rule as the BHD parser.
+ */
 function valueAfter(lines: string[], label: string): string | null {
-  const i = lines.findIndex((l) => l.toLowerCase().startsWith(label.toLowerCase()));
+  const want = normaliseLabel(label);
+  const i = lines.findIndex((l) => normaliseLabel(l) === want);
   if (i < 0) return null;
   const v = lines[i + 1];
   return v && !v.endsWith(':') ? v : null;
@@ -14,7 +26,7 @@ export const banreservasParser: BankParser = {
   bank: 'banreservas',
   senders: ['notificacionestubancoapp@banreservas.com'],
 
-  parse({ body, ownIdentifiers = [] }: ParseInput): ParsedTransaction | null {
+  parse({ body, ownIdentifiers = [], ownCashAccounts = [] }: ParseInput): ParsedTransaction | null {
     const lines = body
       .split('\n')
       .map((l) => l.replace(/\|/g, '').trim())
@@ -37,14 +49,36 @@ export const banreservasParser: BankParser = {
     if (!occurredAt) return null;
 
     // Direction is DETECTED, never assumed. Unknown => do not ingest.
+    //
+    // Whether money ARRIVED in the user's own cash is decided ONLY by the
+    // destination account number. The name on the destination never decides:
+    // the user's loan carries the user's own name, and a payment to it is an
+    // expense, not income. The name fragments in ownIdentifiers answer only
+    // "is the sender me?".
+    const destIsCash = matchesOwn(destino, ownCashAccounts);
+    const origIsOwn = matchesOwn(origen, ownIdentifiers) || matchesOwn(origen, ownCashAccounts);
+
+    const origName = origen?.split(',')[0]?.trim() || 'Transferencia';
+    const destName = destino?.split(',')[0]?.trim() || 'Transferencia';
+
     let direction: 'income' | 'expense';
+    let transferKind: 'external' | 'internal';
     let counterparty: string;
-    if (matchesOwn(destino, ownIdentifiers)) {
-      direction = 'income';
-      counterparty = origen?.split(',')[0]?.trim() ?? 'Transferencia';
-    } else if (matchesOwn(origen, ownIdentifiers)) {
+    if (destIsCash && origIsOwn) {
+      // Own account -> own cash account: a funding move, no money left.
       direction = 'expense';
-      counterparty = destino?.split(',')[0]?.trim() ?? 'Transferencia';
+      transferKind = 'internal';
+      counterparty = destName;
+    } else if (destIsCash) {
+      // A third party paid the user.
+      direction = 'income';
+      transferKind = 'external';
+      counterparty = origName;
+    } else if (origIsOwn) {
+      // The user paid someone, or their own loan.
+      direction = 'expense';
+      transferKind = 'external';
+      counterparty = destName;
     } else {
       return null;
     }
@@ -59,6 +93,7 @@ export const banreservasParser: BankParser = {
       isWithdrawal: false,
       approved: true, // the email IS the receipt; no status field exists
       externalRef: refRaw ?? undefined,
+      transferKind,
     };
   },
 };
