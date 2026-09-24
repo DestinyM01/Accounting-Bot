@@ -4,7 +4,7 @@ import { Cron } from '@nestjs/schedule';
 import { Model } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { LedgerService } from '../shared/ledger/ledger.service';
-import { CustomCategory } from '../shared/schemas/custom-category.schema';
+import { CategoriesService } from '../categories/categories.service';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { NOT_DELETED, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
@@ -17,8 +17,6 @@ import { bhdParser } from './parsers/bhd.parser';
 import { santaCruzParser } from './parsers/santacruz.parser';
 import { banreservasParser } from './parsers/banreservas.parser';
 import { matchedPeriod, RuleLike } from './reconciliation.service';
-
-const BUILT_IN = ['food','transport','housing','health','entertainment','salary','savings','other'];
 
 /** Per-run state shared by every mail: loaded once, never once per mail. */
 interface RunContext {
@@ -40,7 +38,7 @@ export class IngestionService {
   constructor(
     @InjectModel(Transaction.name) private readonly txModel: Model<Transaction>,
     private readonly ledger: LedgerService,
-    @InjectModel(CustomCategory.name) private readonly categoryModel: Model<CustomCategory>,
+    private readonly categories: CategoriesService,
     @InjectModel(Recurring.name) private readonly recurringModel: Model<Recurring>,
     private readonly mail: MailClient,
     private readonly categorizer: CategorizerService,
@@ -146,10 +144,9 @@ export class IngestionService {
 
   /** What every mail in one run needs; loaded once, not once per mail. */
   private async loadRunContext(): Promise<RunContext> {
-    const custom = await this.categoryModel.find({ userId: this.userId, active: true }).lean();
     const rules = await this.recurringModel.find({ userId: this.userId, active: true }).lean();
     return {
-      allowed: [...BUILT_IN, ...custom.map((c) => c.name)],
+      allowed: (await this.categories.list()).map((c) => c.name),
       rules: rules as unknown as RuleLike[],
     };
   }

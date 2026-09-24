@@ -24,7 +24,7 @@ jest.mock('./parsers/popular.parser', () => ({
 import { IngestionService } from './ingestion.service';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { LedgerService } from '../shared/ledger/ledger.service';
-import { CustomCategory } from '../shared/schemas/custom-category.schema';
+import { CategoriesService } from '../categories/categories.service';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { NOT_DELETED } from '../shared/schemas/transfer-kind';
@@ -71,7 +71,7 @@ describe('IngestionService', () => {
     deleteOne: jest.Mock;
   };
   let ledger: { apply: jest.Mock; reverse: jest.Mock };
-  let categoryModel: { find: jest.Mock };
+  let categories: { list: jest.Mock };
   let recurringModel: { find: jest.Mock };
   let mail: { fetchSince: jest.Mock };
   let categorizer: { categorize: jest.Mock };
@@ -104,8 +104,8 @@ describe('IngestionService', () => {
       apply: jest.fn().mockResolvedValue({ previousBalance: 0, newBalance: 0 }),
       reverse: jest.fn(),
     };
-    categoryModel = {
-      find: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
+    categories = {
+      list: jest.fn().mockResolvedValue([{ name: 'food' }, { name: 'other' }, { name: 'Gym' }]),
     };
     recurringModel = {
       find: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
@@ -120,7 +120,7 @@ describe('IngestionService', () => {
         IngestionService,
         { provide: getModelToken(Transaction.name), useValue: txModel },
         { provide: LedgerService, useValue: ledger },
-        { provide: getModelToken(CustomCategory.name), useValue: categoryModel },
+        { provide: CategoriesService, useValue: categories },
         { provide: getModelToken(Recurring.name), useValue: recurringModel },
         { provide: MailClient, useValue: mail },
         { provide: CategorizerService, useValue: categorizer },
@@ -722,8 +722,23 @@ describe('IngestionService', () => {
       const result = await service.run();
 
       expect(result).toEqual({ created: 3, skipped: 0, failed: 0 });
-      expect(categoryModel.find).toHaveBeenCalledTimes(1);
+      expect(categories.list).toHaveBeenCalledTimes(1);
       expect(recurringModel.find).toHaveBeenCalledTimes(1);
+    });
+
+    // The category allow-list has one source of truth: CategoriesService. A
+    // custom category classified by the (mocked) categorizer must be
+    // persisted under its own canonical spelling, not silently dropped.
+    it('persists a mail categorized into a custom category by its canonical name', async () => {
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'm1' })]);
+      parserParseMock.mockReturnValue(makeParsed());
+      categorizer.categorize.mockResolvedValue({ category: 'Gym', needsReview: true });
+
+      const result = await service.run();
+
+      expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+      const created = txModel.create.mock.calls[0][0];
+      expect(created.category).toBe('Gym');
     });
 
     it('does not start a second run while one is still in flight', async () => {
