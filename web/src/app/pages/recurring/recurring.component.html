@@ -6,7 +6,7 @@
       <h1>Recurring Payments</h1>
       <p class="rp-subtitle">Manage your scheduled income and expenses</p>
     </div>
-    <button class="fc-btn fc-btn--primary" (click)="showForm = !showForm"><mat-icon>add</mat-icon> New Rule</button>
+    <button class="fc-btn fc-btn--primary" (click)="toggleForm()"><mat-icon>add</mat-icon> New Rule</button>
   </div>
 
   @if (showForm) {
@@ -19,8 +19,8 @@
       <button class="fc-btn fc-btn--primary" [disabled]="!formValid || saving" (click)="submitForm()">
         <mat-icon>{{ saving ? 'hourglass_empty' : 'check' }}</mat-icon> {{ saving ? 'Saving…' : 'Create' }}
       </button>
-      @if (formError) { <p class="fc-error" role="alert">{{ formError }}</p> }
     </div>
+    @if (formError) { <p class="fc-error" role="alert">{{ formError }}</p> }
   }
 
   <!-- Loading -->

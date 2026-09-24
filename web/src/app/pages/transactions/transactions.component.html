@@ -60,6 +60,10 @@
     </div>
   </div>
 
+  @if (error) {
+    <p class="fc-error" role="alert">{{ error }}</p>
+  }
+
   <!-- Table -->
   @if (loading) {
     <p class="loading-state">Loading…</p>

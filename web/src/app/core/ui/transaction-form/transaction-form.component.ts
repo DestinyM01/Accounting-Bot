@@ -75,7 +75,7 @@ export class TransactionFormComponent implements OnInit, OnDestroy {
       this.amount   = null;
       this.name     = '';
       this.category = 'other';
-      this.date     = new Date().toISOString().slice(0, 10);
+      this.date     = TransactionFormComponent.localDateKey(new Date().toISOString());
     }
     this.open = true;
     setTimeout(() => this.firstField?.nativeElement.focus(), 0);

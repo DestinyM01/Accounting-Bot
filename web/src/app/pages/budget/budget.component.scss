@@ -203,7 +203,7 @@
   margin-bottom: 16px;
 }
 
-.bf-select { min-width: 140px; }
+.bf-select { min-width: 140px; appearance: none; cursor: pointer; }
 .bf-input  { width: 200px; }
 
 .bf-cancel {

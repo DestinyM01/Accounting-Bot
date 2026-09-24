@@ -28,6 +28,11 @@ export class RecurringComponent implements OnInit, OnDestroy {
   get categories(): string[] { return this.catSvc.all.map(c => c.name); }
   get formValid() { return !!this.fAmount && this.fAmount > 0 && !!this.fName.trim() && Number.isInteger(this.fDay) && this.fDay >= 1 && this.fDay <= 28; }
 
+  toggleForm() {
+    this.showForm = !this.showForm;
+    this.formError = '';
+  }
+
   submitForm() {
     if (!this.formValid || this.saving) return;
     this.saving = true;

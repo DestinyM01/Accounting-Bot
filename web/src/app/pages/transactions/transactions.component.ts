@@ -25,6 +25,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   limit        = 20;
   loading      = true;
   loadingMore  = false;
+  error: string | null = null;
 
   search         = '';
   categoryFilter = '';
@@ -80,6 +81,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         this.items   = append ? [...this.items, ...page.items] : page.items;
         this.total   = page.total;
         this.loading = this.loadingMore = false;
+        this.error   = null;
       },
       error: () => { this.loading = this.loadingMore = false; },
     });
@@ -97,8 +99,9 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         this.total  = page.total;
         // Keep paging consistent: the next "Load More" continues after what is shown.
         this.offset = Math.max(0, page.items.length - this.limit);
+        this.error  = null;
       },
-      error: () => {},
+      error: () => { this.error = 'Could not refresh the list — reload the page.'; },
     });
   }
 
