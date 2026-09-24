@@ -1146,25 +1146,76 @@ Controller: add `@Post() create(@Body() body: CreateRecurringBody) { return this
 
 The bot is retiring but these two methods are live and corrupt the balance today.
 
-- [ ] **Step 1: Write the failing tests** (in the file's existing `new TransactionService(mockModel as any, …)` style; check its constructor args):
+- [ ] **Step 1: Write the failing tests**
+
+The spec's harness: `mockTransactionModel = jest.fn()` with per-method `jest.fn()`s, each mocked as a chain `.mockReturnValue({ exec: jest.fn().mockResolvedValue(value) })`; `mockBalanceService = { getOrCreateBalance, updateBalance, reverseTransaction }`; `service = new TransactionService(mockTransactionModel as any, mockBot as any, mockBalanceService as any)`; `makeCtx()` yields `from.id = 42`. Match it exactly.
+
+**First, update the two pre-existing `deleteTransactionById` tests.** They mock `findOne` + `deleteOne` and assert `reverseTransaction`. Hard-delete becomes soft-delete, so change their `deleteOne` mock to a `findOneAndUpdate` chain resolving the same transaction object; keep their `reverseTransaction` assertions byte-for-byte. That is a legitimate behaviour change, not a weakening.
+
+Then add:
 
 ```typescript
-describe('deleteTransactionById', () => {
-  it('soft-deletes and reverses the balance for an ordinary row', async () => {
-    // findOne resolves { _id, amount: -100, transactionName: 'x', transferKind: undefined }
-    // expect findByIdAndUpdate with { $set: { deletedAt: expect.any(Date) }, $unset: { recurringId: 1, recurringPeriod: 1 } }
-    // expect balanceService.reverseTransaction called with (-100)
-    // expect deleteOne NOT called
-  });
-  it('does not reverse the balance for an internal row', async () => { /* transferKind: 'internal' → reverseTransaction not called, row still soft-deleted */ });
-});
+  describe('deleteTransactionById — soft delete', () => {
+    const chain = (v: any) => ({ exec: jest.fn().mockResolvedValue(v) });
+    const live = { _id: 'txid1', transactionType: TransactionType.EXPENSE, amount: -300, transactionName: 'groceries', transferKind: undefined };
 
-describe('updateTransactionAmount', () => {
-  it('does not move the balance for an unresolved row', async () => { /* reverseTransaction and updateBalance both NOT called; amount still persisted */ });
-});
+    it('soft-deletes atomically, matching only a live row, and reverses the balance', async () => {
+      mockTransactionModel.findOne = jest.fn().mockReturnValue(chain(live));
+      mockTransactionModel.findOneAndUpdate = jest.fn().mockReturnValue(chain(live));
+      await service.deleteTransactionById(makeCtx(), 'txid1');
+      expect(mockTransactionModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 'txid1', userId: 42, deletedAt: null }),
+        { $set: { deletedAt: expect.any(Date) }, $unset: { recurringId: 1, recurringPeriod: 1 } },
+      );
+      expect(mockBalanceService.reverseTransaction).toHaveBeenCalledWith(42, -300, 'groceries', 'txid1');
+      expect(mockTransactionModel.deleteOne).not.toHaveBeenCalled();   // never a hard delete
+    });
+
+    // internal / unresolved rows never moved the balance; deleting them must not either.
+    it.each(['internal', 'unresolved'])('does not reverse the balance for a %s row', async (kind) => {
+      const row = { ...live, transferKind: kind };
+      mockTransactionModel.findOne = jest.fn().mockReturnValue(chain(row));
+      mockTransactionModel.findOneAndUpdate = jest.fn().mockReturnValue(chain(row));
+      await service.deleteTransactionById(makeCtx(), 'txid1');
+      expect(mockTransactionModel.findOneAndUpdate).toHaveBeenCalled();
+      expect(mockBalanceService.reverseTransaction).not.toHaveBeenCalled();
+    });
+
+    // The atomic update returns null when a concurrent delete already claimed
+    // the row: nothing to reverse, and no second reversal.
+    it('reverses nothing when a concurrent delete already claimed the row', async () => {
+      mockTransactionModel.findOne = jest.fn().mockReturnValue(chain(live));
+      mockTransactionModel.findOneAndUpdate = jest.fn().mockReturnValue(chain(null));
+      await service.deleteTransactionById(makeCtx(), 'txid1');
+      expect(mockBalanceService.reverseTransaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateTransactionAmount — balance guard', () => {
+    const chain = (v: any) => ({ exec: jest.fn().mockResolvedValue(v) });
+
+    it('does not move the balance for an unresolved row but still persists the new amount', async () => {
+      const row = { _id: 'txid2', transactionType: TransactionType.EXPENSE, amount: -100, transactionName: 'transfer', transferKind: 'unresolved' };
+      mockTransactionModel.findOne = jest.fn().mockReturnValue(chain(row));
+      mockTransactionModel.findByIdAndUpdate = jest.fn().mockReturnValue(chain(undefined));
+      await service.updateTransactionAmount(42, 'txid2', 150);
+      expect(mockTransactionModel.findByIdAndUpdate).toHaveBeenCalledWith('txid2', { amount: -150 });
+      expect(mockBalanceService.reverseTransaction).not.toHaveBeenCalled();
+      expect(mockBalanceService.updateBalance).not.toHaveBeenCalled();
+    });
+
+    it('still moves the balance for an ordinary row', async () => {
+      const row = { _id: 'txid3', transactionType: TransactionType.EXPENSE, amount: -100, transactionName: 'colmado', transferKind: undefined };
+      mockTransactionModel.findOne = jest.fn().mockReturnValue(chain(row));
+      mockTransactionModel.findByIdAndUpdate = jest.fn().mockReturnValue(chain(undefined));
+      await service.updateTransactionAmount(42, 'txid3', 150);
+      expect(mockBalanceService.reverseTransaction).toHaveBeenCalledWith(42, -100, 'colmado', 'txid3');
+      expect(mockBalanceService.updateBalance).toHaveBeenCalledWith(42, 150, TransactionType.EXPENSE, 'colmado', 'txid3');
+    });
+  });
 ```
 
-Write each body concretely against the mocks; do not leave the comments as the test.
+Every test above except `still moves the balance for an ordinary row` must **fail** before Step 3; that one is the guard against over-correcting.
 
 - [ ] **Step 2: Fails** — `deleteOne` is called / balance is reversed.
 
