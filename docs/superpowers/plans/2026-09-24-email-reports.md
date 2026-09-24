@@ -2356,3 +2356,42 @@ Expected: `9`; no personal address in source (only `example.com` in tests); clea
 
 1. Spec review, then code-quality review, of the range; fixes; private-identifier gate on the tracked tree; push.
 2. Hand the user: `rollout restart deployment/accounting-api` and `accounting-web` once CI is green; click **Email me a test digest**; expect the two "Not sending … report …: more than N days past due" warnings in the api log at the first :20 (last week's digest and August's summary are past their windows); the first real digest arrives Monday Sep 28 07:00.
+
+---
+
+## As built (2026-09-24)
+
+Tasks 1–9 landed as written in `2e6e22f`, `bfa2f9c`, `09f2dcf`, `a9bba71`, `9a471e8`, `526dfe5`, `ccb4248`, `88a94e5`, `281aa05`, with no deviations. Counts matched at every step.
+
+**Spec review:** one gap, which came from this plan's own code. The health section dropped the last-ingested date whenever another problem was listed; the spec says it is always shown. The reviewer:
+- drove eight send-once scenarios against the compiled code with an in-memory store enforcing the unique index (first deploy, SMTP failure and retry, two pods, a pod dying mid-send, no credentials, the test endpoint, a Monday after the 1st);
+- checked the MIME output through nodemailer;
+- ran 36 mutations.
+
+Fixed in `99631eb` and `cbd9b96`:
+- the date is always shown;
+- a failed send releases only its own claim (`at: now`);
+- the HTML gets a `<head>` with its charset;
+- a zero-limit budget reads "on track";
+- dashboard links drop a trailing slash;
+- the button's timer and request end with the component;
+- new pins: the local-day shift, the ObjectId creation time on the health path, the 3-day boundary, the newest-email sort, the 202 status, and a silent run.
+
+**Code-quality review:** approved with minor follow-ups. Fixed in `f8dd8f0` and `85328c2`:
+- a database error on one report names that report and no longer stops the other;
+- a failed send is logged before its claim is released;
+- SMTP connect and socket timeouts;
+- "on budget" for a finished month spent exactly at its limit;
+- the period builders are exported (no `find` that might miss);
+- the unused `@types/nodemailer` is dropped (nodemailer 10 ships its own types);
+- a spacing token and a named label in the web.
+
+Final: api 36 suites / 345 tests, repo 13 / 82, web build clean.
+
+## Follow-ups
+
+- **Month names are listed twice** (`report-data.service.ts` and `report-render.ts`). Carry the month number in `WeeklyReportData.month` and let the render name it.
+- **`ReportSend.kind` / `status` are plain strings.** Union types (with `@Prop({ type: String })`) would type-check the scheduler's comparisons.
+- **The api Docker build ignores its lockfile.** `api/Dockerfile` copies neither `pnpm-lock.yaml` nor `pnpm-workspace.yaml`, so every image resolves dependency versions fresh. This predates this work; it's flagged as its own task.
+- **Ingestion parse failures in the health section.** They need the ingester to persist its run results (from the spec's out-of-scope list).
+- **Alerts between digests.** Declined for now; the Monday digest carries budget standing and health.
