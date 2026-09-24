@@ -16,3 +16,6 @@ export class BalanceHistory extends Document {
 }
 
 export const BalanceHistorySchema = SchemaFactory.createForClass(BalanceHistory);
+
+// The Balance page lists a user's history newest first and charts a window of it.
+BalanceHistorySchema.index({ userId: 1, timestamp: -1 });
