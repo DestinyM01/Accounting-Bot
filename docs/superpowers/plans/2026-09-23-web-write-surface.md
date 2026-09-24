@@ -452,6 +452,108 @@ git commit -m "refactor(api): move balance and history writes into a single Ledg
 
 ---
 
+### Task 4b: Make `LedgerService.apply` atomic
+
+Phase 1 review: `apply` is a `findOne` → `+=` → `save` read-modify-write, identical to the bot's. That was tolerable while the ingestion poll was the only writer. Phase 2 puts the web beside it, so two writers can both read 1000, one save 850 and the other 1100 — a lost update on the user's balance. Now that the ledger is the one place the balance moves, make the movement a single `$inc`.
+
+**Files:** `api/src/shared/ledger/ledger.service.ts`, `ledger.service.spec.ts`
+
+- [ ] **Step 1: Rewrite the spec's arrange block and the two affected tests**
+
+Replace the `balanceDoc`/`balanceModel` setup with:
+
+```typescript
+    balanceModel = { findOneAndUpdate: jest.fn().mockResolvedValue({ userId: 1, balance: 750 }) };
+```
+
+and the first test with:
+
+```typescript
+  it('applies a signed delta with one atomic $inc and records history from the returned balance', async () => {
+    const r = await service.apply(-250, 'expense', 'uber', 'tx1');
+    expect(balanceModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { userId: 1 },
+      { $inc: { balance: -250 }, $set: { lastActivity: expect.any(Date) } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+    expect(historyModel.create).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 1, previousBalance: 1000, newBalance: 750, delta: -250,
+      reason: 'expense', transactionName: 'uber', transactionId: 'tx1',
+    }));
+    expect(r).toEqual({ previousBalance: 1000, newBalance: 750 });
+  });
+```
+
+Replace `creates the balance document when none exists` with:
+
+```typescript
+  // upsert: a first-ever movement creates the document at 0 + delta.
+  it('upserts the balance document when none exists', async () => {
+    balanceModel.findOneAndUpdate.mockResolvedValue({ userId: 1, balance: 100 });
+    const r = await service.apply(100, 'income');
+    expect(balanceModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { userId: 1 }, expect.objectContaining({ $inc: { balance: 100 } }), expect.objectContaining({ upsert: true }),
+    );
+    expect(r).toEqual({ previousBalance: 0, newBalance: 100 });
+  });
+```
+
+For `reverse`, have `findOneAndUpdate` resolve `{ balance: 1300 }` then `{ balance: 800 }` via `mockResolvedValueOnce` and keep the existing assertions on the recorded `delta`. The history-failure test is unchanged.
+
+- [ ] **Step 2: Run** — `cd api && pnpm test ledger` → the first two must FAIL (`findOne` is not a function / wrong call shape).
+
+- [ ] **Step 3: Implement**
+
+```typescript
+  async apply(
+    delta: number,
+    reason: BalanceChangeReason,
+    transactionName?: string,
+    transactionId?: string,
+  ): Promise<{ previousBalance: number; newBalance: number }> {
+    // A single atomic $inc: concurrent writers (the ingestion poll and the web)
+    // can never lose each other's update the way a read-modify-write can.
+    const updated = await this.balanceModel.findOneAndUpdate(
+      { userId: this.userId },
+      { $inc: { balance: delta }, $set: { lastActivity: new Date() } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+    const newBalance = updated.balance;
+    const previousBalance = newBalance - delta;
+
+    // History failure must never break the movement that already happened.
+    try {
+      await this.historyModel.create({
+        userId: this.userId, previousBalance, newBalance, delta, reason, transactionName, transactionId,
+      });
+    } catch (err) {
+      this.logger.error('Failed to record balance history', String(err));
+    }
+    return { previousBalance, newBalance };
+  }
+```
+
+`reverse` is unchanged.
+
+- [ ] **Step 4: Run** — `pnpm test ledger` PASS; `pnpm test` all green (the ingestion spec mocks the whole ledger, so it is unaffected); `pnpm run build` clean.
+- [ ] **Step 5: Commit** — `git commit -m "fix(api): make the ledger's balance movement a single atomic \$inc"`
+
+---
+
+### Task 4c: Use the helper for the three remaining predicate re-spellings
+
+The spec says the JS re-spellings of "is this non-spending" use `isNonSpendingTransfer`. Three remain:
+
+- `api/src/ingestion/ingestion.service.ts` (~line 314, the post-create balance gate)
+- `api/src/ingestion/reconciliation.service.ts` (~line 49, the `matchedPeriod` guard)
+- `api/src/transactions/transactions.service.ts` (~line 123, the CSV `type` column)
+
+- [ ] **Step 1:** replace each `x === 'internal' || x === 'unresolved'` with `isNonSpendingTransfer(x)`, importing from `../shared/schemas/transfer-kind` (adjust relative path per file). Leave the single `=== 'internal'` at ingestion ~line 187 alone — that is a different predicate.
+- [ ] **Step 2:** `pnpm test` all green — the existing suites cover all three sites. `pnpm run build` clean.
+- [ ] **Step 3: Commit** — `git commit -m "refactor(api): use isNonSpendingTransfer at the three remaining predicate sites"`
+
+---
+
 ## Phase 2 — API write endpoints
 
 ### Task 5: Module wiring and the category allow-list
@@ -775,17 +877,26 @@ Controller:
 
 ```typescript
 describe('softDelete', () => {
-  beforeEach(() => { mockModel.findOne = jest.fn(); mockModel.updateOne = jest.fn().mockResolvedValue({}); mockModel.deleteOne = jest.fn(); });
+  // One atomic findOneAndUpdate matching only a LIVE row. It returns the
+  // pre-image, so the amount we reverse comes from the same operation that won
+  // the race. Two concurrent deletes cannot both reverse the balance.
+  beforeEach(() => { mockModel.findOneAndUpdate = jest.fn(); mockModel.deleteOne = jest.fn(); });
 
-  it('marks the row deleted and reverses the balance for an ordinary expense', async () => {
-    mockModel.findOne.mockResolvedValue({ _id: 't1', amount: -100, transactionName: 'uber', transferKind: undefined });
+  it('marks the row deleted atomically and reverses the balance for an ordinary expense', async () => {
+    mockModel.findOneAndUpdate.mockResolvedValue({ _id: 't1', amount: -100, transactionName: 'uber', transferKind: undefined });
     await service.softDelete('t1');
-    expect(mockModel.updateOne).toHaveBeenCalledWith(
-      { _id: 't1' },
+    expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: 't1', deletedAt: null }),
       { $set: { deletedAt: expect.any(Date) }, $unset: { recurringId: 1, recurringPeriod: 1 } },
     );
     expect(ledger.reverse).toHaveBeenCalledWith(-100, 'uber', 't1');
     expect(mockModel.deleteOne).not.toHaveBeenCalled();   // never a hard delete
+  });
+
+  it('a concurrent second delete finds no live row and reverses nothing', async () => {
+    mockModel.findOneAndUpdate.mockResolvedValue(null);
+    await expect(service.softDelete('t1')).rejects.toThrow(NotFoundException);
+    expect(ledger.reverse).not.toHaveBeenCalled();
   });
 
   // A deleted row must leave the partial unique index on
@@ -793,10 +904,10 @@ describe('softDelete', () => {
   // can never be recorded: its create collides with the deleted row and every
   // poll re-parses the mail. Unsetting the link is what frees the slot.
   it('unsets the recurring link so the period can be recorded again', async () => {
-    mockModel.findOne.mockResolvedValue({ _id: 't2', amount: -20000, transactionName: 'rent', recurringId: 'r1', recurringPeriod: '2026-10' });
+    mockModel.findOneAndUpdate.mockResolvedValue({ _id: 't2', amount: -20000, transactionName: 'rent', recurringId: 'r1', recurringPeriod: '2026-10' });
     await service.softDelete('t2');
-    expect(mockModel.updateOne).toHaveBeenCalledWith(
-      { _id: 't2' },
+    expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({ $unset: { recurringId: 1, recurringPeriod: 1 } }),
     );
   });
@@ -804,17 +915,20 @@ describe('softDelete', () => {
   it('does not touch the balance for internal or unresolved rows', async () => {
     for (const kind of ['internal', 'unresolved']) {
       ledger.reverse.mockClear();
-      mockModel.findOne.mockResolvedValue({ _id: 't1', amount: -100, transferKind: kind });
+      mockModel.findOneAndUpdate.mockResolvedValue({ _id: 't1', amount: -100, transferKind: kind });
       await service.softDelete('t1');
-      expect(mockModel.updateOne).toHaveBeenCalled();
+      expect(mockModel.findOneAndUpdate).toHaveBeenCalled();
       expect(ledger.reverse).not.toHaveBeenCalled();
     }
   });
 
-  it('404s for a missing or already-deleted row', async () => {
-    mockModel.findOne.mockResolvedValue(null);
-    await expect(service.softDelete('t1')).rejects.toThrow(NotFoundException);
-    expect(mockModel.findOne).toHaveBeenCalledWith(expect.objectContaining({ deletedAt: null }));
+  it('404s for a missing or already-deleted row, matching only live rows', async () => {
+    mockModel.findOneAndUpdate.mockResolvedValue(null);
+    await expect(service.softDelete('gone')).rejects.toThrow(NotFoundException);
+    expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: 'gone', deletedAt: null }),
+      expect.anything(),
+    );
   });
 });
 ```
@@ -830,18 +944,21 @@ describe('softDelete', () => {
    * the balance.
    */
   async softDelete(id: string): Promise<void> {
-    const tx = await this.transactionModel.findOne({ _id: id, userId: this.userId, ...NOT_DELETED });
-    if (!tx) throw new NotFoundException();
+    // One atomic step that matches only a LIVE row and marks it. It returns the
+    // pre-image, so the amount reversed below comes from the same operation that
+    // won the race: two concurrent deletes cannot both reverse the balance.
+    //
     // $unset the recurring link so the row leaves the partial unique index on
     // (userId, recurringId, recurringPeriod). Otherwise the bank email for that
     // period can never be recorded — its create collides with this deleted row —
     // and, having no sourceMessageId to dedupe on, is re-parsed on every poll.
     // ($exists: false is not allowed in a partialFilterExpression, so the index
     // itself cannot be taught to ignore deleted rows.)
-    await this.transactionModel.updateOne(
-      { _id: id },
+    const tx = await this.transactionModel.findOneAndUpdate(
+      { _id: id, userId: this.userId, ...NOT_DELETED },
       { $set: { deletedAt: new Date() }, $unset: { recurringId: 1, recurringPeriod: 1 } },
     );
+    if (!tx) throw new NotFoundException();
     if (!isNonSpendingTransfer(tx.transferKind)) {
       await this.ledger.reverse(tx.amount, tx.transactionName, id);
     }
@@ -1055,16 +1172,21 @@ Write each body concretely against the mocks; do not leave the comments as the t
 In `deleteTransactionById`, replace the reverse + `deleteOne` block with:
 
 ```typescript
-      // Soft-delete: an ingested row must keep its sourceMessageId or the next
-      // poll re-creates it. Reverse the balance only if this row ever moved it.
-      // Unset the recurring link so the row leaves the partial unique index on
-      // (userId, recurringId, recurringPeriod) — otherwise that period can never
-      // be recorded again by either the email or the cron.
-      await this.transactionModel
-        .findByIdAndUpdate(transactionId, { $set: { deletedAt: new Date() }, $unset: { recurringId: 1, recurringPeriod: 1 } })
+      // Soft-delete, atomically, matching only a LIVE row: an ingested row must
+      // keep its sourceMessageId or the next poll re-creates it, and two
+      // concurrent deletes must not both reverse the balance. The pre-image
+      // returned is the amount to reverse. Unset the recurring link so the row
+      // leaves the partial unique index on (userId, recurringId, recurringPeriod)
+      // — otherwise that period can never be recorded again by email or cron.
+      const deleted = await this.transactionModel
+        .findOneAndUpdate(
+          { _id: transactionId, userId, ...NOT_DELETED },
+          { $set: { deletedAt: new Date() }, $unset: { recurringId: 1, recurringPeriod: 1 } },
+        )
         .exec();
-      if (!isNonSpendingTransfer(transaction.transferKind)) {
-        await this.balanceService.reverseTransaction(userId, transaction.amount, transaction.transactionName, transactionId);
+      if (!deleted) return;   // already deleted by a concurrent request
+      if (!isNonSpendingTransfer(deleted.transferKind)) {
+        await this.balanceService.reverseTransaction(userId, deleted.amount, deleted.transactionName, transactionId);
       }
 ```
 
@@ -1733,6 +1855,8 @@ git diff <start>..HEAD | grep -nE "6728|0010|1311|7574|4492|SUERO|ANDUJAR|KENNY|
 | Live reload after writes | 13, 15, 16 |
 | Categorizer canonical names + word boundaries | 12 |
 | `reviewCategories` duplicate removed | 15 |
+| JS re-spellings use `isNonSpendingTransfer` (spec: shared filters) | 4c |
+| Atomic balance movement (Phase 1 review) | 4b |
 | Bot: shared filters and balance guards, no new features | 3, 11 |
 
 **Placeholder scan:** Task 11's tests are described with the assertions to make rather than full mock plumbing because they must match `repo/`'s existing hand-built mocks; every assertion is named. Task 12 gives the exact regex transformation and the exact replacement lines. No "add validation" or "similar to Task N".
