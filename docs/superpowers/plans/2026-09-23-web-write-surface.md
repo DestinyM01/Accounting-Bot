@@ -1154,6 +1154,21 @@ and each catch becomes e.g. `catch (err) { return this.compensate(id, 'delete', 
 - [ ] **Step 5:** `pnpm test` all green; `pnpm run build` clean.
 - [ ] **Step 6: Commit** — `git commit -m "fix(api): log and surface the ledger error when a rollback also fails; restore full pre-image on update; drop the no-op guard test; guard the sent-leg link"`
 
+**Code-quality polish from the Phase 2A review** — a second, separate commit so the money-path fix above stays reviewable on its own:
+
+- [ ] **Step 7: `transactions.service.ts` readability**
+  - Rename `update`'s `written` to `matched` and add the one-line why: it is only a truthiness check, whereas `tx` carries the pre-image the delta was computed from.
+  - Make every validation message name the field **and** the value, in one form: `amount must be > 0 (got ${amount})`, `type must be income or expense (got ${type})`, `name is required`, `timestamp is invalid (got ${timestamp})`, `unknown category: ${category}`, `kind must be internal or external (got ${kind})`. A 400 in the network tab should say what was wrong.
+  - Name all four request shapes: export `SetCategoryBody { category: string }` and `ResolveTransferBody { kind: 'internal' | 'external' }` beside the two existing ones, and use them in the controller — no inline body types.
+  - Put `update`'s validations in the same order as `create`'s (type is not editable, so: amount → name → category → timestamp) so the two read as a matched pair.
+  - At `resolveTransfer`'s `if (!tx)`, add the why for the second query: it runs only on the failure path, to tell "no live row" (404) from "live but not unresolved" (409); the balance is unreachable from either.
+- [ ] **Step 8: Schema comment scope**, both `api/src/shared/schemas/transaction.schema.ts` and `repo/src/mongodb/schemas/transaction.schemas.ts`: "Never hard-delete" is true of rows that have been persisted and returned to a caller; `create`'s rollback and ingestion's rollback hard-delete a row milliseconds old that no caller has seen. Reword to: `Soft-delete marker for every row. Never hard-delete a row once it has been returned to a caller: an email-sourced row must keep its sourceMessageId or the next poll re-creates it.`
+- [ ] **Step 9: Spec hygiene** in `transactions.service.spec.ts`
+  - Split the mislabeled `describe('exportCsv')`: the seven `findAll` tests move under `describe('findAll')`, the two `setCategory` tests under `describe('setCategory')`, leaving only real export tests under `exportCsv`. No test body changes.
+  - In `softDelete` → "does not touch the balance for internal or unresolved rows", tighten `expect(mockModel.findOneAndUpdate).toHaveBeenCalled()` to `toHaveBeenCalledWith(expect.objectContaining({ _id: 't1', deletedAt: null }), expect.anything())`, matching its siblings.
+- [ ] **Step 10:** `pnpm test` all green — same count as after Step 5 (the split moves tests, it does not add or remove any); `pnpm run build` clean.
+- [ ] **Step 11: Commit** — `git commit -m "refactor(api): name request bodies, uniform validation messages, matched-pair validation order, spec describe hygiene"`
+
 ---
 
 ### Task 10: `POST /recurring`
@@ -1700,7 +1715,15 @@ export class TransactionFormComponent implements OnInit, OnDestroy {
 
     req.subscribe({
       next: () => { this.events.notify(); this.close(); },
-      error: () => { this.saving = false; this.error = 'Could not save. Please try again.'; },
+      error: (e: { status?: number; error?: { message?: string } }) => {
+        this.saving = false;
+        // Surface the API's own message. A 409 means the row changed elsewhere
+        // (deleted, re-edited or resolved in another tab); the right action is
+        // to reload it, not to retry blindly.
+        this.error = e?.status === 409
+          ? 'This transaction changed elsewhere. Close and reopen it to see the latest.'
+          : (e?.error?.message ?? 'Could not save. Please try again.');
+      },
     });
   }
 }
