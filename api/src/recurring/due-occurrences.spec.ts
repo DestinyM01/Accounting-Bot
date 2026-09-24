@@ -1,4 +1,5 @@
-import { planOccurrences, SchedulableRule } from './due-occurrences';
+import { Types } from 'mongoose';
+import { planOccurrences, schedulableFrom, SchedulableRule } from './due-occurrences';
 
 const at = (iso: string) => new Date(iso);
 
@@ -78,5 +79,19 @@ describe('planOccurrences', () => {
     const plan = planOccurrences(rule({ dayOfMonth: 26, lastPeriod: '2026-07' }), at('2026-09-26T12:00:00Z'));
     expect(plan.due.map((o) => o.period)).toEqual(['2026-08', '2026-09']);
     expect(plan.tooOld).toEqual([]);
+  });
+});
+
+describe('schedulableFrom', () => {
+  it('takes the creation time from the ObjectId, never the createdAt field', () => {
+    const _id = Types.ObjectId.createFromTime(Date.UTC(2026, 0, 1) / 1000);
+    // What Mongoose loads for a legacy rule stored without createdAt: "now".
+    const loaded = { _id, dayOfMonth: 20, lastPeriod: '2026-08', createdAt: new Date('2026-09-25T15:00:00Z') };
+    expect(schedulableFrom(loaded)).toEqual({
+      dayOfMonth: 20,
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      lastPeriod: '2026-08',
+      lastExecutedAt: undefined,
+    });
   });
 });

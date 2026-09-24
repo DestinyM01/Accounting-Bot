@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Cron } from '@nestjs/schedule';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { NOT_DELETED } from '../shared/schemas/transfer-kind';
 import { LedgerService } from '../shared/ledger/ledger.service';
-import { LOOKBACK_DAYS, Occurrence, planOccurrences } from './due-occurrences';
+import { LOOKBACK_DAYS, Occurrence, planOccurrences, schedulableFrom } from './due-occurrences';
 
 export type BookingOutcome = 'booked' | 'satisfied' | 'failed';
 
@@ -77,17 +77,7 @@ export class RecurringSchedulerService {
   }
 
   private async processRule(rule: Recurring, now: Date, tally: Tally): Promise<void> {
-    const plan = planOccurrences(
-      {
-        dayOfMonth: rule.dayOfMonth,
-        // The ObjectId, not the createdAt field: createdAt defaults to "now" on
-        // legacy rules stored without it, which would block their catch-up.
-        createdAt: (rule._id as Types.ObjectId).getTimestamp(),
-        lastPeriod: rule.lastPeriod,
-        lastExecutedAt: rule.lastExecutedAt,
-      },
-      now,
-    );
+    const plan = planOccurrences(schedulableFrom(rule), now);
 
     if (plan.tooOld.length > 0) {
       const periods = plan.tooOld.map((o) => o.period);

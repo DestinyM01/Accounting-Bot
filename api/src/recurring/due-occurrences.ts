@@ -65,3 +65,22 @@ export function planOccurrences(rule: SchedulableRule, now: Date): { due: Occurr
 
   return { due, tooOld };
 }
+
+/**
+ * A stored rule as planOccurrences needs it. The creation time comes from the
+ * ObjectId, NOT the createdAt field: Mongoose fills a missing createdAt with
+ * "now" when it loads a legacy rule, which would hide every occurrence.
+ */
+export function schedulableFrom(rule: {
+  _id: unknown;
+  dayOfMonth: number;
+  lastPeriod?: string;
+  lastExecutedAt?: Date;
+}): SchedulableRule {
+  return {
+    dayOfMonth: rule.dayOfMonth,
+    createdAt: (rule._id as { getTimestamp(): Date }).getTimestamp(),
+    lastPeriod: rule.lastPeriod,
+    lastExecutedAt: rule.lastExecutedAt,
+  };
+}
