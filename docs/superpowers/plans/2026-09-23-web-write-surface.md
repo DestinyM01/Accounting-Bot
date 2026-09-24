@@ -2111,6 +2111,15 @@ with `.tx-amount.transfer { color: var(--text-muted); }` in the dashboard scss.
 
 ---
 
+### Task 16b: Phase 3 review fixes
+
+The Phase 3 spec review found three things a user hits on first use, one of them irreversible, plus the right answer to the style-budget warning.
+
+- [ ] **Editing must never rewrite the time.** The overlay (Task 14 as written) prefilled the date from the **UTC** day and always re-sent a noon-local `timestamp`, so editing only the *name* of a 9:15 PM purchase stored it as 12:00 PM — and past 8 PM (UTC−4) moved it to the next day, across a month boundary on the 30th. There is no time field, so it could not be undone. Fix: prefill from the local date of `new Date(tx.timestamp)`; send `timestamp` on edit **only** when the date changed, and then keep the original time-of-day and move just the calendar day. Creates keep noon-local. Also: the bottom sheet gets `max-height: 100dvh; overflow-y: auto`; the type toggle's buttons get `role="radio"` + `aria-checked`.
+- [ ] **Writes reload in place.** `changed$` → `load(false)` flipped `loading`, which removed the table, scrolled to the top and discarded "Load More" rows on every save/delete/resolve, and broke focus return after edit→save. Fix: `reloadInPlace()` re-fetches the rows on screen (capped at the API's 200) without touching `loading`, and sets `offset` so the next Load More continues correctly. Delete/resolve errors (404/409 from another tab) now also `notify()` so the stale row refreshes.
+- [ ] **Recurring create errors stay in the form.** `submitForm()`'s error set the page-level `error`, blanking the list and Sankey. Fix: a form-local `formError` surfacing the API's message; `formValid` requires an integer day; selects/inputs get `aria-label`s; the empty state no longer says "Add them via the Telegram bot".
+- [ ] **One form-control vocabulary.** `.tf-*`, `.rf-*`/`.rp-new-btn` and `.bf-*` were the same rules copied three times — which is also why `recurring.component.scss` tripped the 8 kB budget (it was already 7.7 kB before Phase 3; measured with the project's `sass`). Fix: a global `web/src/styles/_form-controls.scss` (`.fc-field`, `.fc-input`, `.fc-btn` + `--primary/--ghost/--danger`, `.fc-error`), `@use`d once from `styles.scss`; the three templates swap to it and the duplicated rules go. Raising the budget would have hidden the signal. In the same pass: the drawer backdrop uses `var(--overlay-scrim)`, `.content` gets bottom padding so a list scrolls clear of the `+`, and the dashboard's trend chart stops re-animating from zero on every 60 s refresh.
+
 ### Phase 3 as built (commits `5a8b322`, `98b9d85`, `e2e03ba`, `8b6a527`, `b35a0af`)
 
 Deviations from the task text above, all deliberate and all reported by the implementers:
