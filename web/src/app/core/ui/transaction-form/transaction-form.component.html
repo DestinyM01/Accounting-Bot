@@ -17,30 +17,30 @@
       </div>
     }
 
-    <label class="tf-field">
+    <label class="fc-field">
       <span>Amount</span>
-      <input #firstField class="tf-input" type="number" min="0.01" step="0.01" [(ngModel)]="amount" placeholder="0.00" />
+      <input #firstField class="fc-input" type="number" min="0.01" step="0.01" [(ngModel)]="amount" placeholder="0.00" />
     </label>
-    <label class="tf-field">
+    <label class="fc-field">
       <span>Name</span>
-      <input class="tf-input" type="text" [(ngModel)]="name" placeholder="What was it?" />
+      <input class="fc-input" type="text" [(ngModel)]="name" placeholder="What was it?" />
     </label>
-    <label class="tf-field">
+    <label class="fc-field">
       <span>Category</span>
-      <select class="tf-input" [(ngModel)]="category">
+      <select class="fc-input" [(ngModel)]="category">
         @for (cat of categories; track cat) { <option [value]="cat">{{ cat | titlecase }}</option> }
       </select>
     </label>
-    <label class="tf-field">
+    <label class="fc-field">
       <span>Date</span>
-      <input class="tf-input" type="date" [(ngModel)]="date" />
+      <input class="fc-input" type="date" [(ngModel)]="date" />
     </label>
 
-    @if (error) { <p class="tf-error" role="alert">{{ error }}</p> }
+    @if (error) { <p class="fc-error" role="alert">{{ error }}</p> }
 
     <div class="tf-actions">
-      <button type="button" class="tf-cancel" (click)="close()">Cancel</button>
-      <button type="button" class="tf-submit" [disabled]="!valid || saving" (click)="save()">
+      <button type="button" class="fc-btn fc-btn--ghost" (click)="close()">Cancel</button>
+      <button type="button" class="fc-btn fc-btn--primary" [disabled]="!valid || saving" (click)="save()">
         <mat-icon>{{ saving ? 'hourglass_empty' : 'check' }}</mat-icon>
         {{ saving ? 'Saving…' : (mode === 'edit' ? 'Save changes' : 'Add') }}
       </button>

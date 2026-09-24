@@ -129,6 +129,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // called from template once loading = false and canvas is in DOM
   buildChart() {
+    // Rebuilds happen every 60s and after every write (see ngOnInit); only the
+    // very first build should animate in — otherwise the lines redraw from
+    // zero on a timer, which reads as a flicker rather than a live update.
+    const isFirstBuild = !this.chart;
     if (this.chart) { this.chart.destroy(); this.chart = null; }
     const canvas = this.areaCanvas?.nativeElement;
     if (!canvas || !this.monthly.length) return;
@@ -172,6 +176,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: isFirstBuild ? undefined : false,
         plugins: {
           legend: { display: false },
           tooltip: {

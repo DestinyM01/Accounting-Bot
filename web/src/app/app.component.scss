@@ -248,6 +248,7 @@
 .content {
   flex: 1;
   overflow-y: auto;
+  padding-bottom: 88px;
 }
 
 // ── Shared dropdown panel ──────────────────────────────────────────────
@@ -419,7 +420,7 @@
   display: none;
   position: fixed;
   inset: 0;
-  background: oklch(0% 0 0 / 50%);
+  background: var(--overlay-scrim);
   z-index: 199;
 }
 
