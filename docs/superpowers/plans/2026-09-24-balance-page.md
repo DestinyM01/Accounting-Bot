@@ -1719,3 +1719,43 @@ Expected: `8`; in `api/src/balance` only `balance.service.ts` references `Ledger
 
 1. Spec review, then code-quality review; fixes; private-identifier gate; push.
 2. Hand the user: `rollout restart` of `accounting-api` and `accounting-web` once CI is green; open **Balance** in the nav; set the balance to the total your accounts show, then see the "Set by you" row and the chart's step.
+
+---
+
+## As built (2026-09-24)
+
+Tasks 1–8 landed as written in `ecda44d`, `7b68878`, `d9a6815`, `e299017`, `93d1a80`, `f42eb82`, `5d7fe6d`, `3b8df51`. The one deviation: a non-null assertion on Chart.js's tooltip value, which its types mark as possibly null. Counts matched the plan at every step.
+
+**Preview:** a scratch harness rendered the real component against fake data (no login), screenshotted live at 1280 px and 375 px. It shows no horizontal scroll at phone width, the chips wrap, and the set form's preview reads "This records an adjustment of −$1,230.35 (from $52,400.35 to $51,170.00)". Both inputs are labelled.
+
+**Spec review:** compliant. The reviewer ran the ledger against an in-memory store that applies `$set`/`$inc`/upsert like MongoDB:
+- 1,500 random interleavings of a manual set and a movement lost no movement, and every history row records exactly the value its write replaced;
+- 90 daily closings over 186 synthetic rows matched an independent end-of-day computation, including the 03:59/04:00 UTC boundary.
+
+Fixed in `a15eac1` and `a590607`:
+- new pins: the opening prefers the row before the window, the window is read from its start oldest first, the ±1e12 bounds, the note is trimmed before measuring, a history failure is logged;
+- Set balance is disabled when the balance failed to load;
+- totals beyond the api's limit never enable Confirm;
+- the Load-more error shows beside its button;
+- appended rows are de-duplicated;
+- one minus-sign style;
+- the README tree.
+
+**Code-quality review:** approved with follow-ups. Two Important items were proven by running the component with a fake api. Fixed in `19b4a88` and `e309524`:
+- stale responses can no longer overwrite newer ones (per-section request counters; a stale header had fed the set form's "from" figure);
+- keyboard focus follows the form, and Enter confirms;
+- one list of reasons shared by the type and the filter;
+- one `recordHistory` helper for the "history never undoes a movement" rule;
+- typed kind labels, years on history dates, a reachable chart tooltip, an always-present live region, a full-width amount field on phones, and focus styling on the Dashboard link;
+- test clean-ups (`it.each` per rejected input; projection pins).
+
+Final: api 39 suites / 380 tests, repo 13 / 82, web build clean with zero warnings.
+
+## Follow-ups
+
+- **History order within the same millisecond.** `BalanceHistory.timestamp` is stamped after the atomic write returns, so two near-simultaneous writes can be recorded in reverse order and the chart's closing for that day can be off until the next movement. Fix: `$inc` a sequence number in the same atomic update, store it on the history row, and sort by it.
+- **Load more by offset can skip a row** if a new row lands between pages (duplicates are already dropped). Fix: page with a `(timestamp, _id)` cursor.
+- **One Santo Domingo time helper.** The UTC−4 offset and the shift-then-read-UTC idiom now live in `balance/daily-closings.ts`, `reports/report-render.ts`, `reports/report-periods.ts` and `recurring/due-occurrences.ts`. Move them to `api/src/shared/local-time.ts` as a separate refactor.
+- **Dashboard and Statistics charts:** hard-coded hex colours, and the same 1-pixel tooltip hit radius this page fixed (`interaction: { mode: 'index', intersect: false }`).
+- **A shared chainable query stub for specs.** `report-data.service.spec.ts` and `balance.service.spec.ts` each define one; extract it at the next use.
+- **The page-level "Loading…" covers the header only.** The chart and list show their own states.
