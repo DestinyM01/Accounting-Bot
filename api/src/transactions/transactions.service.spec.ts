@@ -53,7 +53,7 @@ describe('TransactionsService.exportCsv', () => {
 
   it('starts with the header row', async () => {
     const csv = await service.exportCsv({});
-    expect(csv.startsWith('Date,Name,Type,Category,Amount\n')).toBe(true);
+    expect(csv.startsWith('Date,Name,Type,Category,Kind,Amount\n')).toBe(true);
   });
 
   it('produces one data row per transaction', async () => {
@@ -119,5 +119,43 @@ describe('TransactionsService.exportCsv', () => {
     expect(mockModel.select).toHaveBeenCalledWith(
       expect.stringContaining('transferKind'),
     );
+  });
+
+  // The design says internal/unresolved rows stay visible in an unfiltered
+  // export, but tagged — so a spreadsheet sum on Type=expense must not
+  // include them.
+  describe('Kind tagging', () => {
+    it('exports a Kind column', async () => {
+      const csv = await service.exportCsv({});
+      const header = csv.split('\n')[0];
+      expect(header).toContain('Kind');
+    });
+
+    it('labels internal transfers as transfer, not expense', async () => {
+      mockModel.lean.mockResolvedValueOnce([
+        {
+          transactionName: 'Transfer to Savings',
+          transactionType: 'Расход',
+          amount: -500,
+          timestamp: new Date('2026-05-15'),
+          category: 'other',
+          transferKind: 'internal',
+        },
+      ]);
+
+      const csv = await service.exportCsv({});
+      const row = csv.trim().split('\n')[1];
+
+      expect(row).toContain('"transfer"');
+      expect(row).toContain('"internal"');
+      expect(row).not.toContain('"expense"');
+    });
+
+    it('leaves Kind empty for ordinary card transactions', async () => {
+      const csv = await service.exportCsv({});
+      const rows = csv.trim().split('\n').slice(1);
+      // Groceries row carries no transferKind at all.
+      expect(rows[0]).toContain('"food","","50.00"');
+    });
   });
 });

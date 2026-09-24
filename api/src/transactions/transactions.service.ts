@@ -110,16 +110,21 @@ export class TransactionsService {
       .find(filter)
       .limit(10000)
       .sort({ timestamp: -1 })
-      .select('transactionName transactionType amount timestamp category')
+      .select('transactionName transactionType amount timestamp category transferKind')
       .lean();
 
-    const header = 'Date,Name,Type,Category,Amount\n';
+    const header = 'Date,Name,Type,Category,Kind,Amount\n';
     const rows = txs.map((t) => {
-      const date   = new Date(t.timestamp).toISOString().slice(0, 10);
-      const type   = t.amount < 0 ? 'expense' : 'income';
+      const date = new Date(t.timestamp).toISOString().slice(0, 10);
+      // Internal/unresolved rows are visible but tagged: printing them as
+      // 'expense' would let a spreadsheet sum on Type=expense double-count a
+      // transfer alongside the real payment it funded.
+      const isTransfer = t.transferKind === 'internal' || t.transferKind === 'unresolved';
+      const type   = isTransfer ? 'transfer' : (t.amount < 0 ? 'expense' : 'income');
+      const kind   = t.transferKind || '';
       const amount = Math.abs(t.amount).toFixed(2);
       const name   = t.transactionName.replace(/"/g, '""');
-      return `"${date}","${name}","${type}","${t.category || 'other'}","${amount}"`;
+      return `"${date}","${name}","${type}","${t.category || 'other'}","${kind}","${amount}"`;
     }).join('\n');
 
     return header + rows;
