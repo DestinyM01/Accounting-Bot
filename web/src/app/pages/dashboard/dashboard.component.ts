@@ -109,6 +109,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  get testDigestLabel(): string {
+    switch (this.testDigest) {
+      case 'sending': return 'Sending…';
+      case 'sent': return 'Sent — check your inbox';
+      default: return 'Email me a test digest';
+    }
+  }
+
   private buildStats(monthly: MonthlyPoint[]) {
     const prev = monthly.length >= 2 ? monthly[monthly.length - 2] : null;
     const curr = monthly.length >= 1 ? monthly[monthly.length - 1] : null;

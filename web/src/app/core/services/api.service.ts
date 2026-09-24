@@ -158,8 +158,8 @@ export class ApiService {
   }
 
   /** Emails the latest weekly digest now, marked [Test]. 503 when email isn't configured on the server. */
-  sendTestDigest(): Observable<void> {
-    return this.http.post<void>(`${this.base}/reports/test`, {});
+  sendTestDigest(): Observable<{ ok: true }> {
+    return this.http.post<{ ok: true }>(`${this.base}/reports/test`, {});
   }
 
   createRecurring(body: CreateRecurringRequest): Observable<{ id: string }> {
