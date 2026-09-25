@@ -1,0 +1,59 @@
+<section class="card set-section" aria-labelledby="reports-title">
+  <h2 id="reports-title">Email reports</h2>
+
+  @if (loading) {
+    <p class="set-muted">Loading…</p>
+  } @else if (loadError) {
+    <p class="fc-error" role="alert">{{ loadError }}</p>
+  } @else if (view) {
+    <form class="set-section-form" (ngSubmit)="save()">
+      <label class="set-check">
+        <input id="reports-weekly" type="checkbox" [(ngModel)]="weekly" name="weekly" />
+        <span>
+          Weekly digest <span class="set-muted">(Mondays, 7:00 AM)</span><br />
+          <span class="set-muted">{{ view.lastSent.weekly ? 'Last sent ' + (view.lastSent.weekly.at | date: 'MMM d, y') : 'Not sent yet' }}</span>
+        </span>
+      </label>
+      <label class="set-check">
+        <input type="checkbox" [(ngModel)]="monthly" name="monthly" />
+        <span>
+          Monthly summary <span class="set-muted">(the 1st, 7:00 AM)</span><br />
+          <span class="set-muted">{{ view.lastSent.monthly ? 'Last sent ' + (view.lastSent.monthly.at | date: 'MMM d, y') : 'Not sent yet' }}</span>
+        </span>
+      </label>
+
+      <label class="fc-field set-field">
+        <span>Send to</span>
+        <input
+          id="reports-recipient"
+          class="fc-input"
+          type="email"
+          autocomplete="email"
+          maxlength="254"
+          [(ngModel)]="recipient"
+          name="recipient"
+          [placeholder]="fallback || 'The server’s address'"
+        />
+      </label>
+      @if (view.recipient.source === 'config') {
+        <span class="set-source">From the server's config</span>
+      }
+
+      @if (saveError) {
+        <p class="fc-error" role="alert">{{ saveError }}</p>
+      }
+      <p class="set-muted" aria-live="polite">{{ saved }}</p>
+
+      <div class="set-actions">
+        <button type="submit" class="fc-btn fc-btn--primary" [disabled]="!dirty || saving">{{ saving ? 'Saving…' : 'Save' }}</button>
+        <button type="button" class="fc-btn fc-btn--ghost" [disabled]="testState === 'sending'" (click)="sendTest()">
+          <mat-icon>{{ testState === 'sent' ? 'mark_email_read' : 'mail' }}</mat-icon>
+          {{ testLabel }}
+        </button>
+      </div>
+      @if (testState === 'error') {
+        <p class="fc-error" role="alert">{{ testError }}</p>
+      }
+    </form>
+  }
+</section>

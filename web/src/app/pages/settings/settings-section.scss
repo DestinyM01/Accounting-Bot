@@ -100,3 +100,5 @@ h3 {
     .fc-field { flex: 0 0 auto; max-width: none; }
   }
 }
+
+.set-section-form { display: flex; flex-direction: column; gap: var(--space-xs); }

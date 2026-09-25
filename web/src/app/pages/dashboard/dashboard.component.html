@@ -2,17 +2,10 @@
   <!-- Page header -->
   <div class="dash-header">
     <h1>Overview</h1>
-    <div class="dash-actions" aria-live="polite">
-      <button type="button" class="fc-btn fc-btn--ghost" [disabled]="testDigest === 'sending'" (click)="sendTestDigest()">
-        <mat-icon>{{ testDigest === 'sent' ? 'mark_email_read' : 'mail' }}</mat-icon>
-        {{ testDigestLabel }}
-      </button>
+    <div class="dash-actions">
       <div class="live-badge"><span class="live-dot"></span>Live Sync</div>
     </div>
   </div>
-  @if (testDigest === 'error') {
-    <p class="fc-error" role="alert">{{ testDigestError }}</p>
-  }
 
   @if (loading) {
     <p class="loading-state">Loading…</p>
