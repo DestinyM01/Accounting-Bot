@@ -46,8 +46,8 @@
       <p id="cash-error" class="fc-error" role="alert">{{ draftError.cash }}</p>
     }
 
-    <h3 id="senders-title">How you appear as a sender (last 4 digits or part of your name)</h3>
-    <p class="set-muted">Used to recognise transfers you send.</p>
+    <h3 id="senders-title">How you appear as a sender (last 4 digits or a whole word of your name)</h3>
+    <p class="set-muted">Used to recognise transfers you send. A name matches whole words only: "rivera" matches "JUAN RIVERA", not "RIVERAS".</p>
     @if (view.senders.source === 'config') {
       <span class="set-source">From the server's config</span>
     }

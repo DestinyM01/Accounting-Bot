@@ -30,4 +30,34 @@ describe('matchesOwn', () => {
   it('returns false when no identifiers are configured', () => {
     expect(matchesOwn('XXXXXX2003', [])).toBe(false);
   });
+
+  // A fragment matching inside a longer name would turn a stranger's transfer
+  // into one of the user's own, and take it out of spending.
+  describe('name fragments match whole words only', () => {
+    it('matches a whole word, or a run of words', () => {
+      expect(matchesOwn('JUAN RIVERA MARTE', ['rivera'])).toBe(true);
+      expect(matchesOwn('Transferencia de JUAN ANTONIO RIVERA', ['juan antonio'])).toBe(true);
+      expect(matchesOwn('RIVERA, JUAN', ['rivera'])).toBe(true);
+    });
+
+    it('does not match inside a longer word', () => {
+      expect(matchesOwn('RIVERAS', ['rivera'])).toBe(false);
+      expect(matchesOwn('MARIANA GOMEZ', ['ana'])).toBe(false);
+      expect(matchesOwn('SANTANA', ['ana'])).toBe(false);
+    });
+
+    it('treats accented letters as letters', () => {
+      expect(matchesOwn('PEDRO NÚÑEZ', ['núñez'])).toBe(true);
+      expect(matchesOwn('PEDRO NÚÑEZA', ['núñez'])).toBe(false);
+    });
+
+    it('tolerates extra spaces between the words of a fragment', () => {
+      expect(matchesOwn('JUAN   ANTONIO RIVERA', ['juan antonio'])).toBe(true);
+    });
+
+    it('takes regex characters in a fragment literally', () => {
+      expect(matchesOwn('A.B SERVICES', ['a.b'])).toBe(true);
+      expect(matchesOwn('AXB SERVICES', ['a.b'])).toBe(false);
+    });
+  });
 });
