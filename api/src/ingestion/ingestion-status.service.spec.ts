@@ -163,23 +163,41 @@ describe('IngestionStatusService', () => {
         { _id: MAIL_ID, sender: 's@bank.example', subject: 'Alert', receivedAt: AT, attempts: 3, lastSeenAt: AT, dismissed: false },
       ]);
       unreadableModel.find.mockReturnValue(unreadable);
-      const recent = query([{ _id: 't1', transactionName: 'store', amount: -120.5, category: 'food', timestamp: AT }]);
+      const recent = query([
+        { _id: 't1', transactionName: 'store', amount: -120.5, category: 'food', timestamp: AT },
+        { _id: 't2', transactionName: 'own savings', amount: -500, category: 'other', timestamp: AT, transferKind: 'internal' },
+      ]);
       txModel.find.mockReturnValue(recent);
 
       expect(await service.view(true)).toEqual({
-        startAt: '2026-09-24T14:58:59Z',
+        // The web's date pipe throws on a malformed date string; INGEST_START_AT
+        // is arbitrary operator input, so this must always be a valid ISO string
+        // (or null), never the raw env var passed through.
+        startAt: '2026-09-24T14:58:59.000Z',
         running: true,
         lastRun: { at: AT, created: 1, skipped: 2, failed: 1 },
         lastError: { at: AT, message: 'login refused' },
         unreadable: [{ id: MAIL_ID, sender: 's@bank.example', subject: 'Alert', receivedAt: AT, attempts: 3, lastSeenAt: AT }],
-        recent: [{ id: 't1', name: 'store', amount: 120.5, isExpense: true, category: 'food', timestamp: AT }],
+        recent: [
+          { id: 't1', name: 'store', amount: 120.5, isExpense: true, category: 'food', timestamp: AT, transferKind: null },
+          { id: 't2', name: 'own savings', amount: 500, isExpense: true, category: 'other', timestamp: AT, transferKind: 'internal' },
+        ],
       });
       expect(unreadableModel.find).toHaveBeenCalledWith({ userId: 1, dismissed: false });
       expect(unreadable.sort).toHaveBeenCalledWith({ receivedAt: -1 });
       expect(unreadable.limit).toHaveBeenCalledWith(50);
       expect(txModel.find).toHaveBeenCalledWith({ userId: 1, source: 'email', deletedAt: null });
+      expect(recent.select).toHaveBeenCalledWith('transactionName amount category timestamp transferKind');
       expect(recent.sort).toHaveBeenCalledWith({ timestamp: -1 });
       expect(recent.limit).toHaveBeenCalledWith(10);
+    });
+
+    // INGEST_START_AT is free-form operator input in the Secret; a typo must
+    // not surface as a value the web's date pipe cannot render.
+    it('reports no start date when INGEST_START_AT is not a valid date', async () => {
+      process.env.INGEST_START_AT = 'not-a-date';
+      const v = await service.view(false);
+      expect(v.startAt).toBeNull();
     });
 
     it('shows nothing yet before the first run', async () => {

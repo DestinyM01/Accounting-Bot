@@ -18,7 +18,7 @@ export interface IngestionStatusView {
   lastRun: ({ at: Date } & RunCounts) | null;
   lastError: { at: Date; message: string } | null;
   unreadable: { id: string; sender: string; subject: string; receivedAt: Date; attempts: number; lastSeenAt: Date }[];
-  recent: { id: string; name: string; amount: number; isExpense: boolean; category: string; timestamp: Date }[];
+  recent: { id: string; name: string; amount: number; isExpense: boolean; category: string; timestamp: Date; transferKind: string | null }[];
 }
 
 /**
@@ -114,11 +114,17 @@ export class IngestionStatusService {
         .find({ userId: this.userId, source: 'email', ...NOT_DELETED })
         .sort({ timestamp: -1 })
         .limit(10)
-        .select('transactionName amount category timestamp')
+        .select('transactionName amount category timestamp transferKind')
         .lean(),
     ]);
+    // The web's date pipe throws on a malformed date string, and
+    // INGEST_START_AT is free-form operator input in the Secret — never pass
+    // it through unvalidated.
+    const configured = process.env.INGEST_START_AT?.trim();
+    const parsed = configured ? new Date(configured) : null;
+    const startAt = parsed && !isNaN(parsed.getTime()) ? parsed.toISOString() : null;
     return {
-      startAt: process.env.INGEST_START_AT?.trim() || null,
+      startAt,
       running,
       lastRun: status?.lastRunAt
         ? { at: status.lastRunAt, created: status.created ?? 0, skipped: status.skipped ?? 0, failed: status.failed ?? 0 }
@@ -139,6 +145,7 @@ export class IngestionStatusService {
         isExpense: t.amount < 0,
         category: t.category,
         timestamp: t.timestamp,
+        transferKind: t.transferKind ?? null,
       })),
     };
   }

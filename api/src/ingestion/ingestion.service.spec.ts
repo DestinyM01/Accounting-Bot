@@ -426,6 +426,20 @@ describe('IngestionService', () => {
       await first;
       expect(service.isRunning).toBe(false);
     });
+
+    // The `running` flag is set in a try and cleared in a `finally`. If the
+    // clear were only on the success path, a run that fails as a whole would
+    // leave the flag stuck true forever, and every later poll (and any direct
+    // caller of runGuarded()) would see "already running" and be skipped.
+    it('releases the running flag after a run fails as a whole, so the next run is not skipped', async () => {
+      mail.fetchSince.mockRejectedValueOnce(new Error('Cannot open mailbox "Banks"'));
+
+      await expect(service.runGuarded()).rejects.toThrow('Cannot open mailbox');
+      expect(service.isRunning).toBe(false);
+
+      mail.fetchSince.mockResolvedValue([]);
+      await expect(service.runGuarded()).resolves.toEqual({ created: 0, skipped: 0, failed: 0 });
+    });
   });
 
   it('skips (without a matching parser) a mail whose sender is not registered to any parser', async () => {
@@ -895,6 +909,26 @@ describe('IngestionService', () => {
         }),
       });
       mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'm1' })]);
+      parserParseMock.mockReturnValue(makeParsed());
+
+      await service.run();
+
+      expect(status.clearUnreadableMany).toHaveBeenCalledWith(['m1']);
+    });
+
+    // A mixed run: m1 is already booked (known), m2 is not. Without the
+    // `known` filter, clearUnreadableMany would be called with every mail id
+    // fetched this run — including m2, which never touched the unreadable
+    // list — so every poll would delete dismissed and unreadable records
+    // wholesale instead of only the ones that actually booked or were
+    // recognised.
+    it('clears only the known mails from the unreadable list, not every mail fetched this run', async () => {
+      txModel.find.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockResolvedValue([{ sourceMessageId: 'm1' }]),
+        }),
+      });
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'm1' }), makeMail({ messageId: 'm2' })]);
       parserParseMock.mockReturnValue(makeParsed());
 
       await service.run();
