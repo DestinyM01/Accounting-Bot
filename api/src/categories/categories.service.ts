@@ -88,19 +88,24 @@ export class CategoriesService {
     if (invalid) throw new BadRequestException(invalid);
     if (!isKnownEmoji(input?.emoji)) throw new BadRequestException('Choose one of the offered emoji');
     if (!isPaletteColor(input?.color)) throw new BadRequestException('Choose one of the offered colours');
-    await this.assertNameFree(name, `You already have a category called ${name}`);
+    const taken = `You already have a category called ${name}`;
+    await this.assertNameFree(name, taken);
 
     // A name deleted earlier comes back as the same record, never a duplicate.
-    const revived = await this.model.findOneAndUpdate(
-      { userId: this.userId, name, active: false, pending: null },
-      { $set: { active: true, emoji: input.emoji, color: input.color } },
-      { sort: { _id: -1 }, new: true },
+    const revived = await this.claimName(
+      this.model.findOneAndUpdate(
+        { userId: this.userId, name, active: false, pending: null },
+        { $set: { active: true, emoji: input.emoji, color: input.color } },
+        { sort: { _id: -1 }, new: true },
+      ),
+      taken,
     );
     if (revived) return { id: String(revived._id) };
 
-    const created = await this.model.create({
-      userId: this.userId, name, emoji: input.emoji, color: input.color, active: true, pending: null,
-    });
+    const created = await this.claimName(
+      this.model.create({ userId: this.userId, name, emoji: input.emoji, color: input.color, active: true, pending: null }),
+      taken,
+    );
     return { id: String(created._id) };
   }
 
@@ -129,13 +134,17 @@ export class CategoriesService {
     }
     const invalid = nameError(to);
     if (invalid) throw new BadRequestException(invalid);
-    await this.assertNameFree(to, `${to} already exists — delete ${cat.name} and move it there to merge`);
+    const taken = `${to} already exists — delete ${cat.name} and move it there to merge`;
+    await this.assertNameFree(to, taken);
 
     // The rename and the reservation of the old name are one write.
     const pending: Pending = { from: cat.name, to };
-    const claimed = await this.model.findOneAndUpdate(
-      { _id: cat._id, userId: this.userId, name: cat.name, active: true, pending: null },
-      { $set: { ...set, name: to, pending } },
+    const claimed = await this.claimName(
+      this.model.findOneAndUpdate(
+        { _id: cat._id, userId: this.userId, name: cat.name, active: true, pending: null },
+        { $set: { ...set, name: to, pending } },
+      ),
+      taken,
     );
     if (!claimed) throw new ConflictException(`${cat.name} changed meanwhile — reload and try again`);
     await this.completeMove(cat._id, pending);
@@ -211,6 +220,16 @@ export class CategoriesService {
       throw new ConflictException(`${incoming.pending.from} is still being moved into ${cat.name} — finish that move first`);
     }
     return cat;
+  }
+
+  /** The unique index on active names caught a race assertNameFree couldn't see: answer as it would have. */
+  private async claimName<T>(write: PromiseLike<T>, takenMessage: string): Promise<T> {
+    try {
+      return await write;
+    } catch (err) {
+      if ((err as { code?: number } | null)?.code === 11000) throw new ConflictException(takenMessage);
+      throw err;
+    }
   }
 
   /** Refuses a name held by an active custom category, or one an unfinished move is still moving away from. */

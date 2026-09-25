@@ -13,3 +13,7 @@ export class CustomCategory extends Document {
 }
 
 export const CustomCategorySchema = SchemaFactory.createForClass(CustomCategory);
+
+// One active category per name. Deleted (inactive) records may share a name; a name
+// deleted earlier comes back as the same record (CategoriesService.create), never a copy.
+CustomCategorySchema.index({ userId: 1, name: 1 }, { unique: true, partialFilterExpression: { active: true } });

@@ -333,4 +333,36 @@ describe('CategoriesService', () => {
       expect(customFood!.usage).toEqual({ transactions: 0, recurring: 0, budgets: 0, cashItems: 0 });
     });
   });
+
+  describe('a name lost to a simultaneous write', () => {
+    const duplicate = () => Object.assign(new Error('E11000 duplicate key error'), { code: 11000 });
+
+    it('answers 409 when a create loses the race', async () => {
+      model.create.mockRejectedValueOnce(duplicate());
+      await expect(service.create({ name: 'gym', emoji: '💪', color: '#3b82f6' })).rejects.toThrow(
+        new ConflictException('You already have a category called gym'),
+      );
+    });
+
+    it('answers 409 when a revive loses the race, and creates nothing', async () => {
+      model.findOneAndUpdate.mockRejectedValueOnce(duplicate());
+      await expect(service.create({ name: 'gym', emoji: '💪', color: '#3b82f6' })).rejects.toBeInstanceOf(ConflictException);
+      expect(model.create).not.toHaveBeenCalled();
+    });
+
+    it('answers 409 when a rename loses the race, and moves nothing', async () => {
+      model.findOne.mockReturnValueOnce(query(gym()));
+      model.findOneAndUpdate.mockRejectedValueOnce(duplicate());
+      const err = await service.update(ID, { name: 'fitness' }).catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.message).toMatch(/fitness already exists .* delete gym and move it there to merge/);
+      expect(refs.migrate).not.toHaveBeenCalled();
+    });
+
+    it('passes any other database failure on', async () => {
+      const failure = new Error('db down');
+      model.create.mockRejectedValueOnce(failure);
+      await expect(service.create({ name: 'gym', emoji: '💪', color: '#3b82f6' })).rejects.toBe(failure);
+    });
+  });
 });

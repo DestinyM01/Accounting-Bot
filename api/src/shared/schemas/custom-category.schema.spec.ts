@@ -8,4 +8,13 @@ describe('CustomCategorySchema', () => {
     expect(path).toBeDefined();
     expect(path.defaultValue).toBeNull();
   });
+
+  // Two simultaneous creates or renames can both pass the service's name check;
+  // the database must refuse the second. Deleted records may share a name.
+  it('keeps active names unique per user', () => {
+    expect(CustomCategorySchema.indexes()).toContainEqual([
+      { userId: 1, name: 1 },
+      expect.objectContaining({ unique: true, partialFilterExpression: { active: true } }),
+    ]);
+  });
 });
