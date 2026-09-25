@@ -52,6 +52,12 @@ export const routes: Routes = [
       import('./pages/tips/tips.component').then((m) => m.TipsComponent),
   },
   {
+    path: 'settings',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/settings/settings.component').then((m) => m.SettingsComponent),
+  },
+  {
     path: 'recurring',
     canActivate: [authGuard],
     loadComponent: () =>

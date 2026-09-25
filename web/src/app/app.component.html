@@ -122,6 +122,10 @@
 
               <div class="settings-divider"></div>
 
+              <a class="settings-item" routerLink="/settings" (click)="settingsOpen = false">
+                <mat-icon>tune</mat-icon>
+                Settings
+              </a>
               <a class="settings-item" [href]="authentikProfileUrl" target="_blank" rel="noopener">
                 <mat-icon>manage_accounts</mat-icon>
                 Edit Profile

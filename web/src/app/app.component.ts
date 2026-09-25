@@ -29,6 +29,7 @@ export class AppComponent implements OnInit {
     { label: 'Recurring',    icon: 'repeat',                 path: '/recurring' },
     { label: 'Categories',   icon: 'sell',                   path: '/categories' },
     { label: 'Tips',         icon: 'lightbulb',              path: '/tips' },
+    { label: 'Settings',     icon: 'settings',               path: '/settings' },
   ];
 
   // ── Sidebar collapse ──────────────────────────────────────────────────
