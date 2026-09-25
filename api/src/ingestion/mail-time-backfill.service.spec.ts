@@ -57,7 +57,10 @@ describe('MailTimeBackfillService', () => {
       },
       [{ $set: { timestamp: { $add: ['$timestamp', 4 * 3_600_000] }, mailTimeLocal: true } }],
     );
-    expect(migrationModel.updateOne).toHaveBeenCalledWith({ name: BACKFILL_NAME }, { $set: { doneAt: START, shifted: 7 } });
+    expect(migrationModel.updateOne).toHaveBeenCalledWith(
+      { name: BACKFILL_NAME },
+      { $set: { doneAt: expect.any(Date) }, $inc: { shifted: 7 } },
+    );
   });
 
   it('does nothing once the correction is done', async () => {
@@ -87,5 +90,6 @@ describe('MailTimeBackfillService', () => {
     expect(() => service.onApplicationBootstrap()).not.toThrow();
     await new Promise((r) => setImmediate(r));
     expect(Logger.prototype.error).toHaveBeenCalled();
+    expect(migrationModel.updateOne).not.toHaveBeenCalled();
   });
 });

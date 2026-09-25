@@ -9,6 +9,7 @@ import { CategoriesService } from '../categories/categories.service';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { NOT_DELETED, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
+import { parseConfiguredInstant } from '../shared/time-zone';
 import { MailClient } from './mail.client';
 import { CategorizerService } from './categorizer.service';
 import { FxService } from './fx.service';
@@ -157,9 +158,7 @@ export class IngestionService {
 
   /** Forward-only: never ingest mail older than the configured start. */
   private watermark(): Date {
-    const configured = process.env.INGEST_START_AT;
-    const start = configured ? new Date(configured) : new Date(Date.now() - 24 * 3600_000);
-    return isNaN(start.getTime()) ? new Date(Date.now() - 24 * 3600_000) : start;
+    return parseConfiguredInstant(process.env.INGEST_START_AT) ?? new Date(Date.now() - 24 * 3600_000);
   }
 
   /**

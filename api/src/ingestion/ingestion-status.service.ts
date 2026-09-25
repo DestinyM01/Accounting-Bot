@@ -5,6 +5,7 @@ import { IngestionStatus } from '../shared/schemas/ingestion-status.schema';
 import { UnreadableMail } from '../shared/schemas/unreadable-mail.schema';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { NOT_DELETED } from '../shared/schemas/transfer-kind';
+import { parseConfiguredInstant } from '../shared/time-zone';
 
 export interface RunCounts {
   created: number;
@@ -120,9 +121,7 @@ export class IngestionStatusService {
     // The web's date pipe throws on a malformed date string, and
     // INGEST_START_AT is free-form operator input in the Secret — never pass
     // it through unvalidated.
-    const configured = process.env.INGEST_START_AT?.trim();
-    const parsed = configured ? new Date(configured) : null;
-    const startAt = parsed && !isNaN(parsed.getTime()) ? parsed.toISOString() : null;
+    const startAt = parseConfiguredInstant(process.env.INGEST_START_AT)?.toISOString() ?? null;
     return {
       startAt,
       running,

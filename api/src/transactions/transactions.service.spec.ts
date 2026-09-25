@@ -247,6 +247,25 @@ describe('TransactionsService', () => {
         expect(rows[0]).toContain('"food","","50.00"');
       });
     });
+
+    // The api now runs in the user's zone: an evening purchase must keep its
+    // own calendar day, not roll to the next day because the date printed was UTC.
+    it('prints the local date, not the UTC date, for a row late in the user evening', async () => {
+      mockModel.lean.mockResolvedValueOnce([
+        {
+          transactionName: 'Late dinner',
+          transactionType: 'Расход',
+          amount: -50,
+          timestamp: new Date('2026-09-25T01:53:00Z'),
+          category: 'food',
+        },
+      ]);
+
+      const csv = await service.exportCsv({});
+      const row = csv.trim().split('\n')[1];
+
+      expect(row).toContain('"2026-09-24"');
+    });
   });
 
   describe('create', () => {

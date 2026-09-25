@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, Logger, NotFoundExc
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
-import { localDayEnd, localDayStart } from '../shared/time-zone';
+import { localDateKey, localDayEnd, localDayStart } from '../shared/time-zone';
 import { NOT_DELETED, NON_SPENDING_KINDS, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { LedgerService } from '../shared/ledger/ledger.service';
@@ -174,7 +174,7 @@ export class TransactionsService {
 
     const header = 'Date,Name,Type,Category,Kind,Amount\n';
     const rows = txs.map((t) => {
-      const date = new Date(t.timestamp).toISOString().slice(0, 10);
+      const date = localDateKey(new Date(t.timestamp));
       // Internal/unresolved rows are visible but tagged: printing them as
       // 'expense' would let a spreadsheet sum on Type=expense double-count a
       // transfer alongside the real payment it funded.

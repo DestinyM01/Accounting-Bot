@@ -35,7 +35,9 @@ export class MailTimeBackfillService implements OnApplicationBootstrap {
 
   async run(now: Date, zone: string = serverTimeZone()): Promise<number> {
     if (zone !== USER_ZONE) {
-      this.logger.warn(`Mail-time correction skipped: the server runs in ${zone}, not ${USER_ZONE}`);
+      this.logger.error(
+        `Mail-time correction skipped: the server runs in ${zone}, not ${USER_ZONE}; new bank-mail times would be 4 hours early`,
+      );
       return 0;
     }
     const marker = await this.claim(now);
@@ -47,7 +49,10 @@ export class MailTimeBackfillService implements OnApplicationBootstrap {
       { sourceMessageId: { $exists: true }, _id: { $lt: cutoff }, mailTimeLocal: { $ne: true } },
       [{ $set: { timestamp: { $add: ['$timestamp', SHIFT_MS] }, mailTimeLocal: true } }],
     );
-    await this.migrationModel.updateOne({ name: BACKFILL_NAME }, { $set: { doneAt: now, shifted: res.modifiedCount } });
+    await this.migrationModel.updateOne(
+      { name: BACKFILL_NAME },
+      { $set: { doneAt: new Date() }, $inc: { shifted: res.modifiedCount } },
+    );
     this.logger.log(`Mail-time correction: moved ${res.modifiedCount} mail-sourced transactions 4 hours later`);
     return res.modifiedCount;
   }

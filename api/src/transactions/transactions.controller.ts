@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt.guard';
+import { localDateKey } from '../shared/time-zone';
 import {
   TransactionsService,
   TransactionPage,
@@ -83,7 +84,7 @@ export class TransactionsController {
       startDate: startDate || undefined,
       endDate:   endDate   || undefined,
     });
-    const filename = `transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `transactions-${localDateKey(new Date())}.csv`;
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(csv);
