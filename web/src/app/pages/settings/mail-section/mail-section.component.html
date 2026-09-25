@@ -1,0 +1,95 @@
+<section class="card set-section" aria-labelledby="mail-title">
+  <h2 id="mail-title">Bank mail</h2>
+
+  @if (loading) {
+    <p class="set-muted">Loading…</p>
+  } @else if (loadError) {
+    <p class="fc-error" role="alert">{{ loadError }}</p>
+  } @else if (status) {
+    <p class="set-line">
+      @if (status.lastRun; as run) {
+        Last checked {{ run.at | date: 'MMM d, h:mm a' }} · booked {{ run.created }} · skipped {{ run.skipped }} · couldn't read {{ run.failed }}
+      } @else {
+        Not checked yet
+      }
+    </p>
+    @if (status.lastError; as err) {
+      <p class="fc-error" role="alert">The last check failed at {{ err.at | date: 'MMM d, h:mm a' }}: {{ err.message }}</p>
+    }
+    <p class="set-muted">
+      @if (status.startAt) {
+        Reading mail since {{ status.startAt | date: 'MMM d, y, h:mm a' }}
+      } @else {
+        Reading the last 24 hours of mail
+      }
+    </p>
+
+    <div class="set-actions">
+      <button id="check-mail" type="button" class="fc-btn fc-btn--primary" [disabled]="checking || status.running" (click)="checkNow()">
+        {{ checking || status.running ? 'Checking…' : 'Check mail now' }}
+      </button>
+    </div>
+    <p class="set-muted" aria-live="polite">{{ checkResult }}</p>
+    @if (checkError) {
+      <p class="fc-error" role="alert">{{ checkError }}</p>
+    }
+
+    <h3 id="unreadable-heading" tabindex="-1">Couldn't read</h3>
+    @if (status.unreadable.length === 0) {
+      <p class="set-muted">Every mail since {{ status.startAt ? (status.startAt | date: 'MMM d') : 'yesterday' }} was read.</p>
+    } @else {
+      <ul class="set-list">
+        @for (m of status.unreadable; track m.id) {
+          <li class="set-row">
+            <div class="set-row-main">
+              <span class="set-row-title">{{ m.subject || '(no subject)' }}</span>
+              <span class="set-muted">
+                {{ m.sender }} · arrived {{ m.receivedAt | date: 'MMM d, h:mm a' }} · tried {{ m.attempts }} {{ m.attempts === 1 ? 'time' : 'times' }}
+              </span>
+            </div>
+            @if (confirming === m.id) {
+              <div class="set-confirm">
+                <span>Stop retrying this mail?</span>
+                <button [id]="'dismiss-yes-' + m.id" type="button" class="fc-btn fc-btn--primary" [disabled]="dismissing" (click)="confirmDismiss(m.id)">
+                  {{ dismissing ? 'Dismissing…' : 'Yes' }}
+                </button>
+                <button type="button" class="fc-btn fc-btn--ghost" [disabled]="dismissing" (click)="cancelDismiss(m.id)">Cancel</button>
+              </div>
+            } @else {
+              <button [id]="'dismiss-' + m.id" type="button" class="fc-btn fc-btn--ghost" [disabled]="confirming !== null" (click)="askDismiss(m.id)">
+                Not a transaction
+              </button>
+            }
+          </li>
+        }
+      </ul>
+      @if (dismissError) {
+        <p class="fc-error" role="alert">{{ dismissError }}</p>
+      }
+    }
+
+    <h3>Recently booked from mail</h3>
+    @if (status.recent.length === 0) {
+      <p class="set-muted">Nothing booked from mail yet.</p>
+    } @else {
+      <ul class="set-list">
+        @for (t of status.recent; track t.id) {
+          <li class="set-row">
+            <div class="set-row-main">
+              <span class="set-row-title">{{ t.name }}</span>
+              <span class="set-muted">{{ t.timestamp | date: 'MMM d, h:mm a' }}</span>
+            </div>
+            <span class="cat-pill" [style.background]="catColor(t.category) + '22'" [style.color]="catColor(t.category)">
+              <span class="dot" [style.background]="catColor(t.category)"></span>
+              {{ t.category | titlecase }}
+            </span>
+            <span class="set-amount" [class.expense]="t.isExpense" [class.income]="!t.isExpense">
+              {{ t.isExpense ? '−' : '+' }}{{ t.amount | currency: 'USD' : 'symbol' : '1.2-2' }}
+            </span>
+          </li>
+        }
+      </ul>
+      <a routerLink="/transactions" class="set-link">See all transactions</a>
+    }
+  }
+</section>

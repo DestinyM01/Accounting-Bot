@@ -1,0 +1,102 @@
+// Styles shared by the Settings page's three section components.
+:host { display: block; }
+
+.set-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+}
+
+h2 { margin: 0; font-size: 1.1rem; color: var(--text); }
+
+h3 {
+  margin: var(--space-sm) 0 0;
+  font-size: 0.95rem;
+  color: var(--text);
+  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+}
+
+.set-line { margin: 0; color: var(--text); }
+.set-muted { margin: 0; font-size: 0.85rem; color: var(--text-muted); }
+.set-source { font-size: 0.75rem; font-style: italic; color: var(--text-muted); }
+
+.set-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
+
+.set-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+
+.set-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) 0;
+  border-bottom: 1px solid var(--border);
+  &:last-child { border-bottom: none; }
+}
+
+.set-row-main { flex: 1 1 14rem; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.set-row-title { color: var(--text); overflow-wrap: anywhere; }
+
+.set-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); color: var(--text); }
+
+.set-amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  &.expense { color: var(--expense); }
+  &.income { color: var(--income); }
+}
+
+.set-link { color: var(--accent); font-size: 0.875rem; }
+
+.set-field { max-width: 24rem; }
+
+.set-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  color: var(--text);
+  input { margin-top: 3px; }
+}
+
+.set-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+
+.set-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: var(--text);
+
+  button {
+    display: inline-flex;
+    padding: 2px;
+    border: none;
+    border-radius: 999px;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    &:hover { background: var(--color-surface-hover); color: var(--text); }
+    &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+    mat-icon { font-size: 1rem; width: 1rem; height: 1rem; }
+  }
+}
+
+.set-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-xs);
+  .fc-field { flex: 1 1 12rem; min-width: 0; max-width: 20rem; }
+}
+
+@media (max-width: 640px) {
+  .set-add {
+    flex-direction: column;
+    align-items: stretch;
+    .fc-field { flex: 0 0 auto; max-width: none; }
+  }
+}
