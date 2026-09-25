@@ -211,6 +211,8 @@ The `api/k8s/` directory contains Kubernetes manifests managed by ArgoCD:
 kubectl apply -f api/k8s/
 ```
 
+The api runs in America/Santo_Domingo (`TZ` is set in `api/Dockerfile`), so months, days and bank-mail times are local; tests run in the same zone.
+
 The deployment expects a secret named `accounting-bot-secret` with keys:
 - `BOSID` → your Telegram user ID
 - `MISTRAL_API_KEY` → Mistral API key
