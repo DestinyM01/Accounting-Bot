@@ -44,6 +44,7 @@ A personal finance tracker: a **web dashboard** for entry, review and reporting,
 | **Analytics** | Top-10 most frequent transactions table; click a row to see its monthly history chart |
 | **Recurring** | Create rules; upcoming billing and what was billed this month. The API checks hourly and books each rule on its day (08:00 local), catching up days missed within 31 days |
 | **Categories** | Create, edit, rename and delete your own categories; deleting one in use moves its transactions, recurring rules and budgets to a category you choose |
+| **Cash envelopes** | Itemize an ATM withdrawal into what the cash was spent on; items count toward their categories' budgets and statistics without adding to total spending |
 | **Tips** | AI-generated personalised financial tips (Mistral, 1-hour cache) |
 | **Email reports** | A weekly digest (Monday 07:00) and a monthly summary (the 1st), sent by the API through Gmail; "Email me a test digest" on the Dashboard sends one now |
 
@@ -66,6 +67,7 @@ Acc_bot/
 │   │   ├── auth/           ← JWT guard (Authentik JWKS)
 │   │   ├── balance/        ← GET/PUT /api/balance, GET /api/balance/history, GET /api/balance/daily
 │   │   ├── transactions/   ← GET /api/transactions, GET /api/transactions/export
+│   │   ├── cash/           ← itemized withdrawals, per-category spending
 │   │   ├── budget/         ← GET /api/budget
 │   │   ├── statistics/     ← GET /api/statistics/*
 │   │   ├── recurring/      ← GET /api/recurring
@@ -234,7 +236,7 @@ All endpoints require a `Bearer` JWT token (issued by Authentik).
 | `PUT` | `/api/balance` | Set the balance to a total `{ balance, note? }`; recorded as a manual adjustment |
 | `GET` | `/api/balance/history` | Balance history, newest first (`limit`, `offset`, `reason`) |
 | `GET` | `/api/balance/daily` | Daily closing balances for the last `days` days (default 90) |
-| `GET` | `/api/transactions` | Paginated transaction list (filters: `type`, `category`, `startDate`, `endDate`) |
+| `GET` | `/api/transactions` | Paginated transaction list (filters: `type`, `category`, `startDate`, `endDate`, `needsReview`, `unitemized`) |
 | `GET` | `/api/transactions/export` | Download filtered transactions as CSV |
 | `GET` | `/api/budget` | Budget progress by category for a given month |
 | `GET` | `/api/statistics/summary` | Income / expense / net for a month |
@@ -248,6 +250,9 @@ All endpoints require a `Bearer` JWT token (issued by Authentik).
 | `PATCH` | `/api/categories/:id` | Change emoji or colour; a new name renames it everywhere |
 | `DELETE` | `/api/categories/:id?moveTo=` | Delete, moving everything that uses it to `moveTo` |
 | `POST` | `/api/categories/:id/finish` | Finish an interrupted move |
+| `GET` | `/api/cash/withdrawals/:id` | A withdrawal's items, what's itemized and what's left |
+| `POST` | `/api/cash/withdrawals/:id/allocations` | Itemize `{ category, amount, description? }` (never beyond the withdrawal) |
+| `DELETE` | `/api/cash/allocations/:id` | Remove an item |
 | `GET` | `/api/tips` | AI financial tips (Mistral, 1h cache) |
 | `POST` | `/api/tips/refresh` | Force-refresh tips |
 | `GET` | `/api/compare/months` | Distinct months that have transaction data |
