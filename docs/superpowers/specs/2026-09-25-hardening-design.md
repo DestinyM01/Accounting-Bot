@@ -145,3 +145,13 @@ The repair runs at most once per request. **Known limit:** an itemize from anoth
   - the digit rule unchanged;
   - the existing parser suites still pass.
 - **Web:** a clean build.
+
+## Settled in review (2026-09-25)
+
+- **The time-zone test** runs the parsers in a child process with another `TZ`, because Jest sandboxes `process.env`.
+- **Index build failures are logged.** `CategoriesService.onModuleInit` logs a failed build of the unique index, which Mongoose would otherwise swallow.
+- **Identifier shapes in `matchesOwn`:**
+  - all digits match on a digit boundary;
+  - digits mixed with letters (a masked account) match as a substring;
+  - letters only match whole words, after NFC normalisation, with combining marks treated as part of a word.
+- **Mail-check text** says "1 not a transaction" in the singular.

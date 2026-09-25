@@ -1003,3 +1003,31 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 4. Append "As built" and "Follow-ups" to this plan. The follow-ups include the amount-edit path, which doesn't repair a high counter.
 5. Update the memory file, push, watch CI, then give the user the restart command.
 6. Tell the user to check the api log once after the restart for an index error on `customcategories`. Two active categories sharing a name would block the unique index; in that case they delete one on the Categories page and restart again.
+
+## As built (2026-09-25)
+
+Tasks 1–6 landed in `a0997c4`, `19ea696`, `3d5f98e`, `77e5191`, `2bb2ba9` and `870d201` (733 → 774 tests). Deviations:
+- **The time-zone proof.** Jest gives tests a sandboxed `process.env`, so setting `TZ` in a test never reaches the clock, and the plan's test passed against the old code too. `d4555d8` replaced it with a child-process test: it compiles `dates.ts` and `santo-domingo.ts` with `typescript` and runs them under `TZ=UTC` and `Asia/Tokyo`. The old local-time code fails it (15:11Z instead of 19:11Z). The same commit makes `mail-time-backfill.service.ts` use the shared offset; its value is unchanged.
+- **An unsatisfiable cash assertion.** The plan asserted `{ id: ITEM }`, but `add()` returns the id it generates itself, so the test now expects `{ id: expect.any(String) }`.
+- **Singular text.** One excluded mail reads "1 not a transaction".
+
+**Review.** Spec compliant. Quality review: no critical issues, 30 of 36 mutants caught. Fixed in `c17ee55`:
+- `CategoriesService.onModuleInit` logs a failed build of the unique name index. Mongoose swallows that failure (`model.init().catch(noop)`), so without this, duplicate active names would leave the index missing and nothing would say so.
+- **Name matching:**
+  - text and fragments are normalised to NFC, and combining marks bound a word;
+  - an identifier mixing digits and letters (a masked account in the server config) keeps substring matching;
+  - digits bound a word ("RIVERA2002" doesn't match "rivera").
+- **Tests that pin what survived:** the half-cent tolerance, cent rounding of the repaired value, the repair's live-withdrawal and user filters, and the revive-race message.
+- **Smaller fixes:** the repair comment now names every race; the child-process test is sturdier; the backfill's zone warning is accurate; the README says whole words.
+
+`8e2a554` fixed a flake that predates this group. Nest's "module … is taking Xms to serialize" warning during `compile()` landed on the `Logger.prototype.warn` spies in three specs; they now clear their spies after compiling.
+
+Final: api 65 suites / 781 tests, `tsc` clean, web build clean.
+
+## Follow-ups
+
+- **Amount edits don't repair a high counter.** `TransactionsService.update` refuses an amount below `allocatedCash` without recounting, so after a crash that edit stays blocked until an itemize on that withdrawal repairs the counter.
+- **The repair's race.** A concurrent add, remove or pending release in the same milliseconds can leave the counter below its items; see the comment on `repairCounter`. Single user, accepted.
+- **`usage()` and non-spending withdrawals.** It still counts items of a live withdrawal later reclassified as a non-spending transfer, and deleting a category without a move leaves items of deleted withdrawals naming it.
+- **Old status fields.** The old `skipped` and `failed` fields stay on the status record; they are unused.
+- **Bot duplicate names.** The retired bot's category creation has no duplicate check. With the index in place, such a create now fails instead of duplicating.
