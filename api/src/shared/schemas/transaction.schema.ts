@@ -29,6 +29,13 @@ export class Transaction extends Document {
    * guards against itemizing more than was withdrawn. Totals read the items, never this.
    */
   @Prop() allocatedCash?: number;
+
+  /**
+   * This row's time was read in the user's zone. Set on every row the ingester writes;
+   * rows read before the api ran in America/Santo_Domingo were 4 hours early until
+   * MailTimeBackfillService corrected them and set this.
+   */
+  @Prop() mailTimeLocal?: boolean;
   @Prop() externalRef?: string;
 
   /** How this transfer relates to the user's own accounts. Absent for ordinary card transactions. */

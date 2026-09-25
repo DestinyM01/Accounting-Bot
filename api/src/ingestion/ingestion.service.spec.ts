@@ -176,6 +176,7 @@ describe('IngestionService', () => {
     const created = txModel.create.mock.calls[0][0];
     expect(created.amount).toBe(-100);
     expect(created.transactionType).toBe(TransactionType.EXPENSE);
+    expect(created.mailTimeLocal).toBe(true);
   });
 
   it('records income as a positive signed amount with TransactionType.INCOME', async () => {
@@ -611,6 +612,7 @@ describe('IngestionService', () => {
     expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
     expect(predicted.save).toHaveBeenCalled();
     expect(predicted.isWithdrawal).toBe(true);
+    expect(predicted.mailTimeLocal).toBe(true);
   });
 
   it('does not swallow a genuine second payment of the same amount in one month', async () => {

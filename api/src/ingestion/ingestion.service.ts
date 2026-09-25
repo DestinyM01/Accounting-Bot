@@ -277,6 +277,7 @@ export class IngestionService {
           predicted.externalRef = p.externalRef;
           predicted.timestamp = p.occurredAt;
           predicted.isWithdrawal = p.isWithdrawal;
+          predicted.mailTimeLocal = true;
           await predicted.save();
         } catch (err: any) {
           if (err?.code === 11000) return 'duplicate';
@@ -315,6 +316,7 @@ export class IngestionService {
         originalAmount,
         originalCurrency,
         isWithdrawal: p.isWithdrawal,
+        mailTimeLocal: true,
         externalRef: p.externalRef,
         transferKind,
         matchedLegId: counterLeg ? String(counterLeg._id) : undefined,
