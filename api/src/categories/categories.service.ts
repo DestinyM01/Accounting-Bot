@@ -14,6 +14,7 @@ const BUILT_IN = [
   { name: 'salary',        color: '#10e5a0', emoji: '💼' },
   { name: 'savings',       color: '#34d399', emoji: '💰' },
   { name: 'other',         color: '#94a3b8', emoji: '📦' },
+  { name: 'cash',          color: '#84cc16', emoji: '💵' },
 ];
 
 export interface CategoryInput {

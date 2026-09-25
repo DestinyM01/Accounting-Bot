@@ -16,7 +16,7 @@ describe('category rules', () => {
   });
 
   it('reserves every built-in name', () => {
-    for (const name of ['food', 'transport', 'housing', 'health', 'entertainment', 'salary', 'savings', 'other']) {
+    for (const name of ['food', 'transport', 'housing', 'health', 'entertainment', 'salary', 'savings', 'other', 'cash']) {
       expect(nameError(name)).toMatch(/built-in/);
     }
   });

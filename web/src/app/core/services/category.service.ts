@@ -15,6 +15,7 @@ export class CategoryService {
     salary:        { color: '#10e5a0', icon: 'payments'         },
     savings:       { color: '#34d399', icon: 'savings'          },
     other:         { color: '#94a3b8', icon: 'receipt_long'     },
+    cash:          { color: '#84cc16', icon: 'local_atm'        },
   };
 
   private customMap: Record<string, CategoryDef> = {};

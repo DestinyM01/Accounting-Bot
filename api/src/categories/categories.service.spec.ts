@@ -4,6 +4,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { CategoriesService } from './categories.service';
 import { CategoryReferencesService } from './category-references.service';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
+import { Category } from '../shared/schemas/category.enum';
 
 const ID = '64b000000000000000000001';
 const OLD_ID = '64b000000000000000000002';
@@ -47,6 +48,13 @@ describe('CategoriesService', () => {
       ],
     }).compile();
     service = module.get(CategoriesService);
+  });
+
+  describe('list', () => {
+    it('offers every built-in category, cash included, before the custom ones', async () => {
+      const names = (await service.list()).map((c) => c.name);
+      expect(names).toEqual([...Object.values(Category), 'Gym']);
+    });
   });
 
   describe('assertValid', () => {
@@ -292,7 +300,7 @@ describe('CategoriesService', () => {
         id: null, name: 'food', emoji: '🍔', color: '#10e5a0', isBuiltIn: true, active: true,
         usage: { transactions: 5, recurring: 0, budgets: 1 }, pending: null,
       });
-      expect(o.categories.slice(8)).toEqual([
+      expect(o.categories.slice(9)).toEqual([
         { id: ID, name: 'gym', emoji: '💪', color: '#3b82f6', isBuiltIn: false, active: true,
           usage: { transactions: 3, recurring: 1, budgets: 0 }, pending: null },
         { id: OLD_ID, name: 'old', emoji: '🎯', color: '#ef4444', isBuiltIn: false, active: false,
