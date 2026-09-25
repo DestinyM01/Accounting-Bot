@@ -1038,3 +1038,34 @@ Expected: `6`, and a clean tree.
 
 1. Review: one combined spec-and-quality pass, since the feature is small. Then fixes, a preview-harness screenshot (desktop and phone), the private-identifier gate, and the push. The push carries the fixture fix `2fb0e0b` too.
 2. Hand the user: restart `accounting-api` and `accounting-web` once CI is green; open **Growth calculator**, press **Use my numbers**, and change the rate.
+
+## As built (2026-09-25)
+
+Tasks 1–6 landed as written in `0d365c2`, `2e0884d`, `a1841e3`, `3bac482`, `6a4b747` and `68a4ba5`, with no deviations. The counts matched the plan at every step (577 → 602).
+
+**Preview:** a scratch harness rendered the real page against a fake api, at 1100 px and at the pane's 384 px. It showed:
+- the bot's example ($1,000/month, 10%, 15 years) giving $414,470.35, of which $180,000.00 was put in;
+- the stacked yearly chart, with its text summary;
+- "Use my numbers" filling both fields, with the note "…average saved over Jun–Aug";
+- 61 years showing the api's message while keeping the last result ("Showing the last valid result");
+- an emptied field asking for all four;
+- the table toggling with one row per year.
+
+**Review** (a combined spec and quality pass): compliant; all 12 maths mutants were caught. Fixed in `e1416e9` and `13d8b53`:
+- **Stale replies:** an invalid input now drops any reply still in flight, and clears "Calculating…".
+- **Validation boundaries are pinned:** 0% (the bot's old refusal), 100%, 1 and 60 years, and 1e12. So are a negative monthly deposit, an empty value and a repeated parameter.
+- **"My numbers":** tests now pin whole calendar months late in a month, a zero average with activity, and averaging over 3 months even when one had no activity.
+- **Web polish:**
+  - "Use my numbers" can't overwrite typing in progress;
+  - the note states one amount;
+  - the figures are read together with their labels;
+  - the chart's axis and tooltip show money;
+  - the table scrolls by keyboard;
+  - "After 1 year" is singular.
+
+Final: api 57 suites / 615 tests, web build clean with zero warnings.
+
+## Follow-ups
+
+- **The api runs in UTC; you live in UTC−4.** From 8 pm your time on the last day of a month, the server-local "month" is already the next one. That affects Statistics, budgets, the monthly email, Compare, Tips and this calculator. Fix: set `TZ=America/Santo_Domingo` on the api Deployment (a Secret-free manifest change), then check the weekly email's explicit UTC−4 arithmetic still agrees.
+- **Huge results use E notation.** Beyond 1e22, Angular's currency pipe shows E notation (for example $1 at 100% for 60 years). The results stay finite (at worst 1.4e38). Capping them would be a spec change.
