@@ -1,7 +1,9 @@
-/** 07:00 America/Santo_Domingo — UTC−4 all year; the Dominican Republic has no DST. */
-const DUE_HOUR_UTC = 11;
-/** Local midnight in Santo Domingo. */
-const LOCAL_MIDNIGHT_HOUR_UTC = 4;
+import { SANTO_DOMINGO_OFFSET_HOURS } from '../shared/santo-domingo';
+
+/** 07:00 America/Santo_Domingo, as a UTC hour. */
+const DUE_HOUR_UTC = 7 + SANTO_DOMINGO_OFFSET_HOURS;
+/** Local midnight in Santo Domingo, as a UTC hour. */
+const LOCAL_MIDNIGHT_HOUR_UTC = SANTO_DOMINGO_OFFSET_HOURS;
 export const WEEKLY_WINDOW_DAYS = 3;
 export const MONTHLY_WINDOW_DAYS = 7;
 

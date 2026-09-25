@@ -1,5 +1,5 @@
-/** Santo Domingo is UTC−4 all year (no DST): local midnight is 04:00 UTC. */
-const LOCAL_OFFSET_MS = 4 * 3_600_000;
+import { santoDomingoDateKey, santoDomingoInstant, santoDomingoWallClock } from '../shared/santo-domingo';
+
 const DAY_MS = 86_400_000;
 
 export interface ClosingRow {
@@ -14,15 +14,13 @@ export interface DailyPoint {
 
 /** 'YYYY-MM-DD' of the Santo Domingo calendar day containing the instant. */
 export function localDay(d: Date): string {
-  return new Date(d.getTime() - LOCAL_OFFSET_MS).toISOString().slice(0, 10);
+  return santoDomingoDateKey(d);
 }
 
 /** Local midnight of the first day of a `days`-day window ending today (Santo Domingo). */
 export function windowStart(now: Date, days: number): Date {
-  const local = new Date(now.getTime() - LOCAL_OFFSET_MS);
-  return new Date(
-    Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() - (days - 1)) + LOCAL_OFFSET_MS,
-  );
+  const local = santoDomingoWallClock(now);
+  return santoDomingoInstant(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() - (days - 1));
 }
 
 /**

@@ -1,10 +1,11 @@
 import { periodKey } from '../ingestion/reconciliation.service';
+import { SANTO_DOMINGO_OFFSET_HOURS } from '../shared/santo-domingo';
 
 /** How far back a missed occurrence is still booked automatically. */
 export const LOOKBACK_DAYS = 31;
 
-/** 08:00 America/Santo_Domingo — UTC−4 all year; the Dominican Republic has no DST. */
-export const DUE_HOUR_UTC = 12;
+/** 08:00 America/Santo_Domingo, as a UTC hour. */
+export const DUE_HOUR_UTC = 8 + SANTO_DOMINGO_OFFSET_HOURS;
 
 const DAY_MS = 86_400_000;
 

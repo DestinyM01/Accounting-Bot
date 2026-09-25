@@ -1,3 +1,4 @@
+import { santoDomingoWallClock } from '../shared/santo-domingo';
 import { BudgetLine, Health, MonthlyReportData, WeeklyReportData } from './report-types';
 
 export interface RenderOptions {
@@ -30,8 +31,6 @@ const MONTHS = [
 ];
 const MINUS = '−';
 const EN_DASH = '–';
-/** Santo Domingo is UTC−4 all year: shifting by it and reading UTC fields gives the local calendar. */
-const LOCAL_OFFSET_MS = 4 * 3_600_000;
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const PESOS = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 
@@ -54,7 +53,7 @@ function signedMoney(n: number): string {
 }
 
 function local(d: Date): Date {
-  return new Date(d.getTime() - LOCAL_OFFSET_MS);
+  return santoDomingoWallClock(d);
 }
 
 function day(d: Date): string {
