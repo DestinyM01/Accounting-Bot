@@ -13,7 +13,7 @@ describe('CategorizerService rules', () => {
     ['UBER*EATS SANTO DOMINGODO', 'food'],
     ['PedidosYa*Expreso Bonny', 'food'],
     ['UBER*RIDES', 'transport'],
-    ['Cajero Automatico', 'other'],
+    ['Cajero Automatico', 'cash'],
     ['FARMACIA CAROL', 'health'],
     ['EDENORTE DOMINICANA', 'housing'],
   ])('classifies %s as %s without calling Mistral', async (merchant, expected) => {

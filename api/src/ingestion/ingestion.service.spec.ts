@@ -222,6 +222,29 @@ describe('IngestionService', () => {
     expect(categorizer.categorize).not.toHaveBeenCalled();
   });
 
+  it('books an ATM withdrawal as cash, without review and without asking the categorizer', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed({ isWithdrawal: true, counterparty: 'Cajero Automatico' }));
+
+    await service.run();
+
+    const created = txModel.create.mock.calls[0][0];
+    expect(created.category).toBe('cash');
+    expect(created.categoryNeedsReview).toBe(false);
+    expect(created.isWithdrawal).toBe(true);
+    expect(categorizer.categorize).not.toHaveBeenCalled();
+  });
+
+  it('never offers cash to the categorizer for a merchant', async () => {
+    categories.list.mockResolvedValue([{ name: 'food' }, { name: 'cash' }, { name: 'other' }]);
+    mail.fetchSince.mockResolvedValue([makeMail()]);
+    parserParseMock.mockReturnValue(makeParsed());
+
+    await service.run();
+
+    expect(categorizer.categorize).toHaveBeenCalledWith('Test Merchant', ['food', 'other']);
+  });
+
   it('converts a USD transaction via FxService and preserves the original USD amount/currency', async () => {
     mail.fetchSince.mockResolvedValue([makeMail()]);
     parserParseMock.mockReturnValue(makeParsed({ direction: 'expense', amount: 10, currency: 'USD' }));

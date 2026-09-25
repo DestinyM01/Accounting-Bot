@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Cron } from '@nestjs/schedule';
 import { Model } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
+import { Category } from '../shared/schemas/category.enum';
 import { LedgerService } from '../shared/ledger/ledger.service';
 import { CategoriesService } from '../categories/categories.service';
 import { Recurring } from '../shared/schemas/recurring.schema';
@@ -146,7 +147,8 @@ export class IngestionService {
   private async loadRunContext(): Promise<RunContext> {
     const rules = await this.recurringModel.find({ userId: this.userId, active: true }).lean();
     return {
-      allowed: (await this.categories.list()).map((c) => c.name),
+      // cash is for ATM withdrawals only, which never reach the categorizer: never a guess for a merchant.
+      allowed: (await this.categories.list()).map((c) => c.name).filter((name) => name !== Category.CASH),
       rules: rules as unknown as RuleLike[],
     };
   }
@@ -169,7 +171,9 @@ export class IngestionService {
     const { category, needsReview } =
       p.direction === 'income'
         ? { category: 'other', needsReview: true }   // a wire could be salary, a gift, a refund — ask
-        : await this.categorizer.categorize(p.counterparty, ctx.allowed);
+        : p.isWithdrawal
+          ? { category: Category.CASH, needsReview: false } // cash out of an ATM: itemized later on the web
+          : await this.categorizer.categorize(p.counterparty, ctx.allowed);
 
     const signed = p.direction === 'expense' ? -Math.abs(amount) : Math.abs(amount);
 

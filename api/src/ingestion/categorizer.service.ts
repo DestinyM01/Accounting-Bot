@@ -24,7 +24,7 @@ const RULES: { pattern: RegExp; category: string }[] = [
   { pattern: /\b(?:farmacia\w*|carol|gbc|hospital\w*|\w*clinic\w*)\b/i, category: 'health' },
   { pattern: /\b(?:edenorte|edesur|edeeste|claro|altice|viva|agua)\b/i, category: 'housing' },
   { pattern: /\b(?:netflix|spotify|hbo\w*|disney\w*|cine\w*|steam\w*)\b/i, category: 'entertainment' },
-  { pattern: /\bcajero\s+autom\w*/i, category: 'other' },
+  { pattern: /\bcajero\s+autom\w*/i, category: 'cash' },
 ];
 
 @Injectable()
