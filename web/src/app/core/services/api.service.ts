@@ -6,6 +6,8 @@ import {
   BalanceHistoryPage,
   BalanceSummary,
   BudgetEntry,
+  CashBreakdown,
+  CashItemInput,
   CategoryEntry,
   CategoryInput,
   CategoryOverview,
@@ -61,6 +63,7 @@ export class ApiService {
     startDate?:   string;
     endDate?:     string;
     needsReview?: boolean;
+    unitemized?:  boolean;
   } = {}): Observable<TransactionPage> {
     let params = new HttpParams();
     if (opts.limit)       params = params.set('limit',       opts.limit);
@@ -70,6 +73,7 @@ export class ApiService {
     if (opts.startDate)   params = params.set('startDate',   opts.startDate);
     if (opts.endDate)     params = params.set('endDate',     opts.endDate);
     if (opts.needsReview) params = params.set('needsReview', opts.needsReview);
+    if (opts.unitemized)  params = params.set('unitemized',  opts.unitemized);
     return this.http.get<TransactionPage>(`${this.base}/transactions`, { params });
   }
 
@@ -89,6 +93,18 @@ export class ApiService {
 
   setTransactionCategory(id: string, category: string): Observable<void> {
     return this.http.patch<void>(`${this.base}/transactions/${id}/category`, { category });
+  }
+
+  getCashBreakdown(withdrawalId: string): Observable<CashBreakdown> {
+    return this.http.get<CashBreakdown>(`${this.base}/cash/withdrawals/${withdrawalId}`);
+  }
+
+  addCashItem(withdrawalId: string, body: CashItemInput): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>(`${this.base}/cash/withdrawals/${withdrawalId}/allocations`, body);
+  }
+
+  deleteCashItem(itemId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/cash/allocations/${itemId}`);
   }
 
   getBudget(month?: number, year?: number): Observable<BudgetEntry[]> {

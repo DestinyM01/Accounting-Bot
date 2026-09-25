@@ -17,6 +17,8 @@ export interface Transaction {
   merchant?: string;
   source?: string;
   transferKind?: string;
+  isWithdrawal?: boolean;
+  allocatedCash?: number;
 }
 
 export interface TransactionPage {
@@ -24,6 +26,30 @@ export interface TransactionPage {
   total: number;
   limit: number;
   offset: number;
+}
+
+export interface CashItem {
+  id: string;
+  category: string;
+  description: string | null;
+  amount: number;
+}
+
+/** A withdrawal and what its cash went to. Amounts are positive. */
+export interface CashBreakdown {
+  id: string;
+  name: string;
+  timestamp: string;
+  amount: number;
+  allocated: number;
+  remaining: number;
+  items: CashItem[];
+}
+
+export interface CashItemInput {
+  category: string;
+  amount: number;
+  description?: string;
 }
 
 export interface BudgetEntry {

@@ -53,6 +53,14 @@
         Needs Review
       </button>
 
+      <button class="review-toggle-btn"
+              [class.active]="unitemizedOnly"
+              [attr.aria-pressed]="unitemizedOnly"
+              (click)="onUnitemizedToggle()">
+        <mat-icon>local_atm</mat-icon>
+        Unitemized cash
+      </button>
+
       <button class="export-btn" (click)="exportCsv()">
         <mat-icon>download</mat-icon>
         Export CSV
@@ -116,8 +124,13 @@
               </span>
               <span class="tx-amount">{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}</span>
             } @else {
-              <span class="tx-amount" [class]="tx.isExpense ? 'expense' : 'income'">
-                {{ tx.isExpense ? '-' : '+' }}{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}
+              <span class="tx-amount-wrap">
+                <span class="tx-amount" [class]="tx.isExpense ? 'expense' : 'income'">
+                  {{ tx.isExpense ? '-' : '+' }}{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}
+                </span>
+                @if (unitemized(tx) > 0) {
+                  <span class="tx-unitemized">{{ unitemized(tx) | currency:'USD':'symbol':'1.2-2' }} not itemized</span>
+                }
               </span>
             }
           </div>
@@ -127,6 +140,14 @@
           </div>
 
           <div class="tx-cell align-right tx-actions">
+            @if (tx.isWithdrawal && tx.isExpense) {
+              <button [id]="'itemize-' + tx._id" type="button" class="act-btn"
+                      [attr.aria-expanded]="cashFor === tx._id"
+                      [attr.aria-controls]="cashFor === tx._id ? 'cash-' + tx._id : null"
+                      (click)="toggleCash(tx)">
+                Itemize
+              </button>
+            }
             @if (tx.transferKind === 'unresolved') {
               <button class="act-btn" [disabled]="pendingId === tx._id" (click)="resolve(tx, 'internal')" title="Money moved between my own accounts">Internal</button>
               <button class="act-btn" [disabled]="pendingId === tx._id" (click)="resolve(tx, 'external')" title="A real payment or income">Expense</button>
@@ -146,6 +167,69 @@
             }
           </div>
         </div>
+        @if (cashFor === tx._id) {
+          <section class="cash-panel" [id]="'cash-' + tx._id" [attr.aria-label]="'Itemize ' + tx.transactionName">
+            @if (cash) {
+              <p class="cash-remaining" aria-live="polite">
+                Remaining {{ cash.remaining | currency:'USD':'symbol':'1.2-2' }} of {{ cash.amount | currency:'USD':'symbol':'1.2-2' }}
+              </p>
+              @if (cash.items.length) {
+                <ul class="cash-items">
+                  @for (item of cash.items; track item.id; let i = $index) {
+                    <li class="cash-item">
+                      <span class="cat-pill"
+                            [style.background]="catColor(item.category) + '22'"
+                            [style.color]="catColor(item.category)">
+                        <span class="dot" [style.background]="catColor(item.category)"></span>
+                        {{ item.category | titlecase }}
+                      </span>
+                      <span class="cash-item-desc">{{ item.description }}</span>
+                      <span class="cash-item-amount">{{ item.amount | currency:'USD':'symbol':'1.2-2' }}</span>
+                      <button [id]="'remove-' + item.id" type="button" class="icon-act" [disabled]="cashBusy"
+                              [attr.aria-label]="'Remove ' + item.category + ' ' + (item.amount | currency:'USD':'symbol':'1.2-2')"
+                              (click)="removeItem(tx, i)">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+              @if (cash.remaining > 0) {
+                <form class="cash-form" (ngSubmit)="addItem(tx)">
+                  <label class="fc-field">
+                    <span>Category</span>
+                    <select id="cash-category" class="fc-input" [(ngModel)]="itemCategory" name="itemCategory">
+                      <option value="" disabled>Where did it go?</option>
+                      @for (cat of itemCategories; track cat) {
+                        <option [value]="cat">{{ cat | titlecase }}</option>
+                      }
+                    </select>
+                  </label>
+                  <label class="fc-field">
+                    <span>Amount</span>
+                    <input class="fc-input" type="number" step="0.01" min="0.01" [max]="cash.remaining"
+                           [(ngModel)]="itemAmount" name="itemAmount" />
+                  </label>
+                  <label class="fc-field cash-desc-field">
+                    <span>Description</span>
+                    <input class="fc-input" type="text" maxlength="60" placeholder="What was it? (optional)"
+                           [(ngModel)]="itemDescription" name="itemDescription" />
+                  </label>
+                  <button type="submit" class="fc-btn fc-btn--primary" [disabled]="!canAddItem">
+                    {{ cashBusy ? 'Adding…' : 'Add' }}
+                  </button>
+                </form>
+              } @else {
+                <p class="cash-muted">All of it is itemized.</p>
+              }
+            } @else if (cashLoading) {
+              <p class="cash-muted">Loading…</p>
+            }
+            @if (cashError) {
+              <p class="fc-error" role="alert">{{ cashError }}</p>
+            }
+          </section>
+        }
       } @empty {
         <p class="empty">No transactions found.</p>
       }

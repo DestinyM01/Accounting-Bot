@@ -264,3 +264,77 @@
   &.danger { color: var(--expense); }
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
+
+// ── Itemize a withdrawal ───────────────────────────────────────────────
+.tx-amount-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.tx-unitemized {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.cash-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 24px var(--space-md);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card-alt);
+}
+
+.cash-remaining {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cash-muted {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.cash-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.cash-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.cash-item-desc {
+  flex: 1 1 8rem;
+  min-width: 0;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.cash-item-amount { font-variant-numeric: tabular-nums; }
+
+.cash-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-xs);
+
+  .fc-field { flex: 1 1 10rem; min-width: 0; }
+  .cash-desc-field { flex-basis: 14rem; }
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
