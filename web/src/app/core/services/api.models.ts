@@ -221,3 +221,70 @@ export interface CategoryInput {
   emoji?: string;
   color?: string;
 }
+
+// ── Settings ────────────────────────────────────────────────────────────
+export type SettingSource = 'saved' | 'config';
+
+export interface SettingValue<T> {
+  value: T;
+  source: SettingSource;
+}
+
+export interface LastSent {
+  period: string;
+  at: string;
+}
+
+export interface SettingsView {
+  reports: {
+    weekly: SettingValue<boolean>;
+    monthly: SettingValue<boolean>;
+    recipient: SettingValue<string | null>;
+    lastSent: { weekly: LastSent | null; monthly: LastSent | null };
+  };
+  accounts: { cash: SettingValue<string[]>; senders: SettingValue<string[]> };
+}
+
+export interface ReportsSettingsInput {
+  weekly: boolean;
+  monthly: boolean;
+  recipient: string | null;
+}
+
+export interface AccountsSettingsInput {
+  cash: string[];
+  senders: string[];
+}
+
+export interface RunCounts {
+  created: number;
+  skipped: number;
+  failed: number;
+}
+
+export interface UnreadableMailItem {
+  id: string;
+  sender: string;
+  subject: string;
+  receivedAt: string;
+  attempts: number;
+  lastSeenAt: string;
+}
+
+export interface MailBookedItem {
+  id: string;
+  name: string;
+  amount: number;
+  isExpense: boolean;
+  category: string;
+  timestamp: string;
+}
+
+export interface IngestionStatusView {
+  startAt: string | null;
+  running: boolean;
+  lastRun: (RunCounts & { at: string }) | null;
+  lastError: { at: string; message: string } | null;
+  unreadable: UnreadableMailItem[];
+  recent: MailBookedItem[];
+}

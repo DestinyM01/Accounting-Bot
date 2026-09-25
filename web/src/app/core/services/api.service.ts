@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
+  AccountsSettingsInput,
   BalanceChangeReason,
   BalanceHistoryPage,
   BalanceSummary,
@@ -17,11 +18,15 @@ import {
   CreateRecurringRequest,
   CreateTransactionRequest,
   DailyBalance,
+  IngestionStatusView,
   MonthlyPoint,
   MonthlySummary,
   RecurringEntry,
+  ReportsSettingsInput,
+  RunCounts,
   SetBalanceResult,
   SetBudgetRequest,
+  SettingsView,
   Tip,
   TopTransaction,
   TransactionPage,
@@ -213,6 +218,31 @@ export class ApiService {
   /** Emails the latest weekly digest now, marked [Test]. 503 when email isn't configured on the server. */
   sendTestDigest(): Observable<{ ok: true }> {
     return this.http.post<{ ok: true }>(`${this.base}/reports/test`, {});
+  }
+
+  getSettings(): Observable<SettingsView> {
+    return this.http.get<SettingsView>(`${this.base}/settings`);
+  }
+
+  saveReportSettings(body: ReportsSettingsInput): Observable<SettingsView> {
+    return this.http.put<SettingsView>(`${this.base}/settings/reports`, body);
+  }
+
+  saveAccountSettings(body: AccountsSettingsInput): Observable<SettingsView> {
+    return this.http.put<SettingsView>(`${this.base}/settings/accounts`, body);
+  }
+
+  getIngestionStatus(): Observable<IngestionStatusView> {
+    return this.http.get<IngestionStatusView>(`${this.base}/ingestion/status`);
+  }
+
+  /** Checks bank mail now. 409 while a check is already running. */
+  runIngestion(): Observable<RunCounts> {
+    return this.http.post<RunCounts>(`${this.base}/ingestion/run`, {});
+  }
+
+  dismissUnreadable(id: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/ingestion/unreadable/${id}/dismiss`, {});
   }
 
   createRecurring(body: CreateRecurringRequest): Observable<{ id: string }> {
