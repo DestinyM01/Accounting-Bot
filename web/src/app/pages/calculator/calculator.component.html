@@ -1,0 +1,117 @@
+<div class="page-wrap">
+  <div class="calc-header">
+    <h1>Growth calculator</h1>
+    <p>How savings grow with compound interest.</p>
+  </div>
+
+  <div class="calc-layout">
+    <section class="card calc-panel" aria-labelledby="calc-inputs-title">
+      <h2 id="calc-inputs-title">Your plan</h2>
+      <label class="fc-field">
+        <span>Starting amount ($)</span>
+        <input class="fc-input" type="number" min="0" step="0.01" [(ngModel)]="start" (ngModelChange)="onChange()" name="start" />
+      </label>
+      <label class="fc-field">
+        <span>Monthly deposit ($)</span>
+        <input class="fc-input" type="number" min="0" step="0.01" [(ngModel)]="monthly" (ngModelChange)="onChange()" name="monthly" />
+      </label>
+      <label class="fc-field">
+        <span>Annual rate (%)</span>
+        <input class="fc-input" type="number" min="0" max="100" step="0.1" [(ngModel)]="rate" (ngModelChange)="onChange()" name="rate" />
+      </label>
+      <label class="fc-field">
+        <span>Years</span>
+        <input class="fc-input" type="number" min="1" max="60" step="1" [(ngModel)]="years" (ngModelChange)="onChange()" name="years" />
+      </label>
+
+      <button type="button" class="fc-btn fc-btn--ghost" [disabled]="mineLoading" (click)="useMyNumbers()">
+        <mat-icon>person</mat-icon>
+        {{ mineLoading ? 'Loading…' : 'Use my numbers' }}
+      </button>
+      <p class="calc-note" aria-live="polite">
+        @if (mine) {
+          Your balance today · average saved over {{ mineSpan }}: {{ mine.monthlySavings | currency: 'USD' : 'symbol' : '1.2-2' }}
+          @if (mine.spentMore) {
+            — you spent more than you earned, so {{ 0 | currency: 'USD' : 'symbol' : '1.2-2' }}
+          }
+        }
+      </p>
+      @if (mineError) {
+        <p class="fc-error" role="alert">{{ mineError }}</p>
+      }
+      @if (inputError) {
+        <p class="fc-error" role="alert">{{ inputError }}</p>
+      }
+    </section>
+
+    <section class="card calc-panel" aria-labelledby="calc-results-title">
+      <h2 id="calc-results-title">What it grows to</h2>
+      @if (result) {
+        @if (stale) {
+          <p class="calc-note">Showing the last valid result</p>
+        }
+        <div class="calc-figures" aria-live="polite">
+          <div class="calc-figure">
+            <span>Final balance</span>
+            <strong>{{ result.finalBalance | currency: 'USD' : 'symbol' : '1.2-2' }}</strong>
+          </div>
+          <div class="calc-figure">
+            <span>You put in</span>
+            <strong>{{ result.putIn | currency: 'USD' : 'symbol' : '1.2-2' }}</strong>
+          </div>
+          <div class="calc-figure">
+            <span>Interest earned</span>
+            <strong class="calc-interest">{{ result.interest | currency: 'USD' : 'symbol' : '1.2-2' }}</strong>
+          </div>
+        </div>
+
+        <div class="calc-chart">
+          <canvas #chartCanvas role="img" [attr.aria-label]="chartSummary"></canvas>
+        </div>
+
+        <button
+          type="button"
+          class="fc-btn fc-btn--ghost"
+          [attr.aria-expanded]="showTable"
+          [attr.aria-controls]="showTable ? 'calc-table' : null"
+          (click)="showTable = !showTable"
+        >
+          {{ showTable ? 'Hide the table' : 'Show the table' }}
+        </button>
+        @if (showTable) {
+          <div id="calc-table" class="calc-table-wrap">
+            <table class="calc-table">
+              <thead>
+                <tr>
+                  <th scope="col">Year</th>
+                  <th scope="col">Put in</th>
+                  <th scope="col">Interest</th>
+                  <th scope="col">Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (y of result.years; track y.year) {
+                  <tr>
+                    <td>{{ y.year }}</td>
+                    <td>{{ y.putIn | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                    <td>{{ y.interest | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                    <td>{{ y.balance | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      } @else if (loading) {
+        <p class="calc-note">Calculating…</p>
+      }
+
+      <div class="calc-explainer">
+        <h3>How it works</h3>
+        <p>Each month your balance earns a twelfth of the yearly rate, and that interest earns interest from then on.</p>
+        <p>Deposits are added at the end of each month, so each one starts earning the month after.</p>
+        <p>The longer the money stays, the more of the final balance is interest rather than deposits.</p>
+      </div>
+    </section>
+  </div>
+</div>

@@ -52,6 +52,12 @@ export const routes: Routes = [
       import('./pages/tips/tips.component').then((m) => m.TipsComponent),
   },
   {
+    path: 'calculator',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/calculator/calculator.component').then((m) => m.CalculatorComponent),
+  },
+  {
     path: 'settings',
     canActivate: [authGuard],
     loadComponent: () =>
