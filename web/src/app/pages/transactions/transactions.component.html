@@ -120,7 +120,9 @@
                         [attr.aria-label]="'Category for ' + tx.transactionName"
                         [attr.aria-describedby]="'guess-' + tx._id"
                         [disabled]="reviewing.has(tx._id)"
-                        (change)="assignCategory(tx, $any($event.target).value, $any($event.target))">
+                        (change)="onPickChange(tx, $any($event.target))"
+                        (keydown)="onPickKey(tx, $event, $any($event.target))"
+                        (blur)="onPickBlur(tx, $any($event.target))">
                   @if (isDeletedGuess(tx.category)) {
                     <option value="" disabled selected>Choose a category</option>
                   }

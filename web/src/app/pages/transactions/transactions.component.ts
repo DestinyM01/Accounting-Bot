@@ -178,6 +178,41 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     return this.catSvc.loaded && !this.categories.includes(category);
   }
 
+  /** Rows whose dropdown is being moved through with the keyboard: their change waits for Enter or blur. */
+  private readonly keyPicking = new Set<string>();
+
+  /** Keys that move a closed dropdown's value (on Windows each one fires `change`). */
+  private static readonly PICK_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
+
+  onPickKey(tx: Transaction, e: KeyboardEvent, select: HTMLSelectElement) {
+    if (TransactionsComponent.PICK_KEYS.has(e.key)) {
+      this.keyPicking.add(tx._id);
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      this.keyPicking.delete(tx._id);
+      if (select.value) this.assignCategory(tx, select.value, select);
+      return;
+    }
+    if (e.key === 'Escape') {
+      this.keyPicking.delete(tx._id);
+      select.value = this.isDeletedGuess(tx.category) ? '' : tx.category;
+    }
+  }
+
+  /** A pointer choice files at once; a keyboard one waits (see onPickKey / onPickBlur). */
+  onPickChange(tx: Transaction, select: HTMLSelectElement) {
+    if (this.keyPicking.has(tx._id)) return;
+    this.assignCategory(tx, select.value, select);
+  }
+
+  /** Leaving a dropdown after moving through it with the keyboard files the choice, if it differs from the guess. */
+  onPickBlur(tx: Transaction, select: HTMLSelectElement) {
+    if (!this.keyPicking.delete(tx._id)) return;
+    if (select.value && select.value !== tx.category) this.assignCategory(tx, select.value, select);
+  }
+
   /**
    * Sets one row's category. `select` is passed only by the review dropdown,
    * so a failed guess can be reset to what the row actually holds. Tracked in
