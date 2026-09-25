@@ -414,7 +414,7 @@
   ```typescript
   import { bhdParser } from './bhd.parser';
 
-  const COMPRA = `| BHD Notificación de Transacciones Visa Débito Intl # 5875 Detalle de Criterios |
+  const COMPRA = `| BHD Notificación de Transacciones Visa Débito Intl # 0000 Detalle de Criterios |
   | Fecha | Moneda | Monto | Comercio | Estado | Tipo |
   | 18/09/2026 03:11 pm | RD | $460.00 | PedidosYa*Expreso Bonny | Aprobada | Compra |`;
 
@@ -427,7 +427,7 @@
       expect(r.amount).toBe(460);
       expect(r.currency).toBe('DOP');
       expect(r.counterparty).toBe('PedidosYa*Expreso Bonny');
-      expect(r.cardLast4).toBe('5875');
+      expect(r.cardLast4).toBe('0000');
       expect(r.isWithdrawal).toBe(false);
       expect(r.occurredAt.getHours()).toBe(15); // 03:11 pm
       expect(r.occurredAt.getMinutes()).toBe(11);
