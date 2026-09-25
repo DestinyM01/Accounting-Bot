@@ -730,3 +730,25 @@ Expected: `7`, and a clean tree.
 
 1. A combined review, fixes, the private-identifier gate, and the push.
 2. Hand the user: restart `accounting-api` and `accounting-web` once CI is green, then press ✓ on one Prime Video row. The other waiting Prime Video row should file itself, and the next Prime Video charge should arrive already filed.
+
+## As built (2026-09-25)
+
+Tasks 1–7 landed as written in `983965c`, `a022d8a`, `4aa455e`, `6a68e88`, `23b36d5`, `9a232b1` and `1583cdf` (641 → 663 tests). Two deviations:
+- No controller spec pinned the old 204.
+- The README gained its own "Merchant memory" row.
+
+**Review:** compliant, with 23 of 29 mutants caught. Fixed in `5044778` and `91b81e5`:
+- **Only real choices teach.** The web edit form always sends the category, so fixing a row's name used to re-teach its old category and undo a later choice. A category now teaches only when it changed, or when the row was waiting for review.
+- **Placeholders aren't merchants.** Parser placeholders ("Transferencia", "Transferencia enviada", "Desconocido"), now shared constants, and generic words ("pago", "compra", "paypal") give an empty key. One choice used to auto-file every unnamed transfer.
+- **`cash` and `other` never teach,** and transfers between own accounts are never filed by the memory.
+- **The review page:** each row's review is independent. A second quick ✓ used to be dropped, and a failed change leaves the dropdown on the saved value. Focus moves to the next ✓, and the note names the merchant without its codes.
+- **Tests now pin** the route's 200 `{ alsoFiled }`, no teaching on the rolled-back edit path, `merchant` taking precedence over `transactionName`, and `#` as a separator.
+
+Final: api 63 suites / 674 tests, web build clean.
+
+## Follow-ups
+
+- **One snapshot per run.** A choice made while an ingestion run is in progress doesn't reach mail booked later in that same run. The next ✓, or the next run, covers it.
+- **Removed categories in the dropdown.** If a guess names a category that has since been deactivated, the dropdown shows its first option, and choosing that option fires no change. Use ✓ or pick another category.
+- **Nothing to review what's remembered.** There's no list of remembered merchants yet; a later choice overrides an earlier one.
+- **Named transfers teach.** A transfer to a named beneficiary teaches like a card merchant; a loan payment keyed by the user's own name is the weakest case.

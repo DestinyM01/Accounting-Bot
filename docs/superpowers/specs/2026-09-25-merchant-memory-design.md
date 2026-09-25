@@ -92,3 +92,10 @@ Failures are logged, and `learn` returns 0. It never fails the user's change; th
   - the memory loads once per run.
 - **Categories:** `migrate` moves remembered choices, in order.
 - **Web:** a clean build and no colour literals.
+
+## Settled in review (2026-09-25)
+
+- **Only a real choice teaches.** An edit teaches only when the category changed, or when the row was waiting for review; the web form always sends the category.
+- **Placeholders are not merchants.** The parsers' placeholders ("Transferencia", "Transferencia enviada", "Desconocido") and the generic words "pago", "compra" and "paypal" give an empty key.
+- **`cash` and `other` are never remembered.** `cash` is only for ATM cash, and remembering "don't know" would skip the AI for that merchant forever.
+- **Filing waiting rows skips transfers.** Transfers between own accounts and unresolved transfers are never filed by the memory.
