@@ -1,0 +1,102 @@
+<section class="card set-section" aria-labelledby="accounts-title">
+  <h2 id="accounts-title">Your accounts</h2>
+
+  @if (loading) {
+    <p class="set-muted">Loading…</p>
+  } @else if (loadError) {
+    <p class="fc-error" role="alert">{{ loadError }}</p>
+  } @else if (view) {
+    <h3 id="cash-title">Cash accounts (last 4 digits)</h3>
+    <p class="set-muted">A transfer into one of these is money moving between your own accounts, not spending.</p>
+    @if (view.cash.source === 'config') {
+      <span class="set-source">From the server's config</span>
+    }
+    @if (cash.length) {
+      <ul class="set-chips" aria-labelledby="cash-title">
+        @for (v of cash; track v; let i = $index) {
+          <li class="set-chip">
+            {{ v }}
+            <button [id]="'cash-remove-' + i" type="button" [attr.aria-label]="'Remove ' + v" (click)="remove('cash', i)">
+              <mat-icon>close</mat-icon>
+            </button>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="set-muted">None yet.</p>
+    }
+    <div class="set-add">
+      <label class="fc-field">
+        <span>Add a cash account</span>
+        <input
+          id="cash-input"
+          class="fc-input"
+          inputmode="numeric"
+          maxlength="4"
+          autocomplete="off"
+          [(ngModel)]="draft.cash"
+          (keydown.enter)="$event.preventDefault(); add('cash')"
+        />
+      </label>
+      <button type="button" class="fc-btn fc-btn--ghost" (click)="add('cash')">Add</button>
+    </div>
+    @if (draftError.cash) {
+      <p class="fc-error" role="alert">{{ draftError.cash }}</p>
+    }
+
+    <h3 id="senders-title">How you appear as a sender (last 4 digits or part of your name)</h3>
+    <p class="set-muted">Used to recognise transfers you send.</p>
+    @if (view.senders.source === 'config') {
+      <span class="set-source">From the server's config</span>
+    }
+    @if (senders.length) {
+      <ul class="set-chips" aria-labelledby="senders-title">
+        @for (v of senders; track v; let i = $index) {
+          <li class="set-chip">
+            {{ v }}
+            <button [id]="'senders-remove-' + i" type="button" [attr.aria-label]="'Remove ' + v" (click)="remove('senders', i)">
+              <mat-icon>close</mat-icon>
+            </button>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="set-muted">None yet.</p>
+    }
+    <div class="set-add">
+      <label class="fc-field">
+        <span>Add a sender identifier</span>
+        <input
+          id="senders-input"
+          class="fc-input"
+          maxlength="40"
+          autocomplete="off"
+          [(ngModel)]="draft.senders"
+          (keydown.enter)="$event.preventDefault(); add('senders')"
+        />
+      </label>
+      <button type="button" class="fc-btn fc-btn--ghost" (click)="add('senders')">Add</button>
+    </div>
+    @if (draftError.senders) {
+      <p class="fc-error" role="alert">{{ draftError.senders }}</p>
+    }
+
+    <p class="set-muted">Applies to mail read from now on. Transactions already booked keep their classification.</p>
+    @if (confirmEmpty) {
+      <div class="set-confirm" role="alert">
+        <span>With no cash accounts, every transfer is booked as spending. Save anyway?</span>
+        <button id="accounts-confirm-yes" type="button" class="fc-btn fc-btn--primary" (click)="save()">Save anyway</button>
+        <button type="button" class="fc-btn fc-btn--ghost" (click)="cancelEmpty()">Cancel</button>
+      </div>
+    }
+    @if (saveError) {
+      <p class="fc-error" role="alert">{{ saveError }}</p>
+    }
+    <p class="set-muted" aria-live="polite">{{ saved }}</p>
+    <div class="set-actions">
+      <button id="accounts-save" type="button" class="fc-btn fc-btn--primary" [disabled]="!dirty || saving || confirmEmpty" (click)="save()">
+        {{ saving ? 'Saving…' : 'Save' }}
+      </button>
+    </div>
+  }
+</section>
