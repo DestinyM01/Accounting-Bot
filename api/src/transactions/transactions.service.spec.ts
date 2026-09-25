@@ -115,6 +115,23 @@ describe('TransactionsService', () => {
         expect.stringContaining('transferKind'),
       );
     });
+
+    it('selects isWithdrawal and allocatedCash so the page can offer itemizing', async () => {
+      await service.findAll({});
+      const fields = (mockModel.select.mock.calls[0][0] as string).split(' ');
+      expect(fields).toEqual(expect.arrayContaining(['isWithdrawal', 'allocatedCash']));
+    });
+
+    it('can list only withdrawals with cash left to itemize', async () => {
+      await service.findAll({ unitemized: true });
+      expect(mockModel.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          isWithdrawal: true,
+          amount: { $lt: 0 },
+          $expr: { $gt: [{ $abs: '$amount' }, { $add: [{ $ifNull: ['$allocatedCash', 0] }, 0.005] }] },
+        }),
+      );
+    });
   });
 
   describe('setCategory', () => {
@@ -363,6 +380,27 @@ describe('TransactionsService', () => {
       ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
       await expect(service.update('t1', { amount: 130 })).rejects.toThrow('ledger down');
       expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { amount: -100 } });
+    });
+
+    it("refuses to shrink a withdrawal below what's itemized", async () => {
+      mockModel.findOne.mockResolvedValue(live({ isWithdrawal: true, allocatedCash: 4500, amount: -5000 }));
+      await expect(service.update('t1', { amount: 4000 })).rejects.toThrow('$4,500.00 of this withdrawal is itemized — remove items first');
+      expect(mockModel.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('guards a withdrawal amount edit against items added meanwhile', async () => {
+      mockModel.findOne.mockResolvedValue(live({ isWithdrawal: true, allocatedCash: 4500, amount: -5000 }));
+      await service.update('t1', { amount: 4600 });
+      expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: -5000, $expr: { $lte: [{ $ifNull: ['$allocatedCash', 0] }, 4600 + 0.005] } }),
+        { $set: { amount: -4600 } },
+      );
+    });
+
+    it('adds no itemizing guard to an ordinary edit', async () => {
+      mockModel.findOne.mockResolvedValue(live());
+      await service.update('t1', { amount: 130 });
+      expect(mockModel.findOneAndUpdate.mock.calls[0][0]).not.toHaveProperty('$expr');
     });
   });
 

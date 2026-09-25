@@ -6,6 +6,7 @@ import { NOT_DELETED, NON_SPENDING_KINDS, isNonSpendingTransfer } from '../share
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { LedgerService } from '../shared/ledger/ledger.service';
 import { CategoriesService } from '../categories/categories.service';
+import { HALF_CENT, money } from '../cash/cash-rules';
 
 export interface CreateTransactionBody {
   type: 'income' | 'expense';
@@ -39,6 +40,7 @@ export interface TransactionQuery {
   endDate?: string;
   needsReview?: boolean;
   transferKind?: string;
+  unitemized?: boolean;
 }
 
 export interface ExportQuery {
@@ -60,6 +62,8 @@ export interface TransactionItem {
   merchant?: string;
   source?: string;
   transferKind?: string;
+  isWithdrawal?: boolean;
+  allocatedCash?: number;
 }
 
 export interface TransactionPage {
@@ -94,7 +98,7 @@ export class TransactionsService {
     throw ledgerErr;
   }
 
-  private buildFilter(query: ExportQuery & { needsReview?: boolean; transferKind?: string }): Record<string, any> {
+  private buildFilter(query: ExportQuery & { needsReview?: boolean; transferKind?: string; unitemized?: boolean }): Record<string, any> {
     const filter: any = { userId: this.userId, ...NOT_DELETED };
     // Internal/unresolved rows stay visible, tagged, in an unfiltered listing
     // so the money trail is auditable and an unresolved transfer can still be
@@ -107,6 +111,13 @@ export class TransactionsService {
     if (query.type === 'expense') filter.amount = { $lt: 0 };
     if (query.category) filter.category = query.category;
     if (query.needsReview) filter.categoryNeedsReview = true;
+    // Withdrawals with cash still to itemize (see CashService). The half cent
+    // absorbs floating-point drift in the allocatedCash counter.
+    if (query.unitemized) {
+      filter.isWithdrawal = true;
+      filter.amount = { $lt: 0 };
+      filter.$expr = { $gt: [{ $abs: '$amount' }, { $add: [{ $ifNull: ['$allocatedCash', 0] }, HALF_CENT] }] };
+    }
     // An explicit transferKind request (e.g. listing only 'unresolved' ones to
     // classify) wins over the expense-only exclusion above.
     if (query.transferKind) filter.transferKind = query.transferKind;
@@ -133,7 +144,7 @@ export class TransactionsService {
         .sort({ timestamp: -1 })
         .skip(offset)
         .limit(limit)
-        .select('transactionName transactionType amount timestamp category categoryNeedsReview merchant source transferKind')
+        .select('transactionName transactionType amount timestamp category categoryNeedsReview merchant source transferKind isWithdrawal allocatedCash')
         .lean(),
       this.transactionModel.countDocuments(filter),
     ]);
@@ -233,6 +244,10 @@ export class TransactionsService {
       // The stored sign is the direction; never re-derive it from the enum here.
       const newSigned = tx.amount < 0 ? -Math.abs(body.amount) : Math.abs(body.amount);
       patch.amount = newSigned;
+      // A withdrawal can't shrink below what's already itemized (see CashService).
+      if (tx.isWithdrawal && Math.abs(newSigned) + HALF_CENT < (tx.allocatedCash ?? 0)) {
+        throw new BadRequestException(`${money(tx.allocatedCash ?? 0)} of this withdrawal is itemized — remove items first`);
+      }
       // internal / unresolved rows never moved the balance, so a new amount must not either.
       if (!isNonSpendingTransfer(tx.transferKind)) delta = newSigned - tx.amount;
     }
@@ -265,6 +280,11 @@ export class TransactionsService {
         ...NOT_DELETED,
         amount: tx.amount,
         transferKind: tx.transferKind ?? null,   // null matches an absent field
+        // A withdrawal whose amount changes must still cover what's itemized: an
+        // item added since the read above would otherwise slip under the new amount.
+        ...(tx.isWithdrawal && patch.amount !== undefined
+          ? { $expr: { $lte: [{ $ifNull: ['$allocatedCash', 0] }, Math.abs(patch.amount as number) + HALF_CENT] } }
+          : {}),
       },
       { $set: patch },
     );
