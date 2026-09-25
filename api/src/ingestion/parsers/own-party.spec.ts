@@ -59,5 +59,25 @@ describe('matchesOwn', () => {
       expect(matchesOwn('A.B SERVICES', ['a.b'])).toBe(true);
       expect(matchesOwn('AXB SERVICES', ['a.b'])).toBe(false);
     });
+
+    it('digits bound a word too', () => {
+      expect(matchesOwn('RIVERA2002 SRL', ['rivera'])).toBe(false);
+    });
+
+    // Bank mail isn't guaranteed to arrive pre-normalised: a combining accent
+    // and its precomposed equivalent must be treated as the same letter, in
+    // either the transfer text or the configured identifier.
+    it('normalises accents before matching, in either direction', () => {
+      expect(matchesOwn('MARÍA GOMEZ', ['mari'])).toBe(false);
+      expect(matchesOwn('JOSÉ PEREZ', ['josé'])).toBe(true);
+      expect(matchesOwn('JOSÉ PEREZ', ['josé'])).toBe(true);
+    });
+  });
+
+  // A masked account from the server config mixes letters and digits (the
+  // bank's own masking), so it can't take a digit boundary and isn't a name
+  // fragment either: it keeps the old, unbounded substring match.
+  it('matches a masked account identifier as a plain substring', () => {
+    expect(matchesOwn('XXXXXXXXXX2003', ['XXXXXX2003'])).toBe(true);
   });
 });

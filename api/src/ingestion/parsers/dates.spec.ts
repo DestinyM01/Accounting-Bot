@@ -51,7 +51,7 @@ describe('bank times are read in the user zone', () => {
 // parsers (and the shared helper they depend on) to plain CommonJS, writes
 // them to a temp dir, and runs them under `node -e` with TZ set explicitly.
 describe('mail times in any server time zone', () => {
-  let dir: string;
+  let dir: string | undefined;
   let datesPath: string;
 
   const compile = (srcPath: string, outRelative: string) => {
@@ -74,7 +74,8 @@ describe('mail times in any server time zone', () => {
   });
 
   afterAll(() => {
-    fs.rmSync(dir, { recursive: true, force: true });
+    // beforeAll may not have run (e.g. it was skipped), so dir may be unset.
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
   });
 
   it.each(['UTC', 'Asia/Tokyo'])('reads Santo Domingo wall-clock times with TZ=%s', (tz) => {
@@ -91,6 +92,7 @@ describe('mail times in any server time zone', () => {
     const stdout = execFileSync(process.execPath, ['-e', script], {
       env: { ...process.env, TZ: tz },
       encoding: 'utf8',
+      timeout: 30_000,
     });
     expect(JSON.parse(stdout)).toEqual([
       '2026-09-11T04:00:00.000Z',

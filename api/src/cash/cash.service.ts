@@ -127,7 +127,11 @@ export class CashService {
    * insert, or an ambiguous insert error) to the items' sum, with a write guarded on
    * the value read. Returns true when it corrected one. Known limit: an add from
    * another tab that has reserved but not yet inserted, in the same milliseconds,
-   * would be undercounted by its amount.
+   * would be undercounted by its amount. A concurrent remove() (item already deleted,
+   * counter decrement not yet applied) or a pending release after a refused insert
+   * can also land after this read, leaving the counter below the items by that
+   * amount, which would allow over-itemizing by it. These windows are milliseconds
+   * wide and there is one user.
    */
   private async repairCounter(withdrawalId: string): Promise<boolean> {
     const tx = await this.txModel.findOne({ _id: withdrawalId, userId: this.userId, ...NOT_DELETED }).lean();
@@ -141,7 +145,7 @@ export class CashService {
       { $set: { allocatedCash: sum } },
     );
     if (!res.modifiedCount) return false;
-    this.logger.warn(`Withdrawal ${String(tx._id)}: itemized counter was ${counter} but its items sum to ${sum}; corrected`);
+    this.logger.warn(`Withdrawal ${String(tx._id)}: itemized counter was ${round2(counter)} but its items sum to ${sum}; corrected`);
     return true;
   }
 

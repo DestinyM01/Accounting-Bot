@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
@@ -27,13 +27,24 @@ export interface CategoryInput {
 type Pending = { from: string; to: string };
 
 @Injectable()
-export class CategoriesService {
+export class CategoriesService implements OnModuleInit {
+  private readonly logger = new Logger(CategoriesService.name);
   private readonly userId = parseInt(process.env.BOSS_USER_ID || '0', 10);
 
   constructor(
     @InjectModel(CustomCategory.name) private readonly model: Model<CustomCategory>,
     private readonly refs: CategoryReferencesService,
   ) {}
+
+  onModuleInit(): void {
+    // Mongoose swallows an index-build failure; the $init promise is cached, so this sees the same result.
+    this.model.init().catch((err) =>
+      this.logger.error(
+        'Could not build the unique index on active category names; two active categories probably share a name. Delete one on the Categories page and restart.',
+        err instanceof Error ? err.stack : String(err),
+      ),
+    );
+  }
 
   /** Built-ins plus active custom categories: what every picker offers. */
   async list() {

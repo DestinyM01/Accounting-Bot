@@ -37,7 +37,7 @@ export class MailTimeBackfillService implements OnApplicationBootstrap {
   async run(now: Date, zone: string = serverTimeZone()): Promise<number> {
     if (zone !== USER_ZONE) {
       this.logger.error(
-        `Mail-time correction skipped: the server runs in ${zone}, not ${USER_ZONE}; new bank-mail times would be 4 hours early`,
+        `Mail-time correction skipped: the server runs in ${zone}, not ${USER_ZONE}. Bank-mail times are unaffected, but days and months in filters, exports and reports follow the server's zone; set TZ=${USER_ZONE}.`,
       );
       return 0;
     }

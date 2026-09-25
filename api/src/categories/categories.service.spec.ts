@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Logger, NotFoundException } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CategoryReferencesService } from './category-references.service';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
@@ -25,7 +25,7 @@ const findOneBy = (self: unknown, others: (filter: any) => unknown = () => null)
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
-  let model: { find: jest.Mock; findOne: jest.Mock; findOneAndUpdate: jest.Mock; create: jest.Mock; updateOne: jest.Mock };
+  let model: { find: jest.Mock; findOne: jest.Mock; findOneAndUpdate: jest.Mock; create: jest.Mock; updateOne: jest.Mock; init: jest.Mock };
   let refs: { usage: jest.Mock; migrate: jest.Mock };
 
   beforeEach(async () => {
@@ -37,6 +37,7 @@ describe('CategoriesService', () => {
       findOneAndUpdate: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({ _id: 'new1' }),
       updateOne: jest.fn().mockResolvedValue({}),
+      init: jest.fn().mockResolvedValue(undefined),
     };
     refs = { usage: jest.fn().mockResolvedValue(new Map()), migrate: jest.fn().mockResolvedValue(undefined) };
 
@@ -48,6 +49,22 @@ describe('CategoriesService', () => {
       ],
     }).compile();
     service = module.get(CategoriesService);
+  });
+
+  describe('onModuleInit', () => {
+    it('builds the unique index on active category names', () => {
+      service.onModuleInit();
+      expect(model.init).toHaveBeenCalled();
+    });
+
+    it('logs when the index build fails, instead of leaving it silent', async () => {
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      model.init.mockRejectedValueOnce(new Error('index build failed'));
+      service.onModuleInit();
+      await new Promise((r) => setImmediate(r));
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('unique index'), expect.any(String));
+      errorSpy.mockRestore();
+    });
   });
 
   describe('list', () => {
@@ -346,7 +363,9 @@ describe('CategoriesService', () => {
 
     it('answers 409 when a revive loses the race, and creates nothing', async () => {
       model.findOneAndUpdate.mockRejectedValueOnce(duplicate());
-      await expect(service.create({ name: 'gym', emoji: '💪', color: '#3b82f6' })).rejects.toBeInstanceOf(ConflictException);
+      const err = await service.create({ name: 'gym', emoji: '💪', color: '#3b82f6' }).catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.message).toBe('You already have a category called gym');
       expect(model.create).not.toHaveBeenCalled();
     });
 

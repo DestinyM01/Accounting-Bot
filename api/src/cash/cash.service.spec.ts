@@ -196,6 +196,9 @@ describe('CashService', () => {
         expect(txModel.findOneAndUpdate).toHaveBeenCalledTimes(2);
         expect(itemModel.create).toHaveBeenCalled();
         expect(warn).toHaveBeenCalledWith(expect.stringContaining('4500'));
+        // The repair reads the live withdrawal and only this user's items.
+        expect(txModel.findOne).toHaveBeenCalledWith({ _id: W, userId: 1, deletedAt: null });
+        expect(itemModel.find).toHaveBeenCalledWith({ userId: 1, withdrawalId: W });
         warn.mockRestore();
       });
 
@@ -205,6 +208,23 @@ describe('CashService', () => {
         await expect(service.add(W, { category: 'food', amount: 600 })).rejects.toThrow('Only $500.00 is left to itemize');
         expect(txModel.updateOne).not.toHaveBeenCalled();
         expect(txModel.findOneAndUpdate).toHaveBeenCalledTimes(1);
+      });
+
+      it('is left alone when the counter is within half a cent of the items: the usual refusal', async () => {
+        txModel.findOneAndUpdate.mockResolvedValueOnce(null);
+        txModel.findOne.mockReturnValue(query(withdrawal({ allocatedCash: 4500.004 })));
+        itemModel.find.mockReturnValue(query([{ amount: 4500 }]));
+        await expect(service.add(W, { category: 'food', amount: 600 })).rejects.toThrow('Only $500.00 is left to itemize');
+        expect(txModel.updateOne).not.toHaveBeenCalled();
+      });
+
+      it('rounds the repaired value to cents', async () => {
+        txModel.findOneAndUpdate.mockResolvedValueOnce(null);
+        txModel.findOne.mockReturnValue(query(withdrawal({ allocatedCash: 1000 })));
+        itemModel.find.mockReturnValue(query([{ amount: 0.1 }, { amount: 0.2 }]));
+        txModel.updateOne.mockResolvedValueOnce({ modifiedCount: 1 });
+        await expect(service.add(W, { category: 'food', amount: 10 })).resolves.toEqual({ id: expect.any(String) });
+        expect(txModel.updateOne).toHaveBeenCalledWith({ _id: W, userId: 1, allocatedCash: 1000 }, { $set: { allocatedCash: 0.3 } });
       });
 
       it('is not retried when something else changed it first', async () => {
