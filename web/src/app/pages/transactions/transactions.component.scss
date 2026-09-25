@@ -158,10 +158,8 @@
   letter-spacing: 0.06em;
   border-bottom: 1px solid var(--border);
 
-  @media (max-width: 640px) {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 100px;
-    span:nth-child(4), span:nth-child(5) { display: none; }
-  }
+  // On a phone each row stacks into its own small card (see .tx-row), so the column labels would label nothing.
+  @media (max-width: 640px) { display: none; }
 }
 
 .tx-row {
@@ -175,10 +173,15 @@
   &:last-child { border-bottom: none; }
   &:hover { background: rgba(255,255,255,0.02); }
 
+  // A phone is too narrow for a long name beside the category and the amount
+  // ("cajero automatico" pushed the amount out of the card): the name takes its
+  // own line, then the category and the amount, then the actions.
   @media (max-width: 640px) {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 100px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 8px;
+    .tx-main { grid-column: 1 / -1; }
     .tx-cell:nth-child(4) { display: none; }
-    .tx-actions { grid-column: 1 / -1; justify-content: flex-start; margin-top: 8px; }
+    .tx-actions { grid-column: 1 / -1; justify-content: flex-start; }
   }
 }
 
