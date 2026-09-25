@@ -280,3 +280,9 @@
   font-size: 0.75rem;
   color: var(--text-muted);
 }
+
+// ── Review a category guess ────────────────────────────────────────────
+.review-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.guess-pill { font-style: italic; }
+.confirm-guess mat-icon { color: var(--income); }
+.filed-note { margin: 0 0 8px; min-height: 1em; font-size: 0.85rem; color: var(--text-muted); }

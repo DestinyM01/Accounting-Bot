@@ -99,8 +99,9 @@ export class ApiService {
     return this.http.get(`${this.base}/transactions/export`, { params, responseType: 'blob' });
   }
 
-  setTransactionCategory(id: string, category: string): Observable<void> {
-    return this.http.patch<void>(`${this.base}/transactions/${id}/category`, { category });
+  /** Sets a category and clears the review flag; also answers how many of the merchant's other waiting rows were filed. */
+  setTransactionCategory(id: string, category: string): Observable<{ alsoFiled: number }> {
+    return this.http.patch<{ alsoFiled: number }>(`${this.base}/transactions/${id}/category`, { category });
   }
 
   getCashBreakdown(withdrawalId: string): Observable<CashBreakdown> {

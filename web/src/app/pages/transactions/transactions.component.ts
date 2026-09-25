@@ -43,6 +43,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
 
   confirmingDelete: string | null = null;
   pendingId: string | null = null;
+  filedNote = '';
 
   private search$ = new Subject<string>();
   private searchSub!: Subscription;
@@ -167,10 +168,23 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   }
 
   assignCategory(tx: Transaction, category: string) {
-    if (!category) return;
+    if (!category || this.pendingId) return;
+    this.pendingId = tx._id;
+    this.filedNote = '';
     this.api.setTransactionCategory(tx._id, category).subscribe({
-      next: () => { tx.category = category; tx.categoryNeedsReview = false; },
-      error: () => { alert('Failed to set category. Please try again.'); },
+      next: ({ alsoFiled }) => {
+        this.pendingId = null;
+        tx.category = category;
+        tx.categoryNeedsReview = false;
+        if (alsoFiled > 0) {
+          this.filedNote = `Also filed ${alsoFiled} other ${tx.transactionName} ${alsoFiled === 1 ? 'row' : 'rows'} as ${category}.`;
+          this.events.notify(); // the other rows changed too: reload in place
+        }
+      },
+      error: () => {
+        this.pendingId = null;
+        alert('Failed to set category. Please try again.');
+      },
     });
   }
 

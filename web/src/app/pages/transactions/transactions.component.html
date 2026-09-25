@@ -71,6 +71,7 @@
   @if (error) {
     <p class="fc-error" role="alert">{{ error }}</p>
   }
+  <p class="filed-note" aria-live="polite">{{ filedNote }}</p>
 
   <!-- Table -->
   @if (loading) {
@@ -100,13 +101,28 @@
 
           <div class="tx-cell">
             @if (tx.categoryNeedsReview) {
-              <select class="review-select"
-                      (change)="assignCategory(tx, $any($event.target).value)">
-                <option value="" disabled selected>Needs review…</option>
-                @for (cat of categories; track cat) {
-                  <option [value]="cat">{{ cat | titlecase }}</option>
-                }
-              </select>
+              <div class="review-cell">
+                <span class="cat-pill guess-pill"
+                      [style.background]="catColor(tx.category) + '22'"
+                      [style.color]="catColor(tx.category)">
+                  <span class="dot" [style.background]="catColor(tx.category)"></span>
+                  {{ tx.category | titlecase }}?
+                </span>
+                <button type="button" class="icon-act confirm-guess"
+                        [disabled]="pendingId === tx._id"
+                        [attr.aria-label]="'Confirm ' + (tx.category | titlecase) + ' for ' + tx.transactionName"
+                        (click)="assignCategory(tx, tx.category)">
+                  <mat-icon>check</mat-icon>
+                </button>
+                <select class="review-select"
+                        [attr.aria-label]="'Category for ' + tx.transactionName"
+                        [disabled]="pendingId === tx._id"
+                        (change)="assignCategory(tx, $any($event.target).value)">
+                  @for (cat of categories; track cat) {
+                    <option [value]="cat" [selected]="cat === tx.category">{{ cat | titlecase }}</option>
+                  }
+                </select>
+              </div>
             } @else {
               <span class="cat-pill"
                     [style.background]="catColor(tx.category) + '22'"
