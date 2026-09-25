@@ -45,8 +45,9 @@ A personal finance tracker: a **web dashboard** for entry, review and reporting,
 | **Recurring** | Create rules; upcoming billing and what was billed this month. The API checks hourly and books each rule on its day (08:00 local), catching up days missed within 31 days |
 | **Categories** | Create, edit, rename and delete your own categories; deleting one in use moves its transactions, recurring rules, budgets and cash items to a category you choose |
 | **Cash envelopes** | Itemize an ATM withdrawal into what the cash was spent on; items count toward their categories' budgets and statistics without adding to total spending |
+| **Settings** | See when bank mail was last read, check it now, dismiss mails that aren't transactions; turn the weekly and monthly emails on or off and choose where they go; edit the account numbers that tell your own transfers from spending |
 | **Tips** | AI-generated personalised financial tips (Mistral, 1-hour cache) |
-| **Email reports** | A weekly digest (Monday 07:00) and a monthly summary (the 1st), sent by the API through Gmail; "Email me a test digest" on the Dashboard sends one now |
+| **Email reports** | A weekly digest (Monday 07:00) and a monthly summary (the 1st), sent by the API through Gmail; "Send a test digest" on the Settings page sends one now |
 
 ---
 
@@ -165,9 +166,9 @@ The web app expects the API at `/api` (proxied in `angular.json` or via nginx in
 | `INGEST_MAILBOX` | Mailbox/label to read (default: `INBOX`) |
 | `INGEST_POLL_CRON` | Poll schedule, cron expression (default: `*/10 * * * *`, every 10 min) |
 | `INGEST_START_AT` | Forward-only watermark, ISO date; mail older than this is never ingested (default: 24 hours ago) |
-| `OWN_ACCOUNT_IDENTIFIERS` | Comma-separated own account last-4s and/or name fragment, used to decide transfer direction (default: empty — Banreservas transfers all skipped) |
-| `OWN_CASH_ACCOUNTS` | Comma-separated last-4s of your own savings/checking accounts; transfers to these are internal, not expenses (default: empty — no transfer is treated as internal) |
-| `REPORT_TO` | Recipient of the weekly digest and monthly summary (default: `GMAIL_USER`). Reports go through Gmail SMTP with the same app password |
+| `OWN_ACCOUNT_IDENTIFIERS` | Comma-separated own account last-4s and/or name fragment, used to decide transfer direction (default: empty — Banreservas transfers all skipped). A value saved on the Settings page takes precedence; this is only the starting value. |
+| `OWN_CASH_ACCOUNTS` | Comma-separated last-4s of your own savings/checking accounts; transfers to these are internal, not expenses (default: empty — no transfer is treated as internal). A value saved on the Settings page takes precedence; this is only the starting value. |
+| `REPORT_TO` | Recipient of the weekly digest and monthly summary (default: `GMAIL_USER`). Reports go through Gmail SMTP with the same app password. A value saved on the Settings page takes precedence; this is only the starting value. |
 | `USD_DOP_RATE` | Fallback USD→DOP rate when the live FX lookup fails (default: `60`) |
 
 **Email ingestion setup notes:**
@@ -253,6 +254,12 @@ All endpoints require a `Bearer` JWT token (issued by Authentik).
 | `GET` | `/api/cash/withdrawals/:id` | A withdrawal's items, what's itemized and what's left |
 | `POST` | `/api/cash/withdrawals/:id/allocations` | Itemize `{ category, amount, description? }` (never beyond the withdrawal) |
 | `DELETE` | `/api/cash/allocations/:id` | Remove an item |
+| `GET` | `/api/settings` | Report and account settings, each saved or from the server's config |
+| `PUT` | `/api/settings/reports` | `{ weekly, monthly, recipient }` |
+| `PUT` | `/api/settings/accounts` | `{ cash, senders }` |
+| `GET` | `/api/ingestion/status` | Last run, last failure, unreadable mails and what mail booked lately |
+| `POST` | `/api/ingestion/run` | Check bank mail now (409 while a check runs) |
+| `POST` | `/api/ingestion/unreadable/:id/dismiss` | Stop retrying a mail that isn't a transaction |
 | `GET` | `/api/tips` | AI financial tips (Mistral, 1h cache) |
 | `POST` | `/api/tips/refresh` | Force-refresh tips |
 | `GET` | `/api/compare/months` | Distinct months that have transaction data |
