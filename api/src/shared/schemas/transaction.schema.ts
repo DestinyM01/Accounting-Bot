@@ -22,6 +22,13 @@ export class Transaction extends Document {
   @Prop() originalAmount?: number;
   @Prop() originalCurrency?: string;
   @Prop() isWithdrawal?: boolean;
+
+  /**
+   * Withdrawals only: the sum of this withdrawal's CashAllocation items. It is a
+   * reservation counter that only guarded writes change (see CashService), and it
+   * guards against itemizing more than was withdrawn. Totals read the items, never this.
+   */
+  @Prop() allocatedCash?: number;
   @Prop() externalRef?: string;
 
   /** How this transfer relates to the user's own accounts. Absent for ordinary card transactions. */

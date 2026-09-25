@@ -27,3 +27,9 @@ describe('TransactionSchema indexes', () => {
     ]);
   });
 });
+
+describe('TransactionSchema fields', () => {
+  it('declares allocatedCash, the itemized-cash reservation of a withdrawal', () => {
+    expect(TransactionSchema.path('allocatedCash')).toBeDefined();
+  });
+});
