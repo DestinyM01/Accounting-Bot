@@ -104,10 +104,12 @@ export class ReportsSectionComponent implements OnInit, OnDestroy {
             this.testState = 'idle';
             this.testTimer = null;
           }, 5000);
+          this.focus('reports-test');
         },
         error: (e: HttpErrorResponse) => {
           this.testState = 'error';
           this.testError = e.status === 503 ? "Email isn't configured on the server" : "Couldn't send the test email";
+          this.focus('reports-test');
         },
       }),
     );

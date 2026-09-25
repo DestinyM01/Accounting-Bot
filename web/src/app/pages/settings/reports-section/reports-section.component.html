@@ -32,7 +32,7 @@
           maxlength="254"
           [(ngModel)]="recipient"
           name="recipient"
-          [placeholder]="fallback || 'The server’s address'"
+          [placeholder]="fallback || 'No address configured: reports won’t be sent'"
         />
       </label>
       @if (view.recipient.source === 'config') {
@@ -46,10 +46,13 @@
 
       <div class="set-actions">
         <button type="submit" class="fc-btn fc-btn--primary" [disabled]="!dirty || saving">{{ saving ? 'Saving…' : 'Save' }}</button>
-        <button type="button" class="fc-btn fc-btn--ghost" [disabled]="testState === 'sending'" (click)="sendTest()">
+        <button id="reports-test" type="button" class="fc-btn fc-btn--ghost" [disabled]="testState === 'sending' || dirty" (click)="sendTest()">
           <mat-icon>{{ testState === 'sent' ? 'mark_email_read' : 'mail' }}</mat-icon>
           {{ testLabel }}
         </button>
+        @if (dirty) {
+          <span class="set-muted">Save first to test a changed address.</span>
+        }
       </div>
       @if (testState === 'error') {
         <p class="fc-error" role="alert">{{ testError }}</p>

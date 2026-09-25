@@ -20,6 +20,8 @@ export class MailSectionComponent implements OnInit, OnDestroy {
   status: IngestionStatusView | null = null;
   loading = true;
   loadError = '';
+  /** A failed reload once a status is already on screen: keeps the stale status visible instead of blanking the section. */
+  reloadError = '';
   checking = false;
   checkResult = '';
   checkError = '';
@@ -30,6 +32,7 @@ export class MailSectionComponent implements OnInit, OnDestroy {
 
   private gen = 0;
   private destroyed = false;
+  private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly subs = new Subscription();
 
   constructor(
@@ -45,6 +48,7 @@ export class MailSectionComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.destroyed = true;
     this.subs.unsubscribe();
+    if (this.pollTimer) clearTimeout(this.pollTimer);
   }
 
   catColor(category: string) {
@@ -100,7 +104,8 @@ export class MailSectionComponent implements OnInit, OnDestroy {
         error: (e: HttpErrorResponse) => {
           this.dismissing = false;
           this.dismissError = this.message(e, "Couldn't dismiss it. Please try again.");
-          this.load();
+          // Focus the button that's still there for this mail, else the list heading.
+          this.load(() => this.focus(`dismiss-${id}`, 'unreadable-heading'));
         },
       }),
     );
@@ -108,6 +113,10 @@ export class MailSectionComponent implements OnInit, OnDestroy {
 
   /** Reads the status; a reply older than the newest request is dropped. */
   private load(then?: () => void) {
+    if (this.pollTimer) {
+      clearTimeout(this.pollTimer);
+      this.pollTimer = null;
+    }
     const gen = ++this.gen;
     this.subs.add(
       this.api.getIngestionStatus().subscribe({
@@ -116,13 +125,21 @@ export class MailSectionComponent implements OnInit, OnDestroy {
           this.status = s;
           this.loading = false;
           this.loadError = '';
+          this.reloadError = '';
           if (this.confirming && !s.unreadable.some((m) => m.id === this.confirming)) this.confirming = null;
+          // "Check mail now" can't stay stuck: keep polling while a run is in
+          // flight (this pod's or another's), until it reports done.
+          if (s.running && !this.destroyed) this.pollTimer = setTimeout(() => this.load(), 4000);
           then?.();
         },
         error: () => {
           if (gen !== this.gen) return;
           this.loading = false;
-          this.loadError = "Couldn't load the mail status.";
+          // Only the very first load has no status to fall back on; once one
+          // is on screen, a failed reload keeps it and reports inline instead.
+          if (this.status) this.reloadError = "Couldn't reload the mail status.";
+          else this.loadError = "Couldn't load the mail status.";
+          then?.();
         },
       }),
     );

@@ -278,6 +278,7 @@ export interface MailBookedItem {
   isExpense: boolean;
   category: string;
   timestamp: string;
+  transferKind: string | null;
 }
 
 export interface IngestionStatusView {

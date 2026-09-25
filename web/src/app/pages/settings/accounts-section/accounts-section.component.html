@@ -35,13 +35,15 @@
           maxlength="4"
           autocomplete="off"
           [(ngModel)]="draft.cash"
+          [attr.aria-invalid]="draftError.cash ? 'true' : null"
+          [attr.aria-describedby]="draftError.cash ? 'cash-error' : null"
           (keydown.enter)="$event.preventDefault(); add('cash')"
         />
       </label>
       <button type="button" class="fc-btn fc-btn--ghost" (click)="add('cash')">Add</button>
     </div>
     @if (draftError.cash) {
-      <p class="fc-error" role="alert">{{ draftError.cash }}</p>
+      <p id="cash-error" class="fc-error" role="alert">{{ draftError.cash }}</p>
     }
 
     <h3 id="senders-title">How you appear as a sender (last 4 digits or part of your name)</h3>
@@ -72,19 +74,21 @@
           maxlength="40"
           autocomplete="off"
           [(ngModel)]="draft.senders"
+          [attr.aria-invalid]="draftError.senders ? 'true' : null"
+          [attr.aria-describedby]="draftError.senders ? 'senders-error' : null"
           (keydown.enter)="$event.preventDefault(); add('senders')"
         />
       </label>
       <button type="button" class="fc-btn fc-btn--ghost" (click)="add('senders')">Add</button>
     </div>
     @if (draftError.senders) {
-      <p class="fc-error" role="alert">{{ draftError.senders }}</p>
+      <p id="senders-error" class="fc-error" role="alert">{{ draftError.senders }}</p>
     }
 
     <p class="set-muted">Applies to mail read from now on. Transactions already booked keep their classification.</p>
     @if (confirmEmpty) {
-      <div class="set-confirm" role="alert">
-        <span>With no cash accounts, every transfer is booked as spending. Save anyway?</span>
+      <div class="set-confirm">
+        <span role="alert">With no cash accounts, every transfer is booked as spending. Save anyway?</span>
         <button id="accounts-confirm-yes" type="button" class="fc-btn fc-btn--primary" (click)="save()">Save anyway</button>
         <button type="button" class="fc-btn fc-btn--ghost" (click)="cancelEmpty()">Cancel</button>
       </div>

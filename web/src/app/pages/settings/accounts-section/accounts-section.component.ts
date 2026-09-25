@@ -66,6 +66,7 @@ export class AccountsSectionComponent implements OnInit, OnDestroy {
   }
 
   add(list: ListKey) {
+    this.confirmEmpty = false;
     const v = this.draft[list].trim();
     const problem = this.problem(list, v);
     this.draftError[list] = problem;
@@ -77,6 +78,7 @@ export class AccountsSectionComponent implements OnInit, OnDestroy {
   }
 
   remove(list: ListKey, index: number) {
+    this.confirmEmpty = false;
     this[list] = this[list].filter((_, i) => i !== index);
     this.saved = '';
     const left = this[list].length;

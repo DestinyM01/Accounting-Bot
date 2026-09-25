@@ -47,6 +47,12 @@ h3 {
   &.income { color: var(--income); }
 }
 
+// An internal/unresolved transfer is not spending — tag it instead of
+// rendering the expense sign/colour. Matches the Transactions page's own
+// .cat-pill.transfer-pill (component styles are encapsulated, so it's
+// redeclared here for this section's cat-pill).
+.transfer-pill { background: var(--color-surface-hover); color: var(--text-muted); }
+
 .set-link { color: var(--accent); font-size: 0.875rem; }
 
 .set-field { max-width: 24rem; }

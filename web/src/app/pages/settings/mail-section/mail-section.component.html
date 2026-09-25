@@ -33,6 +33,9 @@
     @if (checkError) {
       <p class="fc-error" role="alert">{{ checkError }}</p>
     }
+    @if (reloadError) {
+      <p class="fc-error" role="alert">{{ reloadError }}</p>
+    }
 
     <h3 id="unreadable-heading" tabindex="-1">Couldn't read</h3>
     @if (status.unreadable.length === 0) {
@@ -56,16 +59,23 @@
                 <button type="button" class="fc-btn fc-btn--ghost" [disabled]="dismissing" (click)="cancelDismiss(m.id)">Cancel</button>
               </div>
             } @else {
-              <button [id]="'dismiss-' + m.id" type="button" class="fc-btn fc-btn--ghost" [disabled]="confirming !== null" (click)="askDismiss(m.id)">
+              <button
+                [id]="'dismiss-' + m.id"
+                type="button"
+                class="fc-btn fc-btn--ghost"
+                [disabled]="confirming !== null"
+                [attr.aria-label]="'Not a transaction: ' + (m.subject || 'no subject')"
+                (click)="askDismiss(m.id)"
+              >
                 Not a transaction
               </button>
             }
           </li>
         }
       </ul>
-      @if (dismissError) {
-        <p class="fc-error" role="alert">{{ dismissError }}</p>
-      }
+    }
+    @if (dismissError) {
+      <p class="fc-error" role="alert">{{ dismissError }}</p>
     }
 
     <h3>Recently booked from mail</h3>
@@ -79,13 +89,20 @@
               <span class="set-row-title">{{ t.name }}</span>
               <span class="set-muted">{{ t.timestamp | date: 'MMM d, h:mm a' }}</span>
             </div>
-            <span class="cat-pill" [style.background]="catColor(t.category) + '22'" [style.color]="catColor(t.category)">
-              <span class="dot" [style.background]="catColor(t.category)"></span>
-              {{ t.category | titlecase }}
-            </span>
-            <span class="set-amount" [class.expense]="t.isExpense" [class.income]="!t.isExpense">
-              {{ t.isExpense ? '−' : '+' }}{{ t.amount | currency: 'USD' : 'symbol' : '1.2-2' }}
-            </span>
+            @if (t.transferKind === 'internal' || t.transferKind === 'unresolved') {
+              <span class="cat-pill transfer-pill">
+                {{ t.transferKind === 'internal' ? 'Internal' : 'Unresolved' }}
+              </span>
+              <span class="set-amount">{{ t.amount | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
+            } @else {
+              <span class="cat-pill" [style.background]="catColor(t.category) + '22'" [style.color]="catColor(t.category)">
+                <span class="dot" [style.background]="catColor(t.category)"></span>
+                {{ t.category | titlecase }}
+              </span>
+              <span class="set-amount" [class.expense]="t.isExpense" [class.income]="!t.isExpense">
+                {{ t.isExpense ? '−' : '+' }}{{ t.amount | currency: 'USD' : 'symbol' : '1.2-2' }}
+              </span>
+            }
           </li>
         }
       </ul>
