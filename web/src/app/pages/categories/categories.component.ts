@@ -107,7 +107,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
   }
 
   inUse(c: CategoryOverviewItem): boolean {
-    return c.usage.transactions + c.usage.recurring + c.usage.budgets > 0;
+    return c.usage.transactions + c.usage.recurring + c.usage.budgets + c.usage.cashItems > 0;
   }
 
   moveTargets(c: CategoryOverviewItem): CategoryOverviewItem[] {
@@ -207,6 +207,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
     add(u.transactions, 'transaction', 'transactions');
     add(u.recurring, 'recurring rule', 'recurring rules');
     add(u.budgets, 'budget', 'budgets');
+    add(u.cashItems, 'cash item', 'cash items');
     return parts;
   }
 

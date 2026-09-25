@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
-import { CategoryReferencesService, NO_USAGE } from './category-references.service';
+import { CategoryReferencesService, NO_USAGE, totalUses } from './category-references.service';
 import { BUILT_IN_NAMES, EMOJIS, PALETTE, isKnownEmoji, isPaletteColor, nameError, normalizeName } from './category-rules';
 
 const BUILT_IN = [
@@ -151,7 +151,7 @@ export class CategoriesService {
       throw new BadRequestException(`${cat.name} shares its name with a built-in category; delete it without moving`);
     }
     const usage = sharesBuiltIn ? NO_USAGE : (await this.refs.usage()).get(cat.name) ?? NO_USAGE;
-    const inUse = usage.transactions + usage.recurring + usage.budgets > 0;
+    const inUse = totalUses(usage) > 0;
 
     let pending: Pending | null = null;
     if (moveTo) {

@@ -188,7 +188,7 @@ describe('CategoriesService', () => {
   describe('remove', () => {
     it('requires a category to move to while it is in use', async () => {
       model.findOne.mockReturnValueOnce(query(gym()));
-      refs.usage.mockResolvedValue(new Map([['gym', { transactions: 3, recurring: 0, budgets: 0 }]]));
+      refs.usage.mockResolvedValue(new Map([['gym', { transactions: 3, recurring: 0, budgets: 0, cashItems: 0 }]]));
       await expect(service.remove(ID)).rejects.toThrow(/in use/);
       expect(model.findOneAndUpdate).not.toHaveBeenCalled();
     });
@@ -214,7 +214,7 @@ describe('CategoriesService', () => {
 
     it('hides it first, then moves everything and clears pending', async () => {
       model.findOne.mockReturnValueOnce(query(gym()));
-      refs.usage.mockResolvedValue(new Map([['gym', { transactions: 3, recurring: 1, budgets: 2 }]]));
+      refs.usage.mockResolvedValue(new Map([['gym', { transactions: 3, recurring: 1, budgets: 2, cashItems: 0 }]]));
       model.findOneAndUpdate.mockResolvedValueOnce({ _id: ID });
       await service.remove(ID, 'health');
       expect(model.findOneAndUpdate).toHaveBeenCalledWith(
@@ -243,15 +243,21 @@ describe('CategoriesService', () => {
 
     it('counts a category as in use through recurring rules or budgets alone', async () => {
       model.findOne.mockImplementation(findOneBy(gym()));
-      refs.usage.mockResolvedValueOnce(new Map([['gym', { transactions: 0, recurring: 1, budgets: 0 }]]));
+      refs.usage.mockResolvedValueOnce(new Map([['gym', { transactions: 0, recurring: 1, budgets: 0, cashItems: 0 }]]));
       await expect(service.remove(ID)).rejects.toThrow(/in use/);
-      refs.usage.mockResolvedValueOnce(new Map([['gym', { transactions: 0, recurring: 0, budgets: 1 }]]));
+      refs.usage.mockResolvedValueOnce(new Map([['gym', { transactions: 0, recurring: 0, budgets: 1, cashItems: 0 }]]));
+      await expect(service.remove(ID)).rejects.toThrow(/in use/);
+    });
+
+    it('counts a category as in use through cash items alone', async () => {
+      model.findOne.mockImplementation(findOneBy(gym()));
+      refs.usage.mockResolvedValueOnce(new Map([['gym', { transactions: 0, recurring: 0, budgets: 0, cashItems: 2 }]]));
       await expect(service.remove(ID)).rejects.toThrow(/in use/);
     });
 
     it('hides a legacy custom category that carries a built-in name without moving the built-in data', async () => {
       model.findOne.mockImplementation(findOneBy(gym({ name: 'food' })));
-      refs.usage.mockResolvedValue(new Map([['food', { transactions: 42, recurring: 0, budgets: 1 }]]));
+      refs.usage.mockResolvedValue(new Map([['food', { transactions: 42, recurring: 0, budgets: 1, cashItems: 0 }]]));
       await expect(service.remove(ID, 'other')).rejects.toThrow(/built-in/);
       model.findOneAndUpdate.mockResolvedValueOnce({ _id: ID });
       await service.remove(ID);
@@ -289,8 +295,8 @@ describe('CategoriesService', () => {
       model.find.mockReturnValueOnce(custom);
       refs.usage.mockResolvedValue(
         new Map([
-          ['food', { transactions: 5, recurring: 0, budgets: 1 }],
-          ['gym', { transactions: 3, recurring: 1, budgets: 0 }],
+          ['food', { transactions: 5, recurring: 0, budgets: 1, cashItems: 0 }],
+          ['gym', { transactions: 3, recurring: 1, budgets: 0, cashItems: 0 }],
         ]),
       );
       const o = await service.overview();
@@ -298,13 +304,13 @@ describe('CategoriesService', () => {
       expect(custom.sort).toHaveBeenCalledWith({ name: 1 });
       expect(o.categories[0]).toEqual({
         id: null, name: 'food', emoji: '🍔', color: '#10e5a0', isBuiltIn: true, active: true,
-        usage: { transactions: 5, recurring: 0, budgets: 1 }, pending: null,
+        usage: { transactions: 5, recurring: 0, budgets: 1, cashItems: 0 }, pending: null,
       });
       expect(o.categories.slice(9)).toEqual([
         { id: ID, name: 'gym', emoji: '💪', color: '#3b82f6', isBuiltIn: false, active: true,
-          usage: { transactions: 3, recurring: 1, budgets: 0 }, pending: null },
+          usage: { transactions: 3, recurring: 1, budgets: 0, cashItems: 0 }, pending: null },
         { id: OLD_ID, name: 'old', emoji: '🎯', color: '#ef4444', isBuiltIn: false, active: false,
-          usage: { transactions: 0, recurring: 0, budgets: 0 }, pending: { from: 'old', to: 'food' } },
+          usage: { transactions: 0, recurring: 0, budgets: 0, cashItems: 0 }, pending: { from: 'old', to: 'food' } },
       ]);
       expect(o.palette).toHaveLength(10);
       expect(o.emojis).toHaveLength(20);
@@ -312,12 +318,12 @@ describe('CategoriesService', () => {
 
     it("gives a legacy custom category sharing a built-in's name no usage of its own", async () => {
       model.find.mockReturnValueOnce(query([gym({ name: 'food' })]));
-      refs.usage.mockResolvedValue(new Map([['food', { transactions: 42, recurring: 0, budgets: 1 }]]));
+      refs.usage.mockResolvedValue(new Map([['food', { transactions: 42, recurring: 0, budgets: 1, cashItems: 0 }]]));
       const o = await service.overview();
       const builtInFood = o.categories.find((c) => c.isBuiltIn && c.name === 'food');
       const customFood = o.categories.find((c) => !c.isBuiltIn && c.name === 'food');
-      expect(builtInFood!.usage).toEqual({ transactions: 42, recurring: 0, budgets: 1 });
-      expect(customFood!.usage).toEqual({ transactions: 0, recurring: 0, budgets: 0 });
+      expect(builtInFood!.usage).toEqual({ transactions: 42, recurring: 0, budgets: 1, cashItems: 0 });
+      expect(customFood!.usage).toEqual({ transactions: 0, recurring: 0, budgets: 0, cashItems: 0 });
     });
   });
 });

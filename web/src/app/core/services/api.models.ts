@@ -170,6 +170,7 @@ export interface CategoryUsage {
   transactions: number;
   recurring: number;
   budgets: number;
+  cashItems: number;
 }
 
 export interface CategoryOverviewItem {

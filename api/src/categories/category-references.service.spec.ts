@@ -4,6 +4,7 @@ import { CategoryReferencesService } from './category-references.service';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { Budget } from '../shared/schemas/budget.schema';
+import { CashAllocation } from '../shared/schemas/cash-allocation.schema';
 
 /** A chainable stand-in for a Mongoose query that resolves to `result`. */
 function query(result: unknown) {
@@ -16,6 +17,7 @@ describe('CategoryReferencesService', () => {
   let txModel: { aggregate: jest.Mock; updateMany: jest.Mock };
   let recurringModel: { aggregate: jest.Mock; updateMany: jest.Mock };
   let budgetModel: { aggregate: jest.Mock; find: jest.Mock; findOne: jest.Mock; updateOne: jest.Mock; findOneAndDelete: jest.Mock };
+  let itemModel: { aggregate: jest.Mock; updateMany: jest.Mock };
 
   beforeEach(async () => {
     process.env.BOSS_USER_ID = '1';
@@ -28,33 +30,45 @@ describe('CategoryReferencesService', () => {
       updateOne: jest.fn().mockResolvedValue({}),
       findOneAndDelete: jest.fn(() => query(null)),
     };
+    itemModel = { aggregate: jest.fn().mockResolvedValue([]), updateMany: jest.fn().mockResolvedValue({}) };
     const mod = await Test.createTestingModule({
       providers: [
         CategoryReferencesService,
         { provide: getModelToken(Transaction.name), useValue: txModel },
         { provide: getModelToken(Recurring.name), useValue: recurringModel },
         { provide: getModelToken(Budget.name), useValue: budgetModel },
+        { provide: getModelToken(CashAllocation.name), useValue: itemModel },
       ],
     }).compile();
     service = mod.get(CategoryReferencesService);
   });
 
-  it('counts live transactions, active rules and budgets per category', async () => {
+  it('counts live transactions, active rules, budgets and cash items per category', async () => {
     txModel.aggregate.mockResolvedValue([{ _id: 'gym', n: 12 }, { _id: 'food', n: 4 }]);
     recurringModel.aggregate.mockResolvedValue([{ _id: 'gym', n: 1 }]);
     budgetModel.aggregate.mockResolvedValue([{ _id: 'gym', n: 2 }]);
+    itemModel.aggregate.mockResolvedValue([{ _id: 'gym', n: 3 }]);
     const usage = await service.usage();
-    expect(usage.get('gym')).toEqual({ transactions: 12, recurring: 1, budgets: 2 });
-    expect(usage.get('food')).toEqual({ transactions: 4, recurring: 0, budgets: 0 });
+    expect(usage.get('gym')).toEqual({ transactions: 12, recurring: 1, budgets: 2, cashItems: 3 });
+    expect(usage.get('food')).toEqual({ transactions: 4, recurring: 0, budgets: 0, cashItems: 0 });
     expect(txModel.aggregate.mock.calls[0][0][0]).toEqual({ $match: { userId: 1, deletedAt: null } });
     expect(recurringModel.aggregate.mock.calls[0][0][0]).toEqual({ $match: { userId: 1, active: true } });
     expect(budgetModel.aggregate.mock.calls[0][0][0]).toEqual({ $match: { userId: 1 } });
+    expect(itemModel.aggregate.mock.calls[0][0][0]).toEqual({ $match: { userId: 1 } });
   });
 
   it('moves transactions and recurring rules by name, deleted and inactive ones included', async () => {
     await service.migrate('gym', 'health');
     expect(txModel.updateMany).toHaveBeenCalledWith({ userId: 1, category: 'gym' }, { $set: { category: 'health' } });
     expect(recurringModel.updateMany).toHaveBeenCalledWith({ userId: 1, category: 'gym' }, { $set: { category: 'health' } });
+  });
+
+  it('moves cash items between the transactions and the recurring rules', async () => {
+    await service.migrate('gym', 'health');
+    expect(itemModel.updateMany).toHaveBeenCalledWith({ userId: 1, category: 'gym' }, { $set: { category: 'health' } });
+    const order = (m: jest.Mock) => m.mock.invocationCallOrder[0];
+    expect(order(txModel.updateMany)).toBeLessThan(order(itemModel.updateMany));
+    expect(order(itemModel.updateMany)).toBeLessThan(order(recurringModel.updateMany));
   });
 
   it('renames a budget when the target category has none that month', async () => {

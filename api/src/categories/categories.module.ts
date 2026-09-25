@@ -4,6 +4,7 @@ import { CustomCategory, CustomCategorySchema } from '../shared/schemas/custom-c
 import { Transaction, TransactionSchema } from '../shared/schemas/transaction.schema';
 import { Recurring, RecurringSchema } from '../shared/schemas/recurring.schema';
 import { Budget, BudgetSchema } from '../shared/schemas/budget.schema';
+import { CashAllocation, CashAllocationSchema } from '../shared/schemas/cash-allocation.schema';
 import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
 import { CategoryReferencesService } from './category-references.service';
@@ -15,6 +16,7 @@ import { CategoryReferencesService } from './category-references.service';
       { name: Transaction.name, schema: TransactionSchema },
       { name: Recurring.name, schema: RecurringSchema },
       { name: Budget.name, schema: BudgetSchema },
+      { name: CashAllocation.name, schema: CashAllocationSchema },
     ]),
   ],
   controllers: [CategoriesController],
