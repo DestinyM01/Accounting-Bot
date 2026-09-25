@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Mistral } from '@mistralai/mistralai';
 import { Transaction } from '../shared/schemas/transaction.schema';
+import { serverTimeZone } from '../shared/time-zone';
 import { NOT_DELETED, SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 import { CategorySpendService } from '../cash/category-spend.service';
 
@@ -39,7 +40,10 @@ export class CompareService {
       { $match: { userId: this.userId, ...NOT_DELETED } },
       {
         $group: {
-          _id: { year: { $year: '$timestamp' }, month: { $month: '$timestamp' } },
+          _id: {
+            year: { $year: { date: '$timestamp', timezone: serverTimeZone() } },
+            month: { $month: { date: '$timestamp', timezone: serverTimeZone() } },
+          },
         },
       },
       { $sort: { '_id.year': 1, '_id.month': 1 } },

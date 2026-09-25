@@ -68,6 +68,16 @@ describe('CompareService', () => {
       const pipeline = mockModel.aggregate.mock.calls[0][0];
       expect(pipeline[0].$match).toEqual(expect.objectContaining(NOT_DELETED));
     });
+
+    // The periods it offers are then queried with server-local month boundaries: group the same way.
+    it("groups months in the server's zone", async () => {
+      await service.getAvailableMonths();
+      const pipeline = mockModel.aggregate.mock.calls[0][0];
+      expect(pipeline[1].$group._id).toEqual({
+        year: { $year: { date: '$timestamp', timezone: 'America/Santo_Domingo' } },
+        month: { $month: { date: '$timestamp', timezone: 'America/Santo_Domingo' } },
+      });
+    });
   });
 
   describe('compare', () => {
