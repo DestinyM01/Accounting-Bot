@@ -110,4 +110,17 @@ describe('MerchantMemoryService', () => {
     expect(memoryModel.find).toHaveBeenCalledWith({ userId: 1 });
     expect([...map.entries()]).toEqual([['prime video', 'entertainment'], ['some store', 'food']]);
   });
+
+  it('never hands ingestion a remembered cash or other', async () => {
+    // A category deleted with a move into Other also moves its remembered merchants there.
+    memoryModel.find.mockReturnValue(
+      query([
+        { key: 'some store', category: 'other' },
+        { key: 'atm place', category: 'cash' },
+        { key: 'prime video', category: 'entertainment' },
+      ]),
+    );
+    const map = await service.all();
+    expect([...map.entries()]).toEqual([['prime video', 'entertainment']]);
+  });
 });
