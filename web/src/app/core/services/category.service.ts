@@ -32,9 +32,9 @@ export class CategoryService {
     this.api.getCategories().subscribe({
       next: (cats) => {
         const custom = cats.filter((c) => !c.isBuiltIn);
-        custom.forEach((c) => {
-          this.customMap[c.name.toLowerCase()] = { color: c.color, icon: 'label' };
-        });
+        this.customMap = Object.fromEntries(
+          custom.map((c) => [c.name.toLowerCase(), { color: c.color, icon: 'label' }]),
+        );
         this._all = [
           ...Object.entries(this.BUILT_IN).map(([name, d]) => ({ name, ...d, isBuiltIn: true })),
           ...custom.map((c) => ({ name: c.name, color: c.color, icon: 'label', isBuiltIn: false })),

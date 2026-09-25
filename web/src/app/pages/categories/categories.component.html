@@ -15,6 +15,10 @@
     </button>
   </div>
 
+  @if (pageError) {
+    <p class="fc-error" role="alert">{{ pageError }}</p>
+  }
+
   @if (loading) {
     <p class="cat-muted">Loading…</p>
   } @else if (loadError) {
@@ -44,13 +48,23 @@
                 <div class="cat-text">
                   <span class="cat-name">{{ c.name }}</span>
                   <span class="cat-usage">{{ usageText(c.usage) }}</span>
+                  @if (receivingMove(c)) {
+                    <span class="cat-usage" [id]="'lock-' + c.id">Locked until the move into {{ c.name }} finishes</span>
+                  }
                 </div>
               </div>
 
               @if (c.pending) {
                 <div class="cat-pending">
                   <p>Moving {{ c.pending.from }} to {{ c.pending.to }} didn't finish.</p>
-                  <button type="button" class="fc-btn fc-btn--primary" [disabled]="busy || mode.kind !== 'none'" (click)="finish(c)">
+                  <button
+                    [id]="'finish-' + c.id"
+                    type="button"
+                    class="fc-btn fc-btn--primary"
+                    [disabled]="busy || mode.kind !== 'none'"
+                    [attr.aria-label]="'Finish moving ' + c.pending.from + ' to ' + c.pending.to"
+                    (click)="finish(c)"
+                  >
                     Finish move
                   </button>
                   @if (finishError?.id === c.id) {
@@ -101,7 +115,7 @@
                     class="fc-btn fc-btn--ghost"
                     [disabled]="busy || mode.kind !== 'none' || receivingMove(c)"
                     [attr.aria-label]="'Edit ' + c.name"
-                    [attr.title]="receivingMove(c) ? 'A move into ' + c.name + ' has not finished' : null"
+                    [attr.aria-describedby]="receivingMove(c) ? 'lock-' + c.id : null"
                     (click)="openEdit(c)"
                   >
                     <mat-icon>edit</mat-icon>
@@ -112,7 +126,7 @@
                     class="fc-btn fc-btn--ghost"
                     [disabled]="busy || mode.kind !== 'none' || receivingMove(c)"
                     [attr.aria-label]="'Delete ' + c.name"
-                    [attr.title]="receivingMove(c) ? 'A move into ' + c.name + ' has not finished' : null"
+                    [attr.aria-describedby]="receivingMove(c) ? 'lock-' + c.id : null"
                     (click)="openDelete(c)"
                   >
                     <mat-icon>delete_outline</mat-icon>

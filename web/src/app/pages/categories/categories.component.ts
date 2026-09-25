@@ -36,6 +36,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
   overview: CategoryOverview | null = null;
   loading = true;
   loadError = '';
+  pageError = '';
 
   mode: Mode = { kind: 'none' };
   name = '';
@@ -48,6 +49,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
 
   private gen = 0;
   private destroyed = false;
+  private focusAfterLoad: string[] | null = null;
   private readonly subs = new Subscription();
 
   constructor(
@@ -109,7 +111,11 @@ export class CategoriesComponent implements OnInit, OnDestroy {
   }
 
   moveTargets(c: CategoryOverviewItem): CategoryOverviewItem[] {
-    return (this.overview?.categories ?? []).filter((x) => x.active && !x.pending && x.name !== c.name);
+    // Keep one entry per name. The built-ins come first, so a legacy custom category that
+    // shares a built-in's name doesn't appear twice.
+    return (this.overview?.categories ?? []).filter(
+      (x, i, all) => x.active && !x.pending && x.name !== c.name && all.findIndex((y) => y.name === x.name) === i,
+    );
   }
 
   /** A category an unfinished move is still moving data into can't be changed until that move finishes. */
@@ -185,6 +191,9 @@ export class CategoriesComponent implements OnInit, OnDestroy {
         error: (e: HttpErrorResponse) => {
           this.busy = false;
           this.finishError = { id: c.id!, message: this.message(e) };
+          // Another tab may have finished or changed it: reload, and put focus back on this row's button if it's still there.
+          this.focusAfterLoad = [`finish-${c.id}`, 'new-category'];
+          this.load();
         },
       }),
     );
@@ -204,6 +213,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
   private open(mode: Mode): void {
     this.mode = mode;
     this.actionError = '';
+    this.pageError = '';
     this.finishError = null;
     setTimeout(() => {
       if (!this.destroyed) this.firstField?.nativeElement.focus();
@@ -238,6 +248,10 @@ export class CategoriesComponent implements OnInit, OnDestroy {
           // and refresh the app's pickers in case a rename already took effect.
           this.load();
           this.categorySvc.load();
+          // The submit button was disabled while saving, so focus fell to the page: return it to the form.
+          setTimeout(() => {
+            if (!this.destroyed && document.activeElement === document.body) this.firstField?.nativeElement.focus();
+          }, 0);
         },
       }),
     );
@@ -245,6 +259,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
 
   /** Every picker in the app follows (CategoryService); every list reloads, this page included (changed$). */
   private afterChange(focusIds: string[]): void {
+    this.focusAfterLoad = focusIds;
     this.categorySvc.load();
     this.events.notify();
     this.focus(...focusIds);
@@ -264,6 +279,14 @@ export class CategoriesComponent implements OnInit, OnDestroy {
     }, 0);
   }
 
+  /** Like focus(), but only when focus was lost (the focused control was removed or disabled), never stealing it. */
+  private restoreFocus(ids: string[]): void {
+    setTimeout(() => {
+      const active = document.activeElement;
+      if (!active || active === document.body) this.focus(...ids);
+    }, 0);
+  }
+
   private message(e: HttpErrorResponse): string {
     return typeof e.error?.message === 'string' ? e.error.message : 'Something went wrong. Please try again.';
   }
@@ -275,21 +298,32 @@ export class CategoriesComponent implements OnInit, OnDestroy {
         next: (o) => {
           if (gen !== this.gen) return; // a newer request owns the page
           this.overview = o;
-          // If the category being edited or deleted is now mid-move, close its form and
-          // show the error beside its Finish move button instead.
+          // The category being edited or deleted may have changed underneath the form:
+          // mid-move (show the error by its Finish move) or gone (show it on the page).
           const m = this.mode;
-          if ((m.kind === 'edit' || m.kind === 'delete') && o.categories.some((c) => c.id === m.id && c.pending)) {
-            this.finishError = { id: m.id, message: this.actionError || "The move didn't finish." };
-            this.mode = { kind: 'none' };
-            this.actionError = '';
+          if ((m.kind === 'edit' || m.kind === 'delete') && !this.busy) {
+            const row = o.categories.find((c) => c.id === m.id);
+            if (!row || row.pending) {
+              const message = this.actionError || (row ? "The move didn't finish." : 'That category was changed in another tab.');
+              this.mode = { kind: 'none' };
+              this.actionError = '';
+              if (row) this.finishError = { id: m.id, message };
+              else this.pageError = message;
+              this.focusAfterLoad = row ? [`finish-${m.id}`, 'new-category'] : ['new-category'];
+            }
           }
           this.loadError = '';
           this.loading = false;
+          if (this.focusAfterLoad) {
+            this.restoreFocus(this.focusAfterLoad);
+            this.focusAfterLoad = null;
+          }
         },
         error: () => {
           if (gen !== this.gen) return;
           this.loadError = "Couldn't load your categories.";
           this.loading = false;
+          this.focusAfterLoad = null;
         },
       }),
     );
