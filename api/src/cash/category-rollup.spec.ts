@@ -50,6 +50,12 @@ describe('rollUpByCategory', () => {
     expect(Math.round(sum * 100) / 100).toBe(3720);
   });
 
+  it('ignores items of a withdrawal row that is not spending', () => {
+    expect(
+      rollUpByCategory([{ id: 'w1', amount: 500, isWithdrawal: true }, expense('t1', 20, 'food')], [item('w1', 'health', 200)]),
+    ).toEqual([{ category: 'food', total: 20 }]);
+  });
+
   it('ignores rows that are not spending', () => {
     expect(rollUpByCategory([{ id: 't1', amount: 500, category: 'salary' }, expense('t2', 20, 'food')], [])).toEqual([
       { category: 'food', total: 20 },

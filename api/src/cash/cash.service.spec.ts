@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { Types } from 'mongoose';
+import { Error as MongooseError, Types, mongo } from 'mongoose';
 import { CashService } from './cash.service';
 import { CashModule } from './cash.module';
 import { LedgerModule } from '../shared/ledger/ledger.module';
@@ -29,7 +29,7 @@ const withdrawal = (over: Record<string, unknown> = {}) => ({
 describe('CashService', () => {
   let service: CashService;
   let txModel: { findOne: jest.Mock; findOneAndUpdate: jest.Mock; updateOne: jest.Mock };
-  let itemModel: { find: jest.Mock; create: jest.Mock; findOneAndDelete: jest.Mock; exists: jest.Mock };
+  let itemModel: { find: jest.Mock; create: jest.Mock; findOneAndDelete: jest.Mock };
   let categories: { assertValid: jest.Mock };
 
   beforeEach(async () => {
@@ -43,7 +43,6 @@ describe('CashService', () => {
       find: jest.fn(() => query([])),
       create: jest.fn().mockResolvedValue({ _id: ITEM }),
       findOneAndDelete: jest.fn(() => query(null)),
-      exists: jest.fn().mockResolvedValue(null),
     };
     categories = {
       assertValid: jest.fn(async (c: string) => {
@@ -163,26 +162,21 @@ describe('CashService', () => {
       expect(txModel.findOneAndUpdate).not.toHaveBeenCalled();
     });
 
-    it('hands the reservation back when the item was not written', async () => {
-      itemModel.create.mockRejectedValueOnce(new Error('write failed'));
-      itemModel.exists.mockResolvedValueOnce(null);
-      await expect(service.add(W, { category: 'food', amount: 300 })).rejects.toThrow('write failed');
-      const writtenId = itemModel.create.mock.calls[0][0]._id;
-      expect(itemModel.exists).toHaveBeenCalledWith({ _id: writtenId });
+    it('hands the reservation back when the database refused the item', async () => {
+      itemModel.create.mockRejectedValueOnce(new MongooseError.ValidationError());
+      await expect(service.add(W, { category: 'food', amount: 300 })).rejects.toThrow();
       expect(txModel.updateOne).toHaveBeenCalledWith({ _id: W }, { $inc: { allocatedCash: -300 } });
     });
 
-    it('keeps the reservation when the item was written despite the error', async () => {
-      itemModel.create.mockRejectedValueOnce(new Error('write failed'));
-      itemModel.exists.mockResolvedValueOnce({ _id: 'x' });
-      await expect(service.add(W, { category: 'food', amount: 300 })).rejects.toThrow('write failed');
-      expect(txModel.updateOne).not.toHaveBeenCalled();
+    it('hands the reservation back when the server rejected the write', async () => {
+      itemModel.create.mockRejectedValueOnce(new mongo.MongoServerError({ message: 'E11000 duplicate key', code: 11000 } as any));
+      await expect(service.add(W, { category: 'food', amount: 300 })).rejects.toThrow('E11000');
+      expect(txModel.updateOne).toHaveBeenCalledWith({ _id: W }, { $inc: { allocatedCash: -300 } });
     });
 
-    it('keeps the reservation when it cannot tell whether the item was written', async () => {
-      itemModel.create.mockRejectedValueOnce(new Error('write failed'));
-      itemModel.exists.mockRejectedValueOnce(new Error('exists failed'));
-      await expect(service.add(W, { category: 'food', amount: 300 })).rejects.toThrow('write failed');
+    it('keeps the reservation when the write may have landed', async () => {
+      itemModel.create.mockRejectedValueOnce(new Error('connection reset'));
+      await expect(service.add(W, { category: 'food', amount: 300 })).rejects.toThrow('connection reset');
       expect(txModel.updateOne).not.toHaveBeenCalled();
     });
   });

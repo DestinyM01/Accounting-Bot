@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Error as MongooseError, Model, Types, mongo } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { CashAllocation } from '../shared/schemas/cash-allocation.schema';
 import { Category } from '../shared/schemas/category.enum';
@@ -96,9 +96,8 @@ export class CashService {
     );
     if (!reserved) throw await this.whyNotReserved(withdrawalId);
 
-    // The id is chosen here so that, if create throws, we can ask whether the item
-    // was written anyway: a standalone mongod has no retryable writes, and a lost
-    // acknowledgement can hide a successful insert.
+    // The id is chosen here so it's ready to return as soon as create succeeds;
+    // it no longer exists to be looked up if create throws.
     const itemId = new Types.ObjectId();
     try {
       await this.itemModel.create({
@@ -111,15 +110,30 @@ export class CashService {
       });
       return { id: String(itemId) };
     } catch (err) {
-      await this.releaseIfNotWritten(itemId, reserved._id, amount);
+      await this.releaseIfRefused(err, reserved._id, amount);
       throw err;
     }
   }
 
-  /** Hands a reservation back only once it's certain the item wasn't written; any doubt keeps it (fail-safe). */
-  private async releaseIfNotWritten(itemId: Types.ObjectId, withdrawalId: unknown, amount: number): Promise<void> {
+  /**
+   * Hands a reservation back only when the database definitely refused the item:
+   * a validation or cast error, or a server-side rejection. Anything else, such as
+   * a dropped connection or a timeout, may hide a write that landed, so the counter
+   * stays high: that blocks some itemizing but never allows too much.
+   */
+  private async releaseIfRefused(err: unknown, withdrawalId: unknown, amount: number): Promise<void> {
+    const refused =
+      err instanceof MongooseError.ValidationError ||
+      err instanceof MongooseError.CastError ||
+      (err instanceof mongo.MongoServerError && !(err instanceof mongo.MongoWriteConcernError));
+    if (!refused) {
+      this.logger.error(
+        `The item write on withdrawal ${String(withdrawalId)} may have landed; its counter stays high`,
+        err instanceof Error ? err.stack : String(err),
+      );
+      return;
+    }
     try {
-      if (await this.itemModel.exists({ _id: itemId })) return; // written after all: the reservation is right
       await this.txModel.updateOne({ _id: withdrawalId }, { $inc: { allocatedCash: -amount } });
     } catch (e) {
       this.logger.error(

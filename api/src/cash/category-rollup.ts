@@ -28,7 +28,7 @@ export interface CategoryTotal {
  * The totals therefore still add up to the rows' total spending.
  */
 export function rollUpByCategory(rows: SpendRow[], items: ItemRow[]): CategoryTotal[] {
-  const withdrawals = new Set(rows.filter((r) => r.isWithdrawal).map((r) => r.id));
+  const withdrawals = new Set(rows.filter((r) => r.isWithdrawal && r.amount < 0).map((r) => r.id));
   const itemized = new Map<string, number>();
   const totals = new Map<string, number>();
   const add = (category: string, amount: number) => totals.set(category, (totals.get(category) ?? 0) + amount);
