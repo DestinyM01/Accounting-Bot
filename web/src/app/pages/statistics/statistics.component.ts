@@ -6,6 +6,7 @@ import { forkJoin } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { CategoryPoint, MonthlyPoint, MonthlySummary } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
+import { HOVER_COLUMN, axisStyle, chartTheme, tooltipStyle, withAlpha } from '../../core/ui/chart-theme';
 
 Chart.register(...registerables);
 
@@ -73,13 +74,14 @@ export class StatisticsComponent implements OnInit {
     const canvas = this.areaCanvas?.nativeElement;
     if (!canvas || !this.monthly.length) return;
 
+    const t = chartTheme();
     const ctx = canvas.getContext('2d')!;
-    const gIncome  = ctx.createLinearGradient(0, 0, 0, 260);
-    gIncome.addColorStop(0, 'rgba(16,229,160,0.28)');
-    gIncome.addColorStop(1, 'rgba(16,229,160,0)');
+    const gIncome = ctx.createLinearGradient(0, 0, 0, 260);
+    gIncome.addColorStop(0, withAlpha(t.income, 0.28));
+    gIncome.addColorStop(1, withAlpha(t.income, 0));
     const gExpense = ctx.createLinearGradient(0, 0, 0, 260);
-    gExpense.addColorStop(0, 'rgba(248,113,113,0.18)');
-    gExpense.addColorStop(1, 'rgba(248,113,113,0)');
+    gExpense.addColorStop(0, withAlpha(t.expense, 0.18));
+    gExpense.addColorStop(1, withAlpha(t.expense, 0));
 
     this.areaChart = new Chart(ctx, {
       type: 'line',
@@ -89,32 +91,33 @@ export class StatisticsComponent implements OnInit {
           {
             label: 'Income',
             data: this.monthly.map(m => m.income),
-            borderColor: '#10e5a0', borderWidth: 2,
+            borderColor: t.income, borderWidth: 2,
             fill: true, backgroundColor: gIncome,
-            pointRadius: 0, tension: 0.4,
+            pointRadius: 0, pointHoverRadius: 4,
+            pointHoverBackgroundColor: t.income, pointHoverBorderColor: t.income,
+            tension: 0.4,
           },
           {
             label: 'Expenses',
             data: this.monthly.map(m => m.expense),
-            borderColor: '#f87171', borderWidth: 2,
+            borderColor: t.expense, borderWidth: 2,
             fill: true, backgroundColor: gExpense,
-            pointRadius: 0, tension: 0.4,
+            pointRadius: 0, pointHoverRadius: 4,
+            pointHoverBackgroundColor: t.expense, pointHoverBorderColor: t.expense,
+            tension: 0.4,
           },
         ],
       },
       options: {
         responsive: true, maintainAspectRatio: false,
+        interaction: HOVER_COLUMN,
         plugins: {
           legend: { display: false },
-          tooltip: {
-            backgroundColor: '#0e1726',
-            borderColor: 'rgba(255,255,255,0.08)', borderWidth: 1,
-            titleColor: '#94a3b8', bodyColor: '#e2e8f0',
-          },
+          tooltip: tooltipStyle(t),
         },
         scales: {
-          x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', font: { size: 11 } } },
-          y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', font: { size: 11 } } },
+          x: axisStyle(t),
+          y: axisStyle(t),
         },
       },
     });
@@ -128,6 +131,7 @@ export class StatisticsComponent implements OnInit {
     const savingsRates = this.monthly.map(m =>
       m.income > 0 ? Math.round((m.income - m.expense) / m.income * 100) : 0
     );
+    const t = chartTheme();
 
     this.savingsChart = new Chart(canvas.getContext('2d')!, {
       type: 'bar',
@@ -136,7 +140,10 @@ export class StatisticsComponent implements OnInit {
         datasets: [{
           data: savingsRates.slice(-6),
           backgroundColor: savingsRates.slice(-6).map((_, i, arr) =>
-            i === arr.length - 1 ? '#10e5a0' : 'rgba(16,229,160,0.35)'
+            i === arr.length - 1 ? t.income : withAlpha(t.income, 0.35)
+          ),
+          hoverBackgroundColor: savingsRates.slice(-6).map((_, i, arr) =>
+            i === arr.length - 1 ? t.income : withAlpha(t.income, 0.35)
           ),
           borderRadius: 4,
         }],

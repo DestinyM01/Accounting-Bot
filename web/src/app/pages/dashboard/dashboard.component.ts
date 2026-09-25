@@ -10,6 +10,8 @@ import {
   BalanceSummary, BudgetEntry, MonthlySummary, Transaction, MonthlyPoint
 } from '../../core/services/api.models';
 import { TransactionEventsService } from '../../core/services/transaction-events.service';
+import { CategoryService } from '../../core/services/category.service';
+import { HOVER_COLUMN, axisStyle, chartTheme, tooltipStyle, withAlpha } from '../../core/ui/chart-theme';
 
 Chart.register(...registerables);
 
@@ -45,7 +47,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private sub: Subscription | null = null;
   private destroyed = false;
 
-  constructor(private api: ApiService, private events: TransactionEventsService) {}
+  constructor(private api: ApiService, private events: TransactionEventsService, private catSvc: CategoryService) {}
 
   ngOnInit() {
     this.sub = merge(timer(0, 60_000), this.events.changed$)
@@ -137,13 +139,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const canvas = this.areaCanvas?.nativeElement;
     if (!canvas || !this.monthly.length) return;
 
+    const t = chartTheme();
     const ctx = canvas.getContext('2d')!;
-    const gradIncome  = ctx.createLinearGradient(0, 0, 0, 300);
-    gradIncome.addColorStop(0,   'rgba(16,229,160,0.25)');
-    gradIncome.addColorStop(1,   'rgba(16,229,160,0)');
+    const gradIncome = ctx.createLinearGradient(0, 0, 0, 300);
+    gradIncome.addColorStop(0, withAlpha(t.income, 0.25));
+    gradIncome.addColorStop(1, withAlpha(t.income, 0));
     const gradExpense = ctx.createLinearGradient(0, 0, 0, 300);
-    gradExpense.addColorStop(0,  'rgba(248,113,113,0.15)');
-    gradExpense.addColorStop(1,  'rgba(248,113,113,0)');
+    gradExpense.addColorStop(0, withAlpha(t.expense, 0.15));
+    gradExpense.addColorStop(1, withAlpha(t.expense, 0));
 
     this.chart = new Chart(ctx, {
       type: 'line',
@@ -153,9 +156,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
           {
             label: 'Income',
             data: this.monthly.map(m => m.income),
-            borderColor: '#10e5a0',
+            borderColor: t.income,
             borderWidth: 2,
             pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: t.income,
+            pointHoverBorderColor: t.income,
             fill: true,
             backgroundColor: gradIncome,
             tension: 0.4,
@@ -163,10 +169,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
           {
             label: 'Expenses',
             data: this.monthly.map(m => m.expense),
-            borderColor: '#f87171',
+            borderColor: t.expense,
             borderWidth: 2,
             borderDash: [6, 4],
             pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: t.expense,
+            pointHoverBorderColor: t.expense,
             fill: true,
             backgroundColor: gradExpense,
             tension: 0.4,
@@ -177,31 +186,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
         responsive: true,
         maintainAspectRatio: false,
         animation: isFirstBuild ? undefined : false,
+        interaction: HOVER_COLUMN,
         plugins: {
           legend: { display: false },
-          tooltip: {
-            backgroundColor: '#0e1726',
-            borderColor: 'rgba(255,255,255,0.08)',
-            borderWidth: 1,
-            titleColor: '#94a3b8',
-            bodyColor: '#e2e8f0',
-          },
+          tooltip: tooltipStyle(t),
         },
         scales: {
-          x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', font: { size: 11 } } },
-          y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', font: { size: 11 } } },
+          x: axisStyle(t),
+          y: axisStyle(t),
         },
       },
     });
   }
 
+  /** The category's own colour, custom categories included. */
   categoryColor(category: string): string {
-    const map: Record<string, string> = {
-      housing: '#38bdf8', food: '#10e5a0', transport: '#fb923c',
-      health: '#a78bfa', entertainment: '#f472b6', salary: '#10e5a0',
-      savings: '#34d399', other: '#94a3b8',
-    };
-    return map[category.toLowerCase()] ?? '#64748b';
+    return this.catSvc.color(category);
   }
 
   categoryIcon(category: string): string {
