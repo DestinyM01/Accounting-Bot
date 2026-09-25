@@ -33,6 +33,8 @@ import { CategorizerService } from './categorizer.service';
 import { FxService } from './fx.service';
 import { popularParser } from './parsers/popular.parser';
 import { ParsedTransaction } from './parsers/types';
+import { SettingsService } from '../settings/settings.service';
+import { IngestionStatusService } from './ingestion-status.service';
 
 const parserParseMock = popularParser.parse as jest.Mock;
 
@@ -76,6 +78,10 @@ describe('IngestionService', () => {
   let mail: { fetchSince: jest.Mock };
   let categorizer: { categorize: jest.Mock };
   let fx: { usdToDop: jest.Mock };
+  let settings: { accounts: jest.Mock };
+  let status: {
+    dismissedAmong: jest.Mock; recordUnreadable: jest.Mock; clearUnreadable: jest.Mock; recordRun: jest.Mock; recordFailure: jest.Mock;
+  };
   let loggerErrorSpy: jest.SpyInstance;
   let loggerWarnSpy: jest.SpyInstance;
 
@@ -114,6 +120,14 @@ describe('IngestionService', () => {
     mail = { fetchSince: jest.fn().mockResolvedValue([]) };
     categorizer = { categorize: jest.fn().mockResolvedValue({ category: 'food', needsReview: false }) };
     fx = { usdToDop: jest.fn().mockImplementation((amt: number) => Promise.resolve(amt * 60)) };
+    settings = { accounts: jest.fn().mockResolvedValue({ cash: [], senders: [] }) };
+    status = {
+      dismissedAmong: jest.fn().mockResolvedValue(new Set()),
+      recordUnreadable: jest.fn().mockResolvedValue(undefined),
+      clearUnreadable: jest.fn().mockResolvedValue(undefined),
+      recordRun: jest.fn().mockResolvedValue(undefined),
+      recordFailure: jest.fn().mockResolvedValue(undefined),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -125,6 +139,8 @@ describe('IngestionService', () => {
         { provide: MailClient, useValue: mail },
         { provide: CategorizerService, useValue: categorizer },
         { provide: FxService, useValue: fx },
+        { provide: SettingsService, useValue: settings },
+        { provide: IngestionStatusService, useValue: status },
       ],
     }).compile();
 
@@ -308,21 +324,87 @@ describe('IngestionService', () => {
     expect(txModel.create).toHaveBeenCalledTimes(1);
   });
 
-  // OWN_CASH_ACCOUNTS was already trimmed per entry; OWN_ACCOUNT_IDENTIFIERS
-  // was not, so "2001, 2002" (spacing that's easy to type in an env file)
-  // produced [" 2002"] instead of ["2002"] — a leading-space entry that would
-  // never match anything in matchesOwn(). Both lists must be parsed the same way.
-  it('trims OWN_ACCOUNT_IDENTIFIERS entries and drops empties, same as OWN_CASH_ACCOUNTS', async () => {
-    process.env.OWN_ACCOUNT_IDENTIFIERS = '2001, 2002,  , JUAN RIVERA ';
+  // The account lists come from Settings (saved on the web, else the server's
+  // config); SettingsService owns the parsing, covered in its own spec.
+  it('hands the parsers the account lists from SettingsService', async () => {
+    settings.accounts.mockResolvedValue({ cash: ['1111'], senders: ['2222', 'SOME NAME'] });
     mail.fetchSince.mockResolvedValue([makeMail()]);
     parserParseMock.mockReturnValue(makeParsed());
 
     await service.run();
 
     const callArgs = parserParseMock.mock.calls[0][0];
-    expect(callArgs.ownIdentifiers).toEqual(['2001', '2002', 'JUAN RIVERA']);
+    expect(callArgs.ownCashAccounts).toEqual(['1111']);
+    expect(callArgs.ownIdentifiers).toEqual(['2222', 'SOME NAME']);
+  });
 
-    delete process.env.OWN_ACCOUNT_IDENTIFIERS;
+  it('skips a mail the user dismissed, before any parsing', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'm1' })]);
+    status.dismissedAmong.mockResolvedValue(new Set(['m1']));
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 0, skipped: 1, failed: 0 });
+    expect(status.dismissedAmong).toHaveBeenCalledWith(['m1']);
+    expect(parserParseMock).not.toHaveBeenCalled();
+  });
+
+  it('records a mail no parser could read, so the Settings page can show it', async () => {
+    const m = makeMail({ messageId: 'm1' });
+    mail.fetchSince.mockResolvedValue([m]);
+    parserParseMock.mockReturnValue(null);
+
+    await service.run();
+
+    expect(status.recordUnreadable).toHaveBeenCalledWith(m);
+  });
+
+  it('records a mail whose parser threw as unreadable too', async () => {
+    const m = makeMail({ messageId: 'm1' });
+    mail.fetchSince.mockResolvedValue([m]);
+    parserParseMock.mockImplementation(() => {
+      throw new Error('parser exploded');
+    });
+
+    await service.run();
+
+    expect(status.recordUnreadable).toHaveBeenCalledWith(m);
+  });
+
+  it('takes a mail off the unreadable list once it books', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'm1' })]);
+    parserParseMock.mockReturnValue(makeParsed());
+
+    await service.run();
+
+    expect(status.clearUnreadable).toHaveBeenCalledWith('m1');
+  });
+
+  describe('runGuarded', () => {
+    it("returns and records the run's counts", async () => {
+      mail.fetchSince.mockResolvedValue([]);
+      await expect(service.runGuarded()).resolves.toEqual({ created: 0, skipped: 0, failed: 0 });
+      expect(status.recordRun).toHaveBeenCalledWith({ created: 0, skipped: 0, failed: 0 });
+    });
+
+    it('records and rethrows a run that failed as a whole; the cron entry point still never throws', async () => {
+      const err = new Error('Cannot open mailbox "Banks"');
+      mail.fetchSince.mockRejectedValue(err);
+      await expect(service.runGuarded()).rejects.toThrow('Cannot open mailbox');
+      expect(status.recordFailure).toHaveBeenCalledWith(err);
+      await expect(service.poll()).resolves.toBeUndefined();
+    });
+
+    it('returns null while a run is in flight, and says it is running', async () => {
+      let release!: () => void;
+      mail.fetchSince.mockReturnValue(new Promise<FetchedMail[]>((resolve) => { release = () => resolve([]); }));
+      const first = service.runGuarded();
+      expect(service.isRunning).toBe(true);
+      await expect(service.runGuarded()).resolves.toBeNull();
+      release();
+      await first;
+      expect(service.isRunning).toBe(false);
+    });
   });
 
   it('skips (without a matching parser) a mail whose sender is not registered to any parser', async () => {

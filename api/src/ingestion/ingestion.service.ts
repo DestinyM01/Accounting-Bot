@@ -18,6 +18,8 @@ import { bhdParser } from './parsers/bhd.parser';
 import { santaCruzParser } from './parsers/santacruz.parser';
 import { banreservasParser } from './parsers/banreservas.parser';
 import { matchedPeriod, RuleLike } from './reconciliation.service';
+import { SettingsService } from '../settings/settings.service';
+import { IngestionStatusService, RunCounts } from './ingestion-status.service';
 
 /** Per-run state shared by every mail: loaded once, never once per mail. */
 interface RunContext {
@@ -44,6 +46,8 @@ export class IngestionService {
     private readonly mail: MailClient,
     private readonly categorizer: CategorizerService,
     private readonly fx: FxService,
+    private readonly settings: SettingsService,
+    private readonly status: IngestionStatusService,
   ) {}
 
   /** Set while a run is in flight so a slow run is never overlapped by the next tick. */
@@ -53,15 +57,37 @@ export class IngestionService {
   // flight; the flag covers the same ground for any direct caller of poll().
   @Cron(process.env.INGEST_POLL_CRON || '*/10 * * * *', { waitForCompletion: true })
   async poll(): Promise<void> {
+    try {
+      await this.runGuarded();
+    } catch {
+      // runGuarded has already logged the failure and recorded it for the Settings page.
+    }
+  }
+
+  /** True while this pod has a run in flight. */
+  get isRunning(): boolean {
+    return this.running;
+  }
+
+  /**
+   * One run, unless one is already in flight (then null). The outcome is
+   * recorded for the Settings page; a run that fails as a whole is logged,
+   * recorded and rethrown.
+   */
+  async runGuarded(): Promise<RunCounts | null> {
     if (this.running) {
       this.logger.warn('Ingestion poll skipped: previous run still in flight');
-      return;
+      return null;
     }
     this.running = true;
     try {
-      await this.run();
+      const counts = await this.run();
+      await this.status.recordRun(counts);
+      return counts;
     } catch (err) {
       this.logger.error('Ingestion poll failed', err instanceof Error ? err.stack : String(err));
+      await this.status.recordFailure(err);
+      throw err;
     } finally {
       this.running = false;
     }
@@ -77,14 +103,16 @@ export class IngestionService {
     // re-ran FX, categorisation (a model call per unknown merchant) and the
     // rule lookups for every historical mail, only to hit the unique index.
     const known = await this.alreadyIngested(mails.map((m) => m.messageId));
+    // Mails the user marked "Not a transaction" on the Settings page.
+    const dismissed = await this.status.dismissedAmong(mails.map((m) => m.messageId));
     const ctx = await this.loadRunContext();
 
     let created = 0, skipped = 0, failed = 0;
-    const ownIdentifiers = (process.env.OWN_ACCOUNT_IDENTIFIERS || '').split(',').map((s) => s.trim()).filter(Boolean);
-    const ownCashAccounts = (process.env.OWN_CASH_ACCOUNTS || '').split(',').map((s) => s.trim()).filter(Boolean);
+    // Saved on the Settings page, else the server's config (see SettingsService).
+    const { cash: ownCashAccounts, senders: ownIdentifiers } = await this.settings.accounts();
 
     for (const mail of mails) {
-      if (known.has(mail.messageId)) { skipped++; continue; }
+      if (known.has(mail.messageId) || dismissed.has(mail.messageId)) { skipped++; continue; }
 
       const parser = this.parsers.find((p) => p.senders.includes(mail.sender));
       if (!parser) { skipped++; continue; }
@@ -108,11 +136,13 @@ export class IngestionService {
       if (!parsed) {
         // Never silently drop: an allow-listed sender we could not use is worth seeing.
         this.logger.warn(`Unusable mail from ${mail.sender} (${mail.messageId}) subject="${mail.subject}"`);
+        await this.status.recordUnreadable(mail);
         failed++;
         continue;
       }
 
       const result = await this.persist(parsed, mail.messageId, ctx);
+      if (result === 'created' || result === 'duplicate') await this.status.clearUnreadable(mail.messageId);
       if (result === 'created') created++;
       else if (result === 'duplicate') skipped++;
       else failed++;
