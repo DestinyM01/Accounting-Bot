@@ -6,6 +6,7 @@ import { Transaction } from '../shared/schemas/transaction.schema';
 import { NOT_DELETED, NON_SPENDING_KINDS, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
 import { Category } from '../shared/schemas/category.enum';
 import { merchantKey } from './merchant-key';
+import { CategoriesService } from '../categories/categories.service';
 
 /** The fields of a transaction that decide whether, and what, a category choice teaches. */
 export interface TeachableRow {
@@ -17,6 +18,28 @@ export interface TeachableRow {
   merchant?: string;
   transactionName?: string;
 }
+
+/** A remembered merchant as the Merchants page shows it. */
+export interface RememberedMerchant {
+  id: string;
+  key: string;
+  category: string;
+  updatedAt: Date | null;
+  /** How many booked rows (MERCHANT_ROWS) carry this key. */
+  rows: number;
+  /** False when its category was deleted, or is cash or other: ingestion then ignores it. */
+  usable: boolean;
+}
+
+/** What a typed merchant name would match. An empty key means it can't identify a merchant. */
+export interface MerchantMatch {
+  key: string;
+  rows: number;
+  remembered: string | null;
+}
+
+/** The longest merchant name accepted; bank names are far shorter. */
+const MAX_NAME = 200;
 
 /** The names a row carries; its merchant key comes from `merchant` first, else `transactionName`. */
 interface NamedRow {
@@ -60,6 +83,7 @@ export class MerchantMemoryService {
   constructor(
     @InjectModel(MerchantCategory.name) private readonly memoryModel: Model<MerchantCategory>,
     @InjectModel(Transaction.name) private readonly txModel: Model<Transaction>,
+    private readonly categories: CategoriesService,
   ) {}
 
   /** Every remembered merchant key → category, for one ingestion run. */
@@ -92,6 +116,47 @@ export class MerchantMemoryService {
       this.logger.error(`Could not remember ${category} for "${key}"`, err instanceof Error ? err.stack : String(err));
       return 0;
     }
+  }
+
+  /** Every remembered merchant, sorted by key, with its booked rows and whether its category can still be used. */
+  async list(): Promise<RememberedMerchant[]> {
+    const [entries, rows, usable] = await Promise.all([
+      this.memoryModel.find({ userId: this.userId }).lean(),
+      this.merchantRows(),
+      this.usableCategories(),
+    ]);
+    const counts = new Map<string, number>();
+    for (const t of rows) {
+      const key = keyOf(t);
+      if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return entries
+      .map((e) => ({
+        id: String(e._id),
+        key: e.key,
+        category: e.category,
+        updatedAt: e.updatedAt ?? null,
+        rows: counts.get(e.key) ?? 0,
+        usable: usable.has(e.category),
+      }))
+      .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  }
+
+  /** The key a typed name produces, how many booked rows carry it, and the category already remembered for it. */
+  async match(name: unknown): Promise<MerchantMatch> {
+    const key = typeof name === 'string' && name.length <= MAX_NAME ? merchantKey(name) : '';
+    if (!key) return { key: '', rows: 0, remembered: null };
+    const [rows, entry] = await Promise.all([
+      this.merchantRows(),
+      this.memoryModel.findOne({ userId: this.userId, key }).lean(),
+    ]);
+    return { key, rows: rows.filter((t) => keyOf(t) === key).length, remembered: entry?.category ?? null };
+  }
+
+  /** The active categories a merchant can be remembered under. */
+  private async usableCategories(): Promise<Set<string>> {
+    const names = (await this.categories.list()).map((c) => c.name);
+    return new Set(names.filter((n) => !NEVER_REMEMBERED.includes(n)));
   }
 
   /** The merchant rows (MERCHANT_ROWS) that also match `extra`, with only their names. */

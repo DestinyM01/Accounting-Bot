@@ -1,9 +1,10 @@
 import { Test } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Logger, NotFoundException } from '@nestjs/common';
 import { MerchantMemoryService } from './merchant-memory.service';
 import { MerchantCategory } from '../shared/schemas/merchant-category.schema';
 import { Transaction } from '../shared/schemas/transaction.schema';
+import { CategoriesService } from '../categories/categories.service';
 
 function query(result: unknown) {
   const q: any = { select: jest.fn(() => q), lean: jest.fn(() => Promise.resolve(result)) };
@@ -14,20 +15,42 @@ const row = (over: Record<string, unknown> = {}) => ({
   _id: 't1', source: 'email', amount: -10, merchant: 'PRIME VIDEO*2K3JD', transactionName: 'prime video*2k3jd', ...over,
 });
 
+/** The query for a merchant's rows: the user's live bank-mail expenses, no withdrawals, no own-account transfers. */
+const MERCHANT_ROWS = {
+  userId: 1,
+  source: 'email',
+  amount: { $lt: 0 },
+  isWithdrawal: { $ne: true },
+  transferKind: { $nin: ['internal', 'unresolved'] },
+  deletedAt: null,
+};
+
 describe('MerchantMemoryService', () => {
   let service: MerchantMemoryService;
-  let memoryModel: { updateOne: jest.Mock; find: jest.Mock };
+  let memoryModel: { updateOne: jest.Mock; find: jest.Mock; findOne: jest.Mock; create: jest.Mock; deleteOne: jest.Mock };
   let txModel: { find: jest.Mock; updateMany: jest.Mock };
+  let categories: { list: jest.Mock };
 
   beforeEach(async () => {
     process.env.BOSS_USER_ID = '1';
-    memoryModel = { updateOne: jest.fn().mockResolvedValue({}), find: jest.fn(() => query([])) };
+    memoryModel = {
+      updateOne: jest.fn().mockResolvedValue({}),
+      find: jest.fn(() => query([])),
+      findOne: jest.fn(() => query(null)),
+      create: jest.fn(),
+      deleteOne: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+    };
     txModel = { find: jest.fn(() => query([])), updateMany: jest.fn().mockResolvedValue({ modifiedCount: 0 }) };
+    // Active categories; 'gym' is absent because it was deleted.
+    categories = {
+      list: jest.fn().mockResolvedValue(['food', 'entertainment', 'transport', 'cash', 'other'].map((name) => ({ name }))),
+    };
     const mod = await Test.createTestingModule({
       providers: [
         MerchantMemoryService,
         { provide: getModelToken(MerchantCategory.name), useValue: memoryModel },
         { provide: getModelToken(Transaction.name), useValue: txModel },
+        { provide: CategoriesService, useValue: categories },
       ],
     }).compile();
     service = mod.get(MerchantMemoryService);
@@ -122,5 +145,74 @@ describe('MerchantMemoryService', () => {
     );
     const map = await service.all();
     expect([...map.entries()]).toEqual([['prime video', 'entertainment']]);
+  });
+
+  describe('list', () => {
+    it('shows every remembered merchant with its booked rows, sorted by name', async () => {
+      memoryModel.find.mockReturnValue(
+        query([
+          { _id: 'm2', key: 'some store', category: 'food', updatedAt: new Date('2026-09-20T12:00:00Z') },
+          { _id: 'm1', key: 'prime video', category: 'entertainment', updatedAt: new Date('2026-09-25T12:00:00Z') },
+        ]),
+      );
+      const rows = query([
+        { _id: 't1', merchant: 'PRIME VIDEO*2K3JD' },
+        { _id: 't2', transactionName: 'prime video*9xq1' },
+        { _id: 't3', merchant: 'SOME STORE #12' },
+        { _id: 't4', merchant: 'ANOTHER SHOP' },
+      ]);
+      txModel.find.mockReturnValue(rows);
+      await expect(service.list()).resolves.toEqual([
+        { id: 'm1', key: 'prime video', category: 'entertainment', updatedAt: new Date('2026-09-25T12:00:00Z'), rows: 2, usable: true },
+        { id: 'm2', key: 'some store', category: 'food', updatedAt: new Date('2026-09-20T12:00:00Z'), rows: 1, usable: true },
+      ]);
+      expect(memoryModel.find).toHaveBeenCalledWith({ userId: 1 });
+      expect(txModel.find).toHaveBeenCalledWith(MERCHANT_ROWS);
+      expect(rows.select).toHaveBeenCalledWith('merchant transactionName');
+    });
+
+    it('shows a merchant with no booked rows and no date as 0 rows and a null date', async () => {
+      memoryModel.find.mockReturnValue(query([{ _id: 'm1', key: 'uber trip', category: 'transport' }]));
+      await expect(service.list()).resolves.toEqual([
+        { id: 'm1', key: 'uber trip', category: 'transport', updatedAt: null, rows: 0, usable: true },
+      ]);
+    });
+
+    it.each([
+      ['a deleted category', 'gym'],
+      ['cash', 'cash'],
+      ['other', 'other'],
+    ])('marks a merchant remembered as %s as not usable', async (_label, category) => {
+      memoryModel.find.mockReturnValue(query([{ _id: 'm1', key: 'some store', category, updatedAt: null }]));
+      const [m] = await service.list();
+      expect(m.usable).toBe(false);
+    });
+  });
+
+  describe('match', () => {
+    it('previews the key a typed name produces, its booked rows and the category already remembered', async () => {
+      txModel.find.mockReturnValue(query([{ _id: 't1', merchant: 'UBER *TRIP 4X2' }, { _id: 't2', merchant: 'UBER *EATS' }]));
+      memoryModel.findOne.mockReturnValue(query({ category: 'transport' }));
+      await expect(service.match('Uber *Trip 99Z')).resolves.toEqual({ key: 'uber trip', rows: 1, remembered: 'transport' });
+      expect(memoryModel.findOne).toHaveBeenCalledWith({ userId: 1, key: 'uber trip' });
+      expect(txModel.find).toHaveBeenCalledWith(MERCHANT_ROWS);
+    });
+
+    it('says nothing is remembered for a new merchant', async () => {
+      await expect(service.match('UBER *TRIP')).resolves.toEqual({ key: 'uber trip', rows: 0, remembered: null });
+    });
+
+    it.each([
+      ['only codes', '12345 #99'],
+      ['a parser placeholder', 'Transferencia'],
+      ['a generic word', 'PAYPAL'],
+      ['a missing name', undefined],
+      ['a repeated query parameter', ['uber', 'trip']],
+      ['an over-long name', 'x'.repeat(201)],
+    ])('gives an empty key for %s, without querying', async (_label, name) => {
+      await expect(service.match(name)).resolves.toEqual({ key: '', rows: 0, remembered: null });
+      expect(txModel.find).not.toHaveBeenCalled();
+      expect(memoryModel.findOne).not.toHaveBeenCalled();
+    });
   });
 });
