@@ -57,6 +57,8 @@ export class RecurringService {
       category: r.category,
       dayOfMonth: r.dayOfMonth,
       lastExecutedAt: r.lastExecutedAt ?? null,
+      /** The month the scheduler last handled ('YYYY-MM'): the Recurring page's "billed this month". */
+      lastPeriod: r.lastPeriod ?? null,
     }));
   }
 

@@ -70,4 +70,18 @@ describe('RecurringService', () => {
       expect(mockModel.create).not.toHaveBeenCalled();
     });
   });
+
+  describe('list', () => {
+    it('returns each rule with the month the scheduler last handled, null when none', async () => {
+      mockModel.lean.mockResolvedValue([
+        {
+          _id: 'r1', transactionName: 'rent', transactionType: TransactionType.EXPENSE, amount: 500, category: 'housing',
+          dayOfMonth: 5, lastExecutedAt: new Date('2026-09-05T12:00:05Z'), lastPeriod: '2026-09',
+        },
+        { _id: 'r2', transactionName: 'salary', transactionType: TransactionType.INCOME, amount: 1000, category: 'salary', dayOfMonth: 25 },
+      ]);
+      const list = await service.list();
+      expect(list.map((r) => r.lastPeriod)).toEqual(['2026-09', null]);
+    });
+  });
 });

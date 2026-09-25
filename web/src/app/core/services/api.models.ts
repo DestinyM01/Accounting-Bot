@@ -90,6 +90,8 @@ export interface RecurringEntry {
   category: string;
   dayOfMonth: number;
   lastExecutedAt?: string | null;
+  /** The month the scheduler last handled, 'YYYY-MM'. */
+  lastPeriod?: string | null;
 }
 
 export interface Tip {

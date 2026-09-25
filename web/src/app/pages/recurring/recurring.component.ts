@@ -195,18 +195,27 @@ export class RecurringComponent implements OnInit, OnDestroy {
   }
 
   // ── Billed this month ─────────────────────────────────────────────────
-  get billedThisMonth(): RecurringEntry[] {
-    const now = new Date();
-    return this.items.filter(r => {
-      if (!r.lastExecutedAt) return false;
-      const d = new Date(r.lastExecutedAt);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    });
+  /** 'YYYY-MM' of a date's month, in the browser's (the user's) time. */
+  private periodOf(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
 
+  /** The month the scheduler last handled this rule. Rules from before lastPeriod existed fall back to lastExecutedAt's month, as the scheduler does. */
+  private handledPeriod(r: RecurringEntry): string | null {
+    if (r.lastPeriod) return r.lastPeriod;
+    return r.lastExecutedAt ? this.periodOf(new Date(r.lastExecutedAt)) : null;
+  }
+
+  get billedThisMonth(): RecurringEntry[] {
+    const current = this.periodOf(new Date());
+    return this.items.filter(r => this.handledPeriod(r) === current);
+  }
+
+  /** The bill's due day this month ("Sep 20"), not when the booking ran. */
   billedDate(r: RecurringEntry): string {
-    if (!r.lastExecutedAt) return '';
-    return new Date(r.lastExecutedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), r.dayOfMonth)
+      .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────
