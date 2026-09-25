@@ -14,6 +14,7 @@ import { CashController } from '../cash/cash.controller';
 import { SettingsController } from '../settings/settings.controller';
 import { IngestionController } from '../ingestion/ingestion.controller';
 import { CalculatorController } from '../calculator/calculator.controller';
+import { MerchantsController } from '../merchants/merchants.controller';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 
 // The write surface is the API's first way to move the user's money. The guard
@@ -28,6 +29,7 @@ describe.each([
   ['SettingsController', SettingsController],
   ['IngestionController', IngestionController],
   ['CalculatorController', CalculatorController],
+  ['MerchantsController', MerchantsController],
 ])('%s auth guard', (_name, Ctrl) => {
   it('is protected by JwtAuthGuard at class level', () => {
     const guards: unknown[] = Reflect.getMetadata(GUARDS_METADATA, Ctrl) ?? [];

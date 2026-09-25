@@ -4,6 +4,7 @@ import { MerchantCategory, MerchantCategorySchema } from '../shared/schemas/merc
 import { Transaction, TransactionSchema } from '../shared/schemas/transaction.schema';
 import { CategoriesModule } from '../categories/categories.module';
 import { MerchantMemoryService } from './merchant-memory.service';
+import { MerchantsController } from './merchants.controller';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { MerchantMemoryService } from './merchant-memory.service';
     ]),
     CategoriesModule,
   ],
+  controllers: [MerchantsController],
   providers: [MerchantMemoryService],
   exports: [MerchantMemoryService],
 })
