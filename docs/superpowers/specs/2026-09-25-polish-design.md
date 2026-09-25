@@ -72,3 +72,12 @@ In the Testing section, the counts ("22 unit tests across 3 suites" and the per-
   - `grep` finds no colour literals in the chart code of the five components;
   - preview-harness screenshots with fake data: Dashboard, Statistics, Analytics, Recurring (flow chart and billed list) and the Budget link;
   - a column tooltip shown by hovering between points.
+
+## Settled in review (2026-09-25)
+
+- **`chartTheme()` returns `rgb()/rgba()`.** It resolves each token through a 1×1 canvas, cached, because Chart.js's colour helper, which the sankey plugin uses for transparency, can't parse `oklch()`. `withAlpha` also accepts `rgb()` input.
+- **Tooltips.** The title uses the text colour, and the keys get `multiKeyBackground: t.card` and `pointBackgroundColor`. Amount charts label values as money, for example "Income: $52,000".
+- **The Calculator chart** uses the helper too.
+- **The sankey labels** use `t.text`.
+- **The Budget link** has no `aria-label`; its visible text is its name.
+- **`billedDate`** clamps the day to the month's length.
