@@ -559,3 +559,35 @@ Expected: `5`, and a clean tree.
    - restart `accounting-api` once CI is green;
    - verify the zone in the pod: `kubectl -n accounting-bot exec deploy/accounting-api -- node -e "console.log(Intl.DateTimeFormat().resolvedOptions().timeZone, new Date(2026,0,1).toISOString())"` should print `America/Santo_Domingo 2026-01-01T04:00:00.000Z`;
    - check the log line "Mail-time correction: moved N …".
+
+## As built (2026-09-25)
+
+Tasks 1–5 landed as written in `f130df5`, `e38819c`, `2cd2530`, `712bcba` and `0464101`, with test counts 615 → 633. No existing test depended on the machine's zone: all 624 earlier tests also pass pinned to UTC and to Asia/Tokyo.
+
+**Review:** compliant; 13 of 14 mutants were caught. Simulations checked:
+- all four banks' parsers: exactly +4 hours between the UTC and local readings, date-only mails included;
+- the correction's timeline over 10 kinds of row: it shifts the right 5, and a retry shifts 0;
+- the monthly and weekly email periods against the local months.
+
+Fixed in `0f30b03` and `e227979` (641 tests):
+- **Local dates in the CSV export.** It printed UTC dates, so now that times are right an evening purchase would have exported as the next day. The export's filename (api and web) is local too.
+- **The start date keeps its meaning.** A zone-less `INGEST_START_AT` is still read as UTC.
+- **Impossible days** (`2026-02-31`) are refused.
+- **The correction's bookkeeping.** It counts cumulatively and is never marked done before its shift; a test pins that. It logs at error level if the zone ever fails to apply.
+
+**The user confirmed** that no bank-mail row's date was edited on the web since Sep 24. Such a row would otherwise be shifted a second time, and nothing records edits.
+
+## Runbook
+
+- **After the restart:** `kubectl -n accounting-bot rollout status deployment/accounting-api`, then:
+  - `kubectl -n accounting-bot exec deploy/accounting-api -- node -e "console.log(Intl.DateTimeFormat().resolvedOptions().timeZone, new Date(2026,0,1).toISOString())"` should print `America/Santo_Domingo 2026-01-01T04:00:00.000Z`;
+  - `kubectl -n accounting-bot logs deploy/accounting-api | grep -i "mail-time"` should show "moved N". A "skipped: the server runs in …" line means `TZ` didn't apply.
+- **Logs.** Nest's log timestamps are now local and carry no zone; `kubectl logs --timestamps` and the mail client's "since" line stay UTC.
+- **Rollback.** If an image from before this fix ever runs again after the correction, its mail rows are early and unflagged, and the finished marker blocks a re-run. Before redeploying the fix, delete the `mail-times-to-santo-domingo` document from the `migrations` collection. The per-row flag makes a re-run safe.
+
+## Follow-ups
+
+- **Rows booked during the rolling overlap.** A mail booked by the old UTC pod after the new pod started stays 4 hours early (the spec accepts this). A count of mail rows without `mailTimeLocal` should be 0; if not, apply the same `$add` pipeline to those rows.
+- **Mail times still depend on `TZ`.** The parsers could compute with `Date.UTC` plus 4 hours, like the reports code, so mail times would stay correct even if `TZ` failed to apply.
+- **The monthly report period** starts and ends at UTC midnight. Only its month and year are used, so this is harmless today.
+- **The bot's schema** lists neither `mailTimeLocal` nor `allocatedCash`. The bot runs 0 replicas, and Mongoose keeps unknown fields when saving.
