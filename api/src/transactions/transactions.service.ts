@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, Logger, NotFoundExc
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
+import { localDayEnd, localDayStart } from '../shared/time-zone';
 import { NOT_DELETED, NON_SPENDING_KINDS, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { LedgerService } from '../shared/ledger/ledger.service';
@@ -122,15 +123,19 @@ export class TransactionsService {
     // classify) wins over the expense-only exclusion above.
     if (query.transferKind) filter.transferKind = query.transferKind;
     if (query.startDate || query.endDate) {
+      // The page sends calendar days (YYYY-MM-DD) in the user's zone; new Date('YYYY-MM-DD')
+      // would read them as UTC midnight and, in the user's zone, drop the whole end day.
       filter.timestamp = {};
-      if (query.startDate) filter.timestamp.$gte = new Date(query.startDate);
-      if (query.endDate) {
-        const end = new Date(query.endDate);
-        end.setHours(23, 59, 59, 999);
-        filter.timestamp.$lte = end;
-      }
+      if (query.startDate) filter.timestamp.$gte = this.day(localDayStart, query.startDate, 'startDate');
+      if (query.endDate) filter.timestamp.$lte = this.day(localDayEnd, query.endDate, 'endDate');
     }
     return filter;
+  }
+
+  private day(read: (day: string) => Date | null, value: string, name: string): Date {
+    const date = read(value);
+    if (!date) throw new BadRequestException(`${name} must be a date like 2026-09-30 (got ${value})`);
+    return date;
   }
 
   async findAll(query: TransactionQuery): Promise<TransactionPage> {

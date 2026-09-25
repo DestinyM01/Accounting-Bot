@@ -137,6 +137,18 @@ describe('TransactionsService', () => {
       await service.findAll({ type: 'income', unitemized: true });
       expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining({ amount: { $gt: 0, $lt: 0 } }));
     });
+
+    it("filters by whole calendar days in the user's zone", async () => {
+      await service.findAll({ startDate: '2026-09-01', endDate: '2026-09-30' });
+      const [filter] = mockModel.find.mock.calls[0] as any[];
+      expect(filter.timestamp.$gte.toISOString()).toBe('2026-09-01T04:00:00.000Z');
+      expect(filter.timestamp.$lte.toISOString()).toBe('2026-10-01T03:59:59.999Z');
+    });
+
+    it('refuses a malformed date', async () => {
+      await expect(service.findAll({ startDate: 'sept' })).rejects.toThrow(BadRequestException);
+      await expect(service.findAll({ endDate: '2026-9-30' })).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('setCategory', () => {
