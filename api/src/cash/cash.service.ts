@@ -77,23 +77,9 @@ export class CashService {
 
     // Reserve first, in one guarded write. The counter only grows while it stays
     // within the withdrawal, so two concurrent adds can't both fit into the same remainder.
-    const reserved = await this.txModel.findOneAndUpdate(
-      {
-        _id: withdrawalId,
-        userId: this.userId,
-        isWithdrawal: true,
-        amount: { $lt: 0 },
-        ...SPENDING_ONLY,
-        $expr: {
-          $lte: [
-            { $add: [{ $ifNull: ['$allocatedCash', 0] }, amount] },
-            { $add: [{ $abs: '$amount' }, HALF_CENT] },
-          ],
-        },
-      },
-      { $inc: { allocatedCash: amount } },
-      { new: true },
-    );
+    let reserved = await this.reserve(withdrawalId, amount);
+    // A refusal can come from a counter left high by an earlier failure: repair it once and retry.
+    if (!reserved && (await this.repairCounter(withdrawalId))) reserved = await this.reserve(withdrawalId, amount);
     if (!reserved) throw await this.whyNotReserved(withdrawalId);
 
     // The id is chosen here so it's ready to return as soon as create succeeds;
@@ -113,6 +99,50 @@ export class CashService {
       await this.releaseIfRefused(err, reserved._id, amount);
       throw err;
     }
+  }
+
+  /** The guarded reservation: grows the counter by `amount` only while it stays within the withdrawal. */
+  private reserve(withdrawalId: string, amount: number) {
+    return this.txModel.findOneAndUpdate(
+      {
+        _id: withdrawalId,
+        userId: this.userId,
+        isWithdrawal: true,
+        amount: { $lt: 0 },
+        ...SPENDING_ONLY,
+        $expr: {
+          $lte: [
+            { $add: [{ $ifNull: ['$allocatedCash', 0] }, amount] },
+            { $add: [{ $abs: '$amount' }, HALF_CENT] },
+          ],
+        },
+      },
+      { $inc: { allocatedCash: amount } },
+      { new: true },
+    );
+  }
+
+  /**
+   * Lowers a counter left above its items (a crash between the reservation and the
+   * insert, or an ambiguous insert error) to the items' sum, with a write guarded on
+   * the value read. Returns true when it corrected one. Known limit: an add from
+   * another tab that has reserved but not yet inserted, in the same milliseconds,
+   * would be undercounted by its amount.
+   */
+  private async repairCounter(withdrawalId: string): Promise<boolean> {
+    const tx = await this.txModel.findOne({ _id: withdrawalId, userId: this.userId, ...NOT_DELETED }).lean();
+    if (!tx || !this.itemizable(tx)) return false;
+    const items = await this.itemModel.find({ userId: this.userId, withdrawalId: String(tx._id) }).lean();
+    const sum = round2(items.reduce((s, i) => s + i.amount, 0));
+    const counter = tx.allocatedCash ?? 0;
+    if (counter <= sum + HALF_CENT) return false;
+    const res = await this.txModel.updateOne(
+      { _id: tx._id, userId: this.userId, allocatedCash: tx.allocatedCash },
+      { $set: { allocatedCash: sum } },
+    );
+    if (!res.modifiedCount) return false;
+    this.logger.warn(`Withdrawal ${String(tx._id)}: itemized counter was ${counter} but its items sum to ${sum}; corrected`);
+    return true;
   }
 
   /**

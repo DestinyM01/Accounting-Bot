@@ -9,21 +9,25 @@ import { MerchantCategory } from '../shared/schemas/merchant-category.schema';
 
 /** A chainable stand-in for a Mongoose query that resolves to `result`. */
 function query(result: unknown) {
-  const q: any = { lean: jest.fn(() => Promise.resolve(result)) };
+  const q: any = { select: jest.fn(() => q), lean: jest.fn(() => Promise.resolve(result)) };
   return q;
 }
 
 describe('CategoryReferencesService', () => {
   let service: CategoryReferencesService;
-  let txModel: { aggregate: jest.Mock; updateMany: jest.Mock };
+  let txModel: { aggregate: jest.Mock; updateMany: jest.Mock; find: jest.Mock };
   let recurringModel: { aggregate: jest.Mock; updateMany: jest.Mock };
   let budgetModel: { aggregate: jest.Mock; find: jest.Mock; findOne: jest.Mock; updateOne: jest.Mock; findOneAndDelete: jest.Mock };
-  let itemModel: { aggregate: jest.Mock; updateMany: jest.Mock };
+  let itemModel: { aggregate: jest.Mock; updateMany: jest.Mock; distinct: jest.Mock };
   let memoryModel: { updateMany: jest.Mock };
 
   beforeEach(async () => {
     process.env.BOSS_USER_ID = '1';
-    txModel = { aggregate: jest.fn().mockResolvedValue([]), updateMany: jest.fn().mockResolvedValue({}) };
+    txModel = {
+      aggregate: jest.fn().mockResolvedValue([]),
+      updateMany: jest.fn().mockResolvedValue({}),
+      find: jest.fn(() => query([])),
+    };
     recurringModel = { aggregate: jest.fn().mockResolvedValue([]), updateMany: jest.fn().mockResolvedValue({}) };
     budgetModel = {
       aggregate: jest.fn().mockResolvedValue([]),
@@ -32,7 +36,11 @@ describe('CategoryReferencesService', () => {
       updateOne: jest.fn().mockResolvedValue({}),
       findOneAndDelete: jest.fn(() => query(null)),
     };
-    itemModel = { aggregate: jest.fn().mockResolvedValue([]), updateMany: jest.fn().mockResolvedValue({}) };
+    itemModel = {
+      aggregate: jest.fn().mockResolvedValue([]),
+      updateMany: jest.fn().mockResolvedValue({}),
+      distinct: jest.fn().mockResolvedValue([]),
+    };
     memoryModel = { updateMany: jest.fn().mockResolvedValue({}) };
     const mod = await Test.createTestingModule({
       providers: [
@@ -58,7 +66,27 @@ describe('CategoryReferencesService', () => {
     expect(txModel.aggregate.mock.calls[0][0][0]).toEqual({ $match: { userId: 1, deletedAt: null } });
     expect(recurringModel.aggregate.mock.calls[0][0][0]).toEqual({ $match: { userId: 1, active: true } });
     expect(budgetModel.aggregate.mock.calls[0][0][0]).toEqual({ $match: { userId: 1 } });
-    expect(itemModel.aggregate.mock.calls[0][0][0]).toEqual({ $match: { userId: 1 } });
+    expect(itemModel.aggregate.mock.calls[0][0][0]).toEqual({ $match: { userId: 1, withdrawalId: { $in: [] } } });
+  });
+
+  it('counts only the cash items of withdrawals that still exist', async () => {
+    const LIVE = '64b0000000000000000000a1';
+    const GONE = '64b0000000000000000000a2';
+    itemModel.distinct.mockResolvedValue([LIVE, GONE, 'not-an-id']);
+    const live = query([{ _id: LIVE }]);
+    txModel.find.mockReturnValue(live);
+    itemModel.aggregate.mockResolvedValue([{ _id: 'gym', n: 3 }]);
+    const usage = await service.usage();
+    expect(usage.get('gym')!.cashItems).toBe(3);
+    expect(itemModel.distinct).toHaveBeenCalledWith('withdrawalId', { userId: 1 });
+    expect(txModel.find).toHaveBeenCalledWith({ _id: { $in: [LIVE, GONE] }, userId: 1, deletedAt: null });
+    expect(live.select).toHaveBeenCalledWith('_id');
+    expect(itemModel.aggregate.mock.calls[0][0][0]).toEqual({ $match: { userId: 1, withdrawalId: { $in: [LIVE] } } });
+  });
+
+  it('looks up no withdrawals when there are no cash items', async () => {
+    await service.usage();
+    expect(txModel.find).not.toHaveBeenCalled();
   });
 
   it('moves transactions and recurring rules by name, deleted and inactive ones included', async () => {

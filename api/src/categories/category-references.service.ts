@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { Budget } from '../shared/schemas/budget.schema';
@@ -41,7 +41,9 @@ export class CategoryReferencesService {
       this.txModel.aggregate([{ $match: { userId: this.userId, ...NOT_DELETED } }, ...byCategory]),
       this.recurringModel.aggregate([{ $match: { userId: this.userId, active: true } }, ...byCategory]),
       this.budgetModel.aggregate([{ $match: { userId: this.userId } }, ...byCategory]),
-      this.itemModel.aggregate([{ $match: { userId: this.userId } }, ...byCategory]),
+      this.liveWithdrawalIds().then((ids) =>
+        this.itemModel.aggregate([{ $match: { userId: this.userId, withdrawalId: { $in: ids } } }, ...byCategory]),
+      ),
     ]);
 
     const usage = new Map<string, Usage>();
@@ -55,6 +57,18 @@ export class CategoryReferencesService {
     for (const r of budgets) entry(r._id).budgets = r.n;
     for (const r of items) entry(r._id).cashItems = r.n;
     return usage;
+  }
+
+  /**
+   * Withdrawals that still exist. Items of a deleted withdrawal show nowhere, so they
+   * aren't counted as uses; migrate() still moves them, so nothing names a dead category.
+   */
+  private async liveWithdrawalIds(): Promise<string[]> {
+    const ids = (await this.itemModel.distinct('withdrawalId', { userId: this.userId })) as string[];
+    const valid = ids.filter((id) => Types.ObjectId.isValid(id));
+    if (valid.length === 0) return [];
+    const live = await this.txModel.find({ _id: { $in: valid }, userId: this.userId, ...NOT_DELETED }).select('_id').lean();
+    return live.map((t) => String(t._id));
   }
 
   /**
