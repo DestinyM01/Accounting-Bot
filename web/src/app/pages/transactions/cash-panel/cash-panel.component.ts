@@ -83,28 +83,33 @@ export class CashPanelComponent implements OnInit, OnChanges, OnDestroy {
     this.busy = true;
     this.error = '';
     const description = this.description.trim();
-    this.subs.add(
-      this.api.addCashItem(this.tx._id, {
-        category: this.category,
-        amount: Math.round(this.amount! * 100) / 100,
-        ...(description ? { description } : {}),
-      }).subscribe({
-        next: () => {
-          this.busy = false;
-          this.category = '';
-          this.amount = null;
-          this.description = '';
-          this.load(() => this.focus(this.ids.category, this.ids.itemize));
-        },
-        error: (e: HttpErrorResponse) => {
-          this.busy = false;
-          this.error = this.message(e, "Couldn't add the item. Please try again.");
-          // The Add button was disabled while saving, so focus fell to the page.
-          this.focus(this.ids.amount, this.ids.itemize);
-          this.load(); // another tab may have itemized meanwhile: show what's really left
-        },
-      }),
-    );
+    const amount = Math.round(this.amount! * 100) / 100;
+    this.api.addCashItem(this.tx._id, {
+      category: this.category,
+      amount,
+      ...(description ? { description } : {}),
+    }).subscribe({
+      next: () => {
+        if (this.destroyed) {
+          // The panel closed while saving: the item exists, so keep the row's line honest.
+          this.tx.allocatedCash = Math.round(((this.tx.allocatedCash ?? 0) + amount) * 100) / 100;
+          return;
+        }
+        this.busy = false;
+        this.category = '';
+        this.amount = null;
+        this.description = '';
+        this.load(() => this.focus(this.ids.category, this.ids.itemize));
+      },
+      error: (e: HttpErrorResponse) => {
+        if (this.destroyed) return;
+        this.busy = false;
+        this.error = this.message(e, "Couldn't add the item. Please try again.");
+        // The Add button was disabled while saving, so focus fell to the page.
+        this.focus(this.ids.amount, this.ids.itemize);
+        this.load(); // another tab may have itemized meanwhile: show what's really left
+      },
+    });
   }
 
   remove(index: number) {
@@ -114,20 +119,23 @@ export class CashPanelComponent implements OnInit, OnChanges, OnDestroy {
     const nextId = items[index + 1]?.id;
     this.busy = true;
     this.error = '';
-    this.subs.add(
-      this.api.deleteCashItem(item.id).subscribe({
-        next: () => {
-          this.busy = false;
-          this.load(() => this.focus(...(nextId ? [`remove-${nextId}`] : []), this.ids.category, this.ids.itemize));
-        },
-        error: (e: HttpErrorResponse) => {
-          this.busy = false;
-          this.error = this.message(e, "Couldn't remove the item. Please try again.");
-          this.focus(`remove-${item.id}`, this.ids.category, this.ids.itemize);
-          this.load();
-        },
-      }),
-    );
+    this.api.deleteCashItem(item.id).subscribe({
+      next: () => {
+        if (this.destroyed) {
+          this.tx.allocatedCash = Math.max(0, Math.round(((this.tx.allocatedCash ?? 0) - item.amount) * 100) / 100);
+          return;
+        }
+        this.busy = false;
+        this.load(() => this.focus(...(nextId ? [`remove-${nextId}`] : []), this.ids.category, this.ids.itemize));
+      },
+      error: (e: HttpErrorResponse) => {
+        if (this.destroyed) return;
+        this.busy = false;
+        this.error = this.message(e, "Couldn't remove the item. Please try again.");
+        this.focus(`remove-${item.id}`, this.ids.category, this.ids.itemize);
+        this.load();
+      },
+    });
   }
 
   /**

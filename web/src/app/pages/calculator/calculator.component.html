@@ -52,9 +52,9 @@
         @if (mine) {
           @if (mine.spentMore) {
             Your balance today · average saved over {{ mineSpan }}: you spent more than you earned, so
-            {{ 0 | currency: 'USD' : 'symbol' : '1.2-2' }}
+            {{ money(0) }}
           } @else {
-            Your balance today · average saved over {{ mineSpan }}: {{ mine.monthlySavings | currency: 'USD' : 'symbol' : '1.2-2' }}
+            Your balance today · average saved over {{ mineSpan }}: {{ money(mine.monthlySavings) }}
           }
         }
       </p>
@@ -75,15 +75,15 @@
         <div class="calc-figures" aria-live="polite" aria-atomic="true">
           <div class="calc-figure">
             <span>Final balance</span>
-            <strong>{{ result.finalBalance | currency: 'USD' : 'symbol' : '1.2-2' }}</strong>
+            <strong>{{ money(result.finalBalance) }}</strong>
           </div>
           <div class="calc-figure">
             <span>You put in</span>
-            <strong>{{ result.putIn | currency: 'USD' : 'symbol' : '1.2-2' }}</strong>
+            <strong>{{ money(result.putIn) }}</strong>
           </div>
           <div class="calc-figure">
             <span>Interest earned</span>
-            <strong class="calc-interest">{{ result.interest | currency: 'USD' : 'symbol' : '1.2-2' }}</strong>
+            <strong class="calc-interest">{{ money(result.interest) }}</strong>
           </div>
         </div>
 
@@ -115,9 +115,9 @@
                 @for (y of result.years; track y.year) {
                   <tr>
                     <td>{{ y.year }}</td>
-                    <td>{{ y.putIn | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                    <td>{{ y.interest | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                    <td>{{ y.balance | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                    <td>{{ money(y.putIn) }}</td>
+                    <td>{{ money(y.interest) }}</td>
+                    <td>{{ money(y.balance) }}</td>
                   </tr>
                 }
               </tbody>

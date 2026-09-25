@@ -1,5 +1,4 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,6 +7,7 @@ import { Chart, registerables } from 'chart.js';
 import { ApiService } from '../../core/services/api.service';
 import { GrowthInput, GrowthResult, MyNumbers } from '../../core/services/api.models';
 import { HOVER_COLUMN, axisStyle, chartTheme, tooltipStyle } from '../../core/ui/chart-theme';
+import { calcMoney } from './calc-money';
 
 Chart.register(...registerables);
 
@@ -15,12 +15,14 @@ Chart.register(...registerables);
 @Component({
   selector: 'app-calculator',
   standalone: true,
-  imports: [CurrencyPipe, FormsModule, MatIconModule],
+  imports: [FormsModule, MatIconModule],
   templateUrl: './calculator.component.html',
   styleUrls: ['./calculator.component.scss'],
 })
 export class CalculatorComponent implements OnInit, OnDestroy {
   @ViewChild('chartCanvas') chartCanvas?: ElementRef<HTMLCanvasElement>;
+
+  readonly money = calcMoney;
 
   // The bot's own example, read the way its help text meant it.
   start: number | null = 0;
@@ -74,9 +76,8 @@ export class CalculatorComponent implements OnInit, OnDestroy {
   get chartSummary(): string {
     const r = this.result;
     if (!r) return '';
-    const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
     const years = r.years.length === 1 ? '1 year' : `${r.years.length} years`;
-    return `After ${years}: ${money(r.finalBalance)} — ${money(r.putIn)} put in, ${money(r.interest)} interest`;
+    return `After ${years}: ${calcMoney(r.finalBalance)} — ${calcMoney(r.putIn)} put in, ${calcMoney(r.interest)} interest`;
   }
 
   useMyNumbers() {
@@ -145,8 +146,6 @@ export class CalculatorComponent implements OnInit, OnDestroy {
     if (this.destroyed || !canvas || !r) return;
     // Theme colours, read at runtime so the chart follows the design tokens.
     const t = chartTheme();
-    // Same formatting as the Balance page's tooltip.
-    const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
     const first = !this.chart;
     this.chart?.destroy();
     this.chart = new Chart(canvas, {
@@ -165,7 +164,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
         interaction: HOVER_COLUMN,
         plugins: {
           legend: { labels: { color: t.muted } },
-          tooltip: { ...tooltipStyle(t), callbacks: { label: (c) => `${c.dataset.label}: ${money(c.parsed.y ?? 0)}` } },
+          tooltip: { ...tooltipStyle(t), callbacks: { label: (c) => `${c.dataset.label}: ${calcMoney(c.parsed.y ?? 0)}` } },
         },
         scales: {
           x: { ...axisStyle(t), stacked: true, ticks: { ...axisStyle(t).ticks, maxTicksLimit: 10 } },
@@ -174,7 +173,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
             stacked: true,
             ticks: {
               ...axisStyle(t).ticks,
-              callback: (value) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
+              callback: (value) => calcMoney(Number(value), false),
             },
           },
         },

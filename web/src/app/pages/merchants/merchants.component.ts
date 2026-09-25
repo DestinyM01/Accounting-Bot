@@ -41,6 +41,8 @@ export class MerchantsComponent implements OnInit, OnDestroy {
   loading = true;
   loadError = '';
   status = '';
+  /** Where the visual status shows: a merchant id (under that row), 'end' (after the list) or 'top'. */
+  statusAt: string = 'top';
   filter = '';
 
   mode: Mode = { kind: 'none' };
@@ -169,6 +171,7 @@ export class MerchantsComponent implements OnInit, OnDestroy {
       this.api.addMerchant(this.name, this.category),
       (r) => `Added ${r.key}` + (r.alsoFiled > 0 ? `; filed ${plural(r.alsoFiled, 'waiting row', 'waiting rows')}` : ''),
       ['add-merchant'],
+      'top',
     );
   }
 
@@ -183,6 +186,7 @@ export class MerchantsComponent implements OnInit, OnDestroy {
         return r.moved > 0 ? `Moved ${plural(r.moved, `${m.key} row`, `${m.key} rows`)} to ${title(category)}` : 'Saved';
       },
       [`change-${m.id}`, 'add-merchant'],
+      m.id,
     );
   }
 
@@ -198,6 +202,7 @@ export class MerchantsComponent implements OnInit, OnDestroy {
         return `Forgot ${m.key}`;
       },
       next ? [`change-${next.id}`, 'add-merchant'] : ['add-merchant'],
+      next?.id ?? 'end',
     );
   }
 
@@ -209,7 +214,7 @@ export class MerchantsComponent implements OnInit, OnDestroy {
     this.focus(focusId);
   }
 
-  private run<T>(request: Observable<T>, done: (reply: T) => string, focusIds: string[]): void {
+  private run<T>(request: Observable<T>, done: (reply: T) => string, focusIds: string[], anchor: string): void {
     this.busy = true;
     this.actionError = '';
     this.subs.add(
@@ -218,6 +223,7 @@ export class MerchantsComponent implements OnInit, OnDestroy {
           this.busy = false;
           this.mode = { kind: 'none' };
           this.status = done(reply);
+          this.statusAt = anchor;
           this.focusAfterLoad = focusIds;
           this.events.notify(); // rows may have moved: every list reloads, this page included (changed$)
           this.focus(...focusIds);
@@ -286,6 +292,7 @@ export class MerchantsComponent implements OnInit, OnDestroy {
             this.mode = { kind: 'none' };
             this.actionError = '';
             this.status = 'That merchant is no longer remembered.';
+            this.statusAt = 'top';
             this.focusAfterLoad = ['add-merchant'];
           }
           this.loadError = '';

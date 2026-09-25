@@ -15,7 +15,10 @@
     </button>
   </div>
 
-  <p class="mer-status" aria-live="polite">{{ status }}</p>
+  <p class="mer-live" aria-live="polite">{{ status }}</p>
+  @if (status && statusAt === 'top') {
+    <p class="mer-status" aria-hidden="true">{{ status }}</p>
+  }
 
   @if (loading) {
     <p class="mer-muted">Loading…</p>
@@ -149,9 +152,15 @@
                   </button>
                 </div>
               }
+              @if (status && statusAt === m.id) {
+                <p class="mer-row-status" aria-hidden="true">{{ status }}</p>
+              }
             </li>
           }
         </ul>
+        @if (status && statusAt === 'end') {
+          <p class="mer-row-status" aria-hidden="true">{{ status }}</p>
+        }
       }
     </section>
   }
