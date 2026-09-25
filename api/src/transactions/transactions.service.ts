@@ -10,6 +10,7 @@ import { CategoriesService } from '../categories/categories.service';
 import { MerchantMemoryService } from '../merchants/merchant-memory.service';
 import { HALF_CENT, money } from '../cash/cash-rules';
 import { CounterRepairService } from '../cash/counter-repair.service';
+import { afterTime, encodeTimeCursor, parseTimeCursor } from '../shared/cursor';
 
 export interface CreateTransactionBody {
   type: 'income' | 'expense';
@@ -37,6 +38,7 @@ export interface ResolveTransferBody {
 export interface TransactionQuery {
   limit?: number;
   offset?: number;
+  before?: string;
   type?: 'income' | 'expense';
   category?: string;
   startDate?: string;
@@ -74,6 +76,7 @@ export interface TransactionPage {
   total: number;
   limit: number;
   offset: number;
+  nextCursor: string | null;
 }
 
 @Injectable()
@@ -147,11 +150,19 @@ export class TransactionsService {
     const limit  = Math.min(query.limit || 50, 200);
     const offset = query.offset || 0;
 
+    // "Load more" continues after the last row shown (a cursor), so rows that
+    // leave or join the filtered set between loads never shift a page.
+    let pageFilter: Record<string, unknown> = filter;
+    if (query.before) {
+      const cursor = parseTimeCursor(query.before);
+      if (!cursor) throw new BadRequestException('before must be a cursor from a previous page');
+      pageFilter = { $and: [filter, afterTime(cursor)] };
+    }
+
+    let find = this.transactionModel.find(pageFilter).sort({ timestamp: -1, _id: -1 });
+    if (!query.before && offset) find = find.skip(offset);
     const [items, total] = await Promise.all([
-      this.transactionModel
-        .find(filter)
-        .sort({ timestamp: -1 })
-        .skip(offset)
+      find
         .limit(limit)
         .select('transactionName transactionType amount timestamp category categoryNeedsReview merchant source transferKind isWithdrawal allocatedCash')
         .lean(),
@@ -163,8 +174,10 @@ export class TransactionsService {
       amount:    Math.abs(t.amount),
       isExpense: t.amount < 0,
     }));
+    const last = items[items.length - 1];
+    const nextCursor = items.length === limit && last ? encodeTimeCursor(last.timestamp, last._id) : null;
 
-    return { items: normalised, total, limit, offset };
+    return { items: normalised, total, limit, offset, nextCursor };
   }
 
   async exportCsv(query: ExportQuery): Promise<string> {

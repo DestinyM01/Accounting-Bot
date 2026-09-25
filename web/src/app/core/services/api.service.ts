@@ -68,6 +68,7 @@ export class ApiService {
   getTransactions(opts: {
     limit?:       number;
     offset?:      number;
+    before?:      string;
     type?:        'income' | 'expense';
     category?:    string;
     startDate?:   string;
@@ -78,6 +79,7 @@ export class ApiService {
     let params = new HttpParams();
     if (opts.limit)       params = params.set('limit',       opts.limit);
     if (opts.offset)      params = params.set('offset',      opts.offset);
+    if (opts.before)      params = params.set('before',      opts.before);
     if (opts.type)        params = params.set('type',        opts.type);
     if (opts.category)    params = params.set('category',    opts.category);
     if (opts.startDate)   params = params.set('startDate',   opts.startDate);

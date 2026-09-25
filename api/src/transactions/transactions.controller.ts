@@ -20,6 +20,7 @@ export class TransactionsController {
   findAll(
     @Query('limit')       limit?: string,
     @Query('offset')      offset?: string,
+    @Query('before')      before?: string,
     @Query('type')        type?: 'income' | 'expense',
     @Query('category')    category?: string,
     @Query('startDate')   startDate?: string,
@@ -31,6 +32,7 @@ export class TransactionsController {
     return this.transactionsService.findAll({
       limit:       limit  ? parseInt(limit, 10)  : undefined,
       offset:      offset ? parseInt(offset, 10) : undefined,
+      before,
       type,
       category,
       startDate,

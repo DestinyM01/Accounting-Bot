@@ -161,6 +161,43 @@ describe('TransactionsService', () => {
     });
   });
 
+  describe('findAll paging', () => {
+    it('sorts by time then id, and hands back a cursor after a full page', async () => {
+      const rows = [
+        { _id: '64b0000000000000000000a2', timestamp: new Date('2026-09-20T15:00:00Z'), amount: -10 },
+        { _id: '64b0000000000000000000a1', timestamp: new Date('2026-09-20T15:00:00Z'), amount: -20 },
+      ];
+      mockModel.lean.mockResolvedValue(rows);
+      mockModel.countDocuments.mockResolvedValue(5);
+      const page = await service.findAll({ limit: 2 });
+      expect(mockModel.sort).toHaveBeenCalledWith({ timestamp: -1, _id: -1 });
+      expect(page.nextCursor).toBe('2026-09-20T15:00:00.000Z_64b0000000000000000000a1');
+    });
+
+    it('says there is no next page after a short page', async () => {
+      mockModel.lean.mockResolvedValue([{ _id: '64b0000000000000000000a1', timestamp: new Date(), amount: -1 }]);
+      const page = await service.findAll({ limit: 20 });
+      expect(page.nextCursor).toBeNull();
+    });
+
+    it('continues after a cursor, combined with the filters, without skipping', async () => {
+      await service.findAll({ limit: 20, before: '2026-09-20T15:00:00.000Z_64b0000000000000000000a1', needsReview: true });
+      const filter = mockModel.find.mock.calls[0][0];
+      expect(filter.$and).toEqual([
+        expect.objectContaining({ categoryNeedsReview: true }),
+        { $or: [
+          { timestamp: { $lt: new Date('2026-09-20T15:00:00.000Z') } },
+          { timestamp: new Date('2026-09-20T15:00:00.000Z'), _id: { $lt: expect.anything() } },
+        ] },
+      ]);
+      expect(mockModel.skip).not.toHaveBeenCalled();
+    });
+
+    it('answers 400 for a malformed cursor', async () => {
+      await expect(service.findAll({ before: 'nope' })).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
   describe('setCategory', () => {
     it('does not recategorise a deleted row', async () => {
       await service.setCategory('tx1', 'food');

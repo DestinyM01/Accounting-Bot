@@ -26,6 +26,7 @@ export interface TransactionPage {
   total: number;
   limit: number;
   offset: number;
+  nextCursor: string | null;
 }
 
 export interface CashItem {

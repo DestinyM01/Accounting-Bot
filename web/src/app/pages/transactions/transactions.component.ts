@@ -22,7 +22,7 @@ import { CashPanelComponent } from './cash-panel/cash-panel.component';
 export class TransactionsComponent implements OnInit, OnDestroy {
   items:       Transaction[] = [];
   total        = 0;
-  offset       = 0;
+  nextCursor: string | null = null;
   limit        = 20;
   loading      = true;
   loadingMore  = false;
@@ -60,7 +60,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.searchSub = this.search$.pipe(debounceTime(300), distinctUntilChanged())
-      .subscribe(() => { this.offset = 0; this.load(false); });
+      .subscribe(() => this.load(false));
     this.eventsSub = this.events.changed$.subscribe(() => this.reloadInPlace());
     // The category list is loaded once at app start; refresh it so a category
     // created elsewhere since then isn't shown as a deleted guess (isDeletedGuess).
@@ -91,14 +91,15 @@ export class TransactionsComponent implements OnInit, OnDestroy {
 
     this.api.getTransactions({
       limit:  this.limit,
-      offset: this.offset,
+      before: append ? this.nextCursor ?? undefined : undefined,
       ...this.currentFilters(),
     }).subscribe({
       next: (page: TransactionPage) => {
-        this.items   = append ? [...this.items, ...page.items] : page.items;
-        this.total   = page.total;
-        this.loading = this.loadingMore = false;
-        this.error   = null;
+        this.items      = append ? [...this.items, ...page.items] : page.items;
+        this.total      = page.total;
+        this.nextCursor = page.nextCursor;
+        this.loading    = this.loadingMore = false;
+        this.error      = null;
         this.dropPanelIfGone();
       },
       error: () => {
@@ -114,13 +115,12 @@ export class TransactionsComponent implements OnInit, OnDestroy {
    */
   private reloadInPlace() {
     const count = Math.min(Math.max(this.items.length, this.limit), 200);
-    this.api.getTransactions({ ...this.currentFilters(), limit: count, offset: 0 }).subscribe({
+    this.api.getTransactions({ ...this.currentFilters(), limit: count }).subscribe({
       next: (page: TransactionPage) => {
-        this.items  = page.items;
-        this.total  = page.total;
-        // Keep paging consistent: the next "Load More" continues after what is shown.
-        this.offset = Math.max(0, page.items.length - this.limit);
-        this.error  = null;
+        this.items      = page.items;
+        this.total      = page.total;
+        this.nextCursor = page.nextCursor;
+        this.error      = null;
         this.dropPanelIfGone();
       },
       error: () => { this.error = 'Could not refresh the list — reload the page.'; },
@@ -128,19 +128,17 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   }
 
   onSearch()         { this.search$.next(this.search); }
-  onCategoryChange() { this.offset = 0; this.load(false); }
-  onTypeChange()     { this.offset = 0; this.load(false); }
-  onDateChange()     { this.offset = 0; this.load(false); }
+  onCategoryChange() { this.load(false); }
+  onTypeChange()     { this.load(false); }
+  onDateChange()     { this.load(false); }
 
   onNeedsReviewToggle() {
     this.needsReviewOnly = !this.needsReviewOnly;
-    this.offset = 0;
     this.load(false);
   }
 
   onUnitemizedToggle() {
     this.unitemizedOnly = !this.unitemizedOnly;
-    this.offset = 0;
     this.load(false);
   }
 
@@ -249,9 +247,9 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadMore() { this.offset += this.limit; this.load(true); }
+  loadMore() { this.load(true); }
 
-  get hasMore() { return this.offset + this.limit < this.total; }
+  get hasMore() { return this.nextCursor !== null; }
 
   get filtered(): Transaction[] {
     if (!this.search.trim()) return this.items;
