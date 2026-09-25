@@ -34,12 +34,13 @@
               type="text"
               maxlength="200"
               autocomplete="off"
+              aria-describedby="merchant-name-hint"
               [ngModel]="name"
               (ngModelChange)="onName($event)"
               name="name"
             />
           </label>
-          <p class="mer-hint" aria-live="polite">{{ previewText }}</p>
+          <p id="merchant-name-hint" class="mer-hint" aria-live="polite">{{ previewText }}</p>
           <label class="fc-field">
             <span>Category</span>
             <select class="fc-input" [(ngModel)]="category" name="category">
@@ -113,13 +114,13 @@
                 </form>
               } @else if (mode.kind === 'forget' && mode.id === m.id) {
                 <div class="mer-inline">
-                  <p>Forget {{ m.key }}? New mail from it goes back to review.</p>
+                  <p [id]="'forget-text-' + m.id">Forget {{ m.key }}? New mail from it goes back to review.</p>
                   @if (actionError) {
                     <p class="fc-error" role="alert">{{ actionError }}</p>
                   }
                   <div class="mer-actions">
                     <button type="button" class="fc-btn fc-btn--ghost" [disabled]="busy" (click)="close()">Cancel</button>
-                    <button [id]="'confirm-forget-' + m.id" type="button" class="fc-btn mer-danger" [disabled]="busy" (click)="forget(m)">
+                    <button [id]="'confirm-forget-' + m.id" type="button" class="fc-btn mer-danger" [disabled]="busy" [attr.aria-describedby]="'forget-text-' + m.id" (click)="forget(m)">
                       {{ busy ? 'Forgetting…' : 'Forget' }}
                     </button>
                   </div>

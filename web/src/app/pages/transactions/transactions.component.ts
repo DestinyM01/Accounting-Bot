@@ -205,7 +205,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.reviewing.delete(tx._id);
-        if (select) select.value = tx.category;
+        if (select) select.value = this.isDeletedGuess(tx.category) ? '' : tx.category;
         alert('Failed to set category. Please try again.');
       },
     });

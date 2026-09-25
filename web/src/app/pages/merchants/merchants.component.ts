@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { CommonModule, formatDate } from '@angular/common';
+import { CommonModule, formatDate, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
@@ -24,7 +24,7 @@ interface Preview {
   match: MerchantMatch | null;
 }
 
-const title = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const title = (s: string) => new TitleCasePipe().transform(s);
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 @Component({
@@ -92,7 +92,10 @@ export class MerchantsComponent implements OnInit, OnDestroy {
 
   get shown(): RememberedMerchant[] {
     const f = this.filter.trim().toLowerCase();
-    return f ? this.merchants.filter((m) => m.key.includes(f)) : this.merchants;
+    const mode = this.mode;
+    return f
+      ? this.merchants.filter((m) => m.key.includes(f) || ('id' in mode && mode.id === m.id))
+      : this.merchants;
   }
 
   /** The live line under the name field: what the typed name would match. */
@@ -174,7 +177,11 @@ export class MerchantsComponent implements OnInit, OnDestroy {
     if (this.busy || !category || category === m.category) return;
     this.run(
       this.api.changeMerchant(m.id, category),
-      (r) => (r.moved > 0 ? `Moved ${plural(r.moved, `${m.key} row`, `${m.key} rows`)} to ${title(category)}` : 'Saved'),
+      (r) => {
+        m.category = category;
+        m.usable = true;
+        return r.moved > 0 ? `Moved ${plural(r.moved, `${m.key} row`, `${m.key} rows`)} to ${title(category)}` : 'Saved';
+      },
       [`change-${m.id}`, 'add-merchant'],
     );
   }
@@ -186,7 +193,10 @@ export class MerchantsComponent implements OnInit, OnDestroy {
     const next = list[i + 1] ?? list[i - 1];
     this.run(
       this.api.forgetMerchant(m.id),
-      () => `Forgot ${m.key}`,
+      () => {
+        this.merchants = this.merchants.filter((x) => x.id !== m.id);
+        return `Forgot ${m.key}`;
+      },
       next ? [`change-${next.id}`, 'add-merchant'] : ['add-merchant'],
     );
   }
@@ -216,6 +226,11 @@ export class MerchantsComponent implements OnInit, OnDestroy {
           this.busy = false;
           this.actionError = this.message(e, 'Something went wrong. Please try again.');
           this.load(); // a 404 or 409 means this list is stale
+          // An add can fail because the name got remembered elsewhere: re-check it so the preview (and Add) reflect that.
+          if (this.mode.kind === 'add' && this.name.trim()) {
+            this.preview = null;
+            this.typed.next(this.name);
+          }
           // The button that sent it was disabled while busy, so focus fell to the page: return it to the form.
           const back = this.formFocus;
           setTimeout(() => {
@@ -263,12 +278,14 @@ export class MerchantsComponent implements OnInit, OnDestroy {
           this.categories = cats
             .map((c) => c.name)
             .filter((n, i, all) => !NEVER_REMEMBERED.includes(n) && all.indexOf(n) === i);
+          // A category picked before this reload (add or change form) may no longer exist (deleted in another tab).
+          if (this.category && !this.categories.includes(this.category)) this.category = '';
           // The merchant being changed or forgotten may be gone (another tab forgot it).
           const m = this.mode;
           if ((m.kind === 'change' || m.kind === 'forget') && !this.busy && !merchants.some((x) => x.id === m.id)) {
             this.mode = { kind: 'none' };
             this.actionError = '';
-            this.status = 'That merchant was changed in another tab.';
+            this.status = 'That merchant is no longer remembered.';
             this.focusAfterLoad = ['add-merchant'];
           }
           this.loadError = '';

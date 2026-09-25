@@ -102,7 +102,7 @@
           <div class="tx-cell">
             @if (tx.categoryNeedsReview) {
               <div class="review-cell">
-                <span class="cat-pill guess-pill"
+                <span [id]="'guess-' + tx._id" class="cat-pill guess-pill"
                       [style.background]="catColor(tx.category) + '22'"
                       [style.color]="catColor(tx.category)">
                   <span class="dot" [style.background]="catColor(tx.category)"></span>
@@ -118,6 +118,7 @@
                 }
                 <select [id]="'pick-' + tx._id" class="review-select"
                         [attr.aria-label]="'Category for ' + tx.transactionName"
+                        [attr.aria-describedby]="'guess-' + tx._id"
                         [disabled]="reviewing.has(tx._id)"
                         (change)="assignCategory(tx, $any($event.target).value, $any($event.target))">
                   @if (isDeletedGuess(tx.category)) {
