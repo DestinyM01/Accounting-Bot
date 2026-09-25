@@ -23,7 +23,7 @@ const MAIL_ID = '64b0000000000000000000c1';
 describe('IngestionStatusService', () => {
   let service: IngestionStatusService;
   let statusModel: { updateOne: jest.Mock; findOne: jest.Mock };
-  let unreadableModel: { updateOne: jest.Mock; deleteOne: jest.Mock; find: jest.Mock; findOneAndUpdate: jest.Mock };
+  let unreadableModel: { updateOne: jest.Mock; deleteOne: jest.Mock; deleteMany: jest.Mock; find: jest.Mock; findOneAndUpdate: jest.Mock };
   let txModel: { find: jest.Mock };
   let errorSpy: jest.SpyInstance;
 
@@ -35,6 +35,7 @@ describe('IngestionStatusService', () => {
     unreadableModel = {
       updateOne: jest.fn().mockResolvedValue({}),
       deleteOne: jest.fn().mockResolvedValue({}),
+      deleteMany: jest.fn().mockResolvedValue({}),
       find: jest.fn(() => query([])),
       findOneAndUpdate: jest.fn().mockResolvedValue({ _id: MAIL_ID }),
     };
@@ -100,6 +101,24 @@ describe('IngestionStatusService', () => {
     expect(unreadableModel.deleteOne).toHaveBeenCalledWith({ userId: 1, messageId: 'm1' });
   });
 
+  describe('clearUnreadableMany', () => {
+    it('clears every listed id that booked or was recognised since', async () => {
+      await service.clearUnreadableMany(['m1', 'm2']);
+      expect(unreadableModel.deleteMany).toHaveBeenCalledWith({ userId: 1, messageId: { $in: ['m1', 'm2'] } });
+    });
+
+    it('asks nothing for an empty list', async () => {
+      await service.clearUnreadableMany([]);
+      expect(unreadableModel.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('never throws', async () => {
+      unreadableModel.deleteMany.mockRejectedValue(new Error('db down'));
+      await expect(service.clearUnreadableMany(['m1'])).resolves.toBeUndefined();
+      expect(errorSpy).toHaveBeenCalled();
+    });
+  });
+
   describe('dismissedAmong', () => {
     it('returns the dismissed ones among the given message ids', async () => {
       const rows = query([{ messageId: 'm2' }]);
@@ -156,7 +175,7 @@ describe('IngestionStatusService', () => {
         recent: [{ id: 't1', name: 'store', amount: 120.5, isExpense: true, category: 'food', timestamp: AT }],
       });
       expect(unreadableModel.find).toHaveBeenCalledWith({ userId: 1, dismissed: false });
-      expect(unreadable.sort).toHaveBeenCalledWith({ lastSeenAt: -1 });
+      expect(unreadable.sort).toHaveBeenCalledWith({ receivedAt: -1 });
       expect(unreadable.limit).toHaveBeenCalledWith(50);
       expect(txModel.find).toHaveBeenCalledWith({ userId: 1, source: 'email', deletedAt: null });
       expect(recent.sort).toHaveBeenCalledWith({ timestamp: -1 });
@@ -166,6 +185,14 @@ describe('IngestionStatusService', () => {
     it('shows nothing yet before the first run', async () => {
       const v = await service.view(false);
       expect(v).toEqual({ startAt: null, running: false, lastRun: null, lastError: null, unreadable: [], recent: [] });
+    });
+
+    it('shows no error once a later run succeeded', async () => {
+      statusModel.findOne.mockReturnValue(
+        query({ lastRunAt: AT, created: 0, skipped: 0, failed: 0, lastError: null, lastErrorAt: AT }),
+      );
+      const v = await service.view(false);
+      expect(v.lastError).toBeNull();
     });
   });
 });

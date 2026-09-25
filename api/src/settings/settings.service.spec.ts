@@ -156,4 +156,17 @@ describe('SettingsService', () => {
       expect(model.updateOne).not.toHaveBeenCalled();
     });
   });
+
+  // Pins the inclusive edges of every limit so a reviewer tightening an
+  // off-by-one (e.g. `<= 3` instead of `< 3`) fails a test instead of silently
+  // rejecting valid input.
+  it('accepts the boundaries', async () => {
+    await expect(service.saveAccounts({ cash: [], senders: ['abc', 'a'.repeat(40)] })).resolves.toBeDefined();
+    await expect(
+      service.saveAccounts({ cash: Array.from({ length: 20 }, (_, i) => String(1000 + i)), senders: [] }),
+    ).resolves.toBeDefined();
+    await expect(
+      service.saveReports({ weekly: true, monthly: true, recipient: `${'a'.repeat(242)}@example.com` }),
+    ).resolves.toBeDefined();
+  });
 });

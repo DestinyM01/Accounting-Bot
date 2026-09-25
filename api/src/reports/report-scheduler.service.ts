@@ -50,6 +50,7 @@ export class ReportSchedulerService {
     }
     this.running = true;
     const tally: Record<Outcome, number> = { sent: 0, skipped: 0, failed: 0 };
+    let notConfigured = false;
     try {
       const prefs = await this.settings.reports();
       for (const period of latestPeriods(now)) {
@@ -62,12 +63,16 @@ export class ReportSchedulerService {
           this.logger.error(`${period.kind} report ${period.key} failed`, err instanceof Error ? err.stack : String(err));
           outcome = 'failed';
         }
-        if (outcome === 'not-configured') break;
+        // Not configured blocks only a report that would actually be sent: a
+        // later period that is expired or turned off in Settings still needs
+        // recording, so the loop must not stop here.
+        if (outcome === 'not-configured') { notConfigured = true; continue; }
         if (outcome !== 'idle') tally[outcome]++;
       }
       if (tally.sent + tally.skipped + tally.failed > 0) {
         this.logger.log(`Report run: sent ${tally.sent}, skipped ${tally.skipped}, failed ${tally.failed}`);
       }
+      if (notConfigured) this.logger.warn('Reports not sent: Gmail credentials or a recipient are missing');
     } catch (err) {
       this.logger.error('Report run failed', err instanceof Error ? err.stack : String(err));
     } finally {
@@ -86,14 +91,19 @@ export class ReportSchedulerService {
     if (existing) {
       if (existing.status !== 'sending') return 'idle'; // sent or skipped: final
       // A claim this old belongs to a pod that died mid-send. Take it over
-      // atomically, so only one pod does; past the window, close it instead.
+      // atomically, so only one pod does; past the window, or if the report
+      // was turned off in Settings while the claim sat abandoned, close it
+      // instead of sending it late (or at all).
       const staleBefore = new Date(now.getTime() - STALE_CLAIM_MINUTES * 60_000);
+      const close = period.expired || !prefs[period.kind];
       const takenOver = await this.sendModel.findOneAndUpdate(
         { ...key, status: 'sending', at: { $lt: staleBefore } },
-        { $set: period.expired ? { status: 'skipped', at: now } : { at: now } },
+        { $set: close ? { status: 'skipped', at: now } : { at: now } },
       );
       if (!takenOver) return 'idle'; // another pod is sending it right now
-      return period.expired ? this.logSkipped(period) : this.send(period, now, prefs.recipient);
+      if (period.expired) return this.logSkipped(period);
+      if (!prefs[period.kind]) return this.logTurnedOff(period);
+      return this.send(period, now, prefs.recipient);
     }
 
     if (!prefs[period.kind]) {
@@ -105,8 +115,7 @@ export class ReportSchedulerService {
         if (err?.code === 11000) return 'idle';
         throw err;
       }
-      this.logger.log(`Not sending ${period.kind} report ${period.key}: turned off in Settings`);
-      return 'skipped';
+      return this.logTurnedOff(period);
     }
 
     if (period.expired) {
@@ -120,7 +129,6 @@ export class ReportSchedulerService {
     }
 
     if (!this.mailer.isConfigured() || !prefs.recipient) {
-      this.logger.warn('Reports not sent: GMAIL_USER / GMAIL_APP_PASSWORD are not set');
       return 'not-configured';
     }
 
@@ -136,6 +144,11 @@ export class ReportSchedulerService {
   private logSkipped(period: ReportPeriod): Outcome {
     const days = period.kind === 'weekly' ? WEEKLY_WINDOW_DAYS : MONTHLY_WINDOW_DAYS;
     this.logger.warn(`Not sending ${period.kind} report ${period.key}: more than ${days} days past due`);
+    return 'skipped';
+  }
+
+  private logTurnedOff(period: ReportPeriod): Outcome {
+    this.logger.log(`Not sending ${period.kind} report ${period.key}: turned off in Settings`);
     return 'skipped';
   }
 

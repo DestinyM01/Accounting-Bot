@@ -202,6 +202,24 @@ describe('ReportSchedulerService', () => {
     expect(mailer.send).not.toHaveBeenCalled();
   });
 
+  // A report can be turned off in Settings after a pod claimed 'sending' and
+  // died mid-send. The stale-claim takeover used to only check period.expired,
+  // so a since-turned-off report would still be sent by whichever pod takes
+  // the abandoned claim over. It must be closed instead, exactly like an
+  // expired one.
+  it('closes a taken-over claim instead of sending it when the report was turned off in Settings', async () => {
+    settings.reports.mockResolvedValue({ weekly: false, monthly: true, recipient: 'me@example.com' });
+    sendModel.findOne.mockReturnValue(found({ ...key, status: 'sending', at: at('2026-09-28T10:30:00Z') }));
+    sendModel.findOneAndUpdate.mockResolvedValue({ ...key, status: 'sending' });
+    await service.run(NOW);
+    expect(sendModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { ...key, status: 'sending', at: { $lt: at('2026-09-28T10:50:00Z') } },
+      { $set: { status: 'skipped', at: NOW } },
+    );
+    expect(mailer.send).not.toHaveBeenCalled();
+    expect(logSpy).toHaveBeenCalledWith('Not sending weekly report 2026-W39: turned off in Settings');
+  });
+
   it('records a report turned off in Settings as skipped, and sends nothing', async () => {
     settings.reports.mockResolvedValue({ weekly: false, monthly: true, recipient: 'me@example.com' });
     await service.run(NOW);
@@ -210,14 +228,32 @@ describe('ReportSchedulerService', () => {
     expect(logSpy).toHaveBeenCalledWith('Not sending weekly report 2026-W39: turned off in Settings');
   });
 
-  it('with no Gmail credentials records nothing and stops', async () => {
+  it('with no Gmail credentials records nothing, still checks every period, and warns once', async () => {
     latest.mockReturnValue([WEEKLY, MONTHLY]);
     mailer.isConfigured.mockReturnValue(false);
     await service.run(NOW);
     expect(sendModel.create).not.toHaveBeenCalled();
     expect(mailer.send).not.toHaveBeenCalled();
-    expect(mailer.isConfigured).toHaveBeenCalledTimes(1);
+    expect(mailer.isConfigured).toHaveBeenCalledTimes(2);
     expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith('Reports not sent: Gmail credentials or a recipient are missing');
+  });
+
+  // Before this fix, run() broke out of the loop the moment one period came
+  // back 'not-configured', so a later period in the same run — even one that
+  // needed no Gmail credentials at all, because it was simply turned off in
+  // Settings — was never looked at and never recorded.
+  it('still records a turned-off report as skipped even when an earlier period is blocked by missing Gmail credentials', async () => {
+    latest.mockReturnValue([WEEKLY, MONTHLY]);
+    mailer.isConfigured.mockReturnValue(false);
+    settings.reports.mockResolvedValue({ weekly: true, monthly: false, recipient: 'me@example.com' });
+
+    await service.run(NOW);
+
+    expect(sendModel.create).toHaveBeenCalledWith({ kind: 'monthly', period: '2026-08', status: 'skipped', at: NOW });
+    expect(mailer.send).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith('Reports not sent: Gmail credentials or a recipient are missing');
   });
 
   it('keeps the record when the email went out but could not be marked', async () => {
@@ -236,5 +272,35 @@ describe('ReportSchedulerService', () => {
     expect(sendModel.findOne).toHaveBeenCalledTimes(1);
     release({ ...key, status: 'sent', at: NOW });
     await first;
+  });
+
+  it('records a monthly report turned off as skipped', async () => {
+    latest.mockReturnValue([MONTHLY]);
+    settings.reports.mockResolvedValue({ weekly: true, monthly: false, recipient: 'me@example.com' });
+    await service.run(NOW);
+    expect(sendModel.create).toHaveBeenCalledWith({ kind: 'monthly', period: '2026-08', status: 'skipped', at: NOW });
+    expect(mailer.send).not.toHaveBeenCalled();
+  });
+
+  it('sends a taken-over report to the recipient from Settings', async () => {
+    settings.reports.mockResolvedValue({ weekly: true, monthly: true, recipient: 'other@example.com' });
+    sendModel.findOne.mockReturnValue(found({ ...key, status: 'sending', at: at('2026-09-28T10:30:00Z') }));
+    sendModel.findOneAndUpdate.mockResolvedValue({ ...key, status: 'sending' });
+    await service.run(NOW);
+    expect(mailer.send).toHaveBeenCalledWith(expect.anything(), 'other@example.com');
+  });
+
+  it('treats a scheduled send with no recipient as not configured', async () => {
+    settings.reports.mockResolvedValue({ weekly: true, monthly: true, recipient: null });
+    await service.run(NOW);
+    expect(sendModel.create).not.toHaveBeenCalled();
+    expect(mailer.send).not.toHaveBeenCalled();
+  });
+
+  it('tolerates a duplicate key when recording a turned-off report', async () => {
+    settings.reports.mockResolvedValue({ weekly: false, monthly: true, recipient: 'me@example.com' });
+    sendModel.create.mockRejectedValue(Object.assign(new Error('E11000'), { code: 11000 }));
+    await expect(service.run(NOW)).resolves.toBeUndefined();
+    expect(mailer.send).not.toHaveBeenCalled();
   });
 });

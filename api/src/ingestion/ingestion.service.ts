@@ -105,6 +105,8 @@ export class IngestionService {
     const known = await this.alreadyIngested(mails.map((m) => m.messageId));
     // Mails the user marked "Not a transaction" on the Settings page.
     const dismissed = await this.status.dismissedAmong(mails.map((m) => m.messageId));
+    // A listed mail whose clear failed once is skipped below as already booked: clear it here.
+    await this.status.clearUnreadableMany(mails.map((m) => m.messageId).filter((id) => known.has(id)));
     const ctx = await this.loadRunContext();
 
     let created = 0, skipped = 0, failed = 0;
@@ -123,6 +125,7 @@ export class IngestionService {
       // failures under routine noise.
       if (parser.isNonTransactional?.({ subject: mail.subject, body: mail.body })) {
         skipped++;
+        await this.status.clearUnreadable(mail.messageId);
         continue;
       }
 

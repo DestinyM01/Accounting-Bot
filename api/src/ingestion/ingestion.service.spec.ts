@@ -80,7 +80,7 @@ describe('IngestionService', () => {
   let fx: { usdToDop: jest.Mock };
   let settings: { accounts: jest.Mock };
   let status: {
-    dismissedAmong: jest.Mock; recordUnreadable: jest.Mock; clearUnreadable: jest.Mock; recordRun: jest.Mock; recordFailure: jest.Mock;
+    dismissedAmong: jest.Mock; recordUnreadable: jest.Mock; clearUnreadable: jest.Mock; clearUnreadableMany: jest.Mock; recordRun: jest.Mock; recordFailure: jest.Mock;
   };
   let loggerErrorSpy: jest.SpyInstance;
   let loggerWarnSpy: jest.SpyInstance;
@@ -125,6 +125,7 @@ describe('IngestionService', () => {
       dismissedAmong: jest.fn().mockResolvedValue(new Set()),
       recordUnreadable: jest.fn().mockResolvedValue(undefined),
       clearUnreadable: jest.fn().mockResolvedValue(undefined),
+      clearUnreadableMany: jest.fn().mockResolvedValue(undefined),
       recordRun: jest.fn().mockResolvedValue(undefined),
       recordFailure: jest.fn().mockResolvedValue(undefined),
     };
@@ -380,6 +381,26 @@ describe('IngestionService', () => {
     expect(status.clearUnreadable).toHaveBeenCalledWith('m1');
   });
 
+  it('takes a mail off the unreadable list when it turns out to be booked already', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'm1' })]);
+    parserParseMock.mockReturnValue(makeParsed());
+    txModel.create.mockRejectedValue({ code: 11000 });
+
+    await service.run();
+
+    expect(status.clearUnreadable).toHaveBeenCalledWith('m1');
+  });
+
+  it('leaves a mail on the unreadable list when booking it fails', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'm1' })]);
+    parserParseMock.mockReturnValue(makeParsed());
+    txModel.create.mockRejectedValue(new Error('db down'));
+
+    await service.run();
+
+    expect(status.clearUnreadable).not.toHaveBeenCalled();
+  });
+
   describe('runGuarded', () => {
     it("returns and records the run's counts", async () => {
       mail.fetchSince.mockResolvedValue([]);
@@ -459,6 +480,17 @@ describe('IngestionService', () => {
     expect(result).toEqual({ created: 0, skipped: 1, failed: 0 });
     expect(parserParseMock).not.toHaveBeenCalled();
     expect(loggerWarnSpy).not.toHaveBeenCalled();
+
+    delete (popularParser as any).isNonTransactional;
+  });
+
+  it('takes a recognised non-transactional mail off the unreadable list too', async () => {
+    mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'm1' })]);
+    (popularParser as any).isNonTransactional = jest.fn().mockReturnValue(true);
+
+    await service.run();
+
+    expect(status.clearUnreadable).toHaveBeenCalledWith('m1');
 
     delete (popularParser as any).isNonTransactional;
   });
@@ -850,6 +882,33 @@ describe('IngestionService', () => {
       expect(categorizer.categorize).not.toHaveBeenCalled();
       expect(fx.usdToDop).not.toHaveBeenCalled();
       expect(txModel.create).not.toHaveBeenCalled();
+    });
+
+    // A mail can be listed as unreadable, then get booked by a later run whose
+    // own clearUnreadable call happened to fail (best-effort write). The next
+    // run must still close it out, even though the mail is now skipped here as
+    // already-ingested rather than reaching the create()-time clear.
+    it('clears an already-ingested mail from the unreadable list', async () => {
+      txModel.find.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockResolvedValue([{ sourceMessageId: 'm1' }]),
+        }),
+      });
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'm1' })]);
+      parserParseMock.mockReturnValue(makeParsed());
+
+      await service.run();
+
+      expect(status.clearUnreadableMany).toHaveBeenCalledWith(['m1']);
+    });
+
+    it('reads the account lists once per run, not once per mail', async () => {
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'm1' }), makeMail({ messageId: 'm2' })]);
+      parserParseMock.mockReturnValue(makeParsed());
+
+      await service.run();
+
+      expect(settings.accounts).toHaveBeenCalledTimes(1);
     });
 
     it('loads custom categories and recurring rules once per run, not once per mail', async () => {
