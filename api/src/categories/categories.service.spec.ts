@@ -255,6 +255,13 @@ describe('CategoriesService', () => {
       await expect(service.remove(ID)).rejects.toThrow(/in use/);
     });
 
+    it('refuses to move cash items into cash', async () => {
+      model.findOne.mockImplementation(findOneBy(gym()));
+      refs.usage.mockResolvedValueOnce(new Map([['gym', { transactions: 2, recurring: 0, budgets: 0, cashItems: 1 }]]));
+      await expect(service.remove(ID, 'cash')).rejects.toThrow(/can't move into cash/);
+      expect(model.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
     it('hides a legacy custom category that carries a built-in name without moving the built-in data', async () => {
       model.findOne.mockImplementation(findOneBy(gym({ name: 'food' })));
       refs.usage.mockResolvedValue(new Map([['food', { transactions: 42, recurring: 0, budgets: 1, cashItems: 0 }]]));

@@ -45,7 +45,7 @@ export class ReportDataService {
   async weekly(period: ReportPeriod, now: Date): Promise<WeeklyReportData> {
     const txs = await this.txModel
       .find({ userId: this.userId, timestamp: { $gte: period.from, $lt: period.to }, ...SPENDING_ONLY })
-      .select('amount category transactionName merchant timestamp')
+      .select('amount transactionName merchant timestamp')
       .lean();
 
     const expenses = txs.filter((t) => t.amount < 0);

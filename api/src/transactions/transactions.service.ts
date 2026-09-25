@@ -115,7 +115,7 @@ export class TransactionsService {
     // absorbs floating-point drift in the allocatedCash counter.
     if (query.unitemized) {
       filter.isWithdrawal = true;
-      filter.amount = { $lt: 0 };
+      filter.amount = { ...(filter.amount ?? {}), $lt: 0 };
       filter.$expr = { $gt: [{ $abs: '$amount' }, { $add: [{ $ifNull: ['$allocatedCash', 0] }, HALF_CENT] }] };
     }
     // An explicit transferKind request (e.g. listing only 'unresolved' ones to
@@ -299,7 +299,15 @@ export class TransactionsService {
         // the exact pre-image instead of a hybrid of old and new values.
         const restore: Record<string, unknown> = {};
         for (const k of Object.keys(patch)) restore[k] = (tx as any)[k] ?? null;
-        return this.compensate({ id, what: 'update' }, () => this.transactionModel.updateOne({ _id: id }, { $set: restore }), err);
+        // A withdrawal's rollback must not shrink it below items added since the
+        // edit made room for them: check that inside the same write.
+        const covered = tx.isWithdrawal && patch.amount !== undefined
+          ? { $expr: { $lte: [{ $ifNull: ['$allocatedCash', 0] }, Math.abs(tx.amount) + HALF_CENT] } }
+          : {};
+        return this.compensate({ id, what: 'update' }, async () => {
+          const res = await this.transactionModel.updateOne({ _id: id, ...covered }, { $set: restore });
+          if (res.matchedCount === 0) throw new Error('items were itemized after the edit; the old amount no longer covers them');
+        }, err);
       }
     }
   }

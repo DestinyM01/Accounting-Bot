@@ -59,5 +59,12 @@ describe('TipsService', () => {
       expect(incomeCalls.length).toBe(1);
       expect(incomeCalls[0][0]).toEqual(expect.objectContaining(SPENDING_ONLY));
     });
+
+    it('feeds CategorySpendService\'s breakdown to Mistral', async () => {
+      spend.byCategory.mockResolvedValue([{ category: 'food', total: 3200 }]);
+      await service.getTips();
+      const complete = (service as any).client.chat.complete as jest.Mock;
+      expect(complete.mock.calls[0][0].messages[1].content).toContain('  food: $3200.00');
+    });
   });
 });

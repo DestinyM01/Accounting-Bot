@@ -39,6 +39,7 @@ export function rollUpByCategory(rows: SpendRow[], items: ItemRow[]): CategoryTo
     add(it.category, it.amount);
   }
   for (const row of rows) {
+    if (!(row.amount < 0)) continue; // only spending rows carry weight
     const spent = Math.abs(row.amount);
     add(row.category || 'other', row.isWithdrawal ? Math.max(0, spent - (itemized.get(row.id) ?? 0)) : spent);
   }

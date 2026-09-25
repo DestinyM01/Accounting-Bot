@@ -50,6 +50,12 @@ describe('rollUpByCategory', () => {
     expect(Math.round(sum * 100) / 100).toBe(3720);
   });
 
+  it('ignores rows that are not spending', () => {
+    expect(rollUpByCategory([{ id: 't1', amount: 500, category: 'salary' }, expense('t2', 20, 'food')], [])).toEqual([
+      { category: 'food', total: 20 },
+    ]);
+  });
+
   it('files a row without a category under other, rounds to cents, and sorts by total then name', () => {
     expect(rollUpByCategory([expense('t1', 33.333), expense('t2', 5, 'b'), expense('t3', 5, 'a')], [])).toEqual([
       { category: 'other', total: 33.33 },

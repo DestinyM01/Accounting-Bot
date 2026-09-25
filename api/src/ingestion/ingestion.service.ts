@@ -243,6 +243,7 @@ export class IngestionService {
           predicted.merchant = p.counterparty;
           predicted.externalRef = p.externalRef;
           predicted.timestamp = p.occurredAt;
+          predicted.isWithdrawal = p.isWithdrawal;
           await predicted.save();
         } catch (err: any) {
           if (err?.code === 11000) return 'duplicate';

@@ -96,27 +96,36 @@ export class CashService {
     );
     if (!reserved) throw await this.whyNotReserved(withdrawalId);
 
+    // The id is chosen here so that, if create throws, we can ask whether the item
+    // was written anyway: a standalone mongod has no retryable writes, and a lost
+    // acknowledgement can hide a successful insert.
+    const itemId = new Types.ObjectId();
     try {
-      const item = await this.itemModel.create({
+      await this.itemModel.create({
+        _id: itemId,
         userId: this.userId,
         withdrawalId: String(reserved._id),
         category,
         amount,
         ...(description ? { description } : {}),
       });
-      return { id: String(item._id) };
+      return { id: String(itemId) };
     } catch (err) {
-      // No item was written, so hand the reservation back. If that fails too, the
-      // counter stays high: that blocks some itemizing but never allows too much.
-      try {
-        await this.txModel.updateOne({ _id: reserved._id }, { $inc: { allocatedCash: -amount } });
-      } catch (releaseErr) {
-        this.logger.error(
-          `Could not release ${amount} on withdrawal ${String(reserved._id)}`,
-          releaseErr instanceof Error ? releaseErr.stack : String(releaseErr),
-        );
-      }
+      await this.releaseIfNotWritten(itemId, reserved._id, amount);
       throw err;
+    }
+  }
+
+  /** Hands a reservation back only once it's certain the item wasn't written; any doubt keeps it (fail-safe). */
+  private async releaseIfNotWritten(itemId: Types.ObjectId, withdrawalId: unknown, amount: number): Promise<void> {
+    try {
+      if (await this.itemModel.exists({ _id: itemId })) return; // written after all: the reservation is right
+      await this.txModel.updateOne({ _id: withdrawalId }, { $inc: { allocatedCash: -amount } });
+    } catch (e) {
+      this.logger.error(
+        `Could not release ${amount} on withdrawal ${String(withdrawalId)}; its counter stays high`,
+        e instanceof Error ? e.stack : String(e),
+      );
     }
   }
 

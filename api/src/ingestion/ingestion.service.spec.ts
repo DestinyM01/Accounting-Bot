@@ -449,6 +449,42 @@ describe('IngestionService', () => {
     expect(ledger.apply).not.toHaveBeenCalled();
   });
 
+  it('keeps isWithdrawal when confirming a predicted recurring transaction in place', async () => {
+    const rule = {
+      _id: 'rule-1',
+      userId: 999,
+      amount: 100,
+      dayOfMonth: 1,
+      active: true,
+      transactionType: TransactionType.EXPENSE,
+    };
+    recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([rule]) });
+    const predicted: any = {
+      _id: 'predicted-id',
+      recurringId: String(rule._id),
+      sourceMessageId: undefined,
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    txModel.findOne.mockResolvedValue(predicted);
+    mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'msg-42' })]);
+    parserParseMock.mockReturnValue(
+      makeParsed({
+        direction: 'expense',
+        amount: 100,
+        currency: 'DOP',
+        occurredAt: new Date(2026, 0, 1),
+        counterparty: 'Cajero Automatico',
+        isWithdrawal: true,
+      }),
+    );
+
+    const result = await service.run();
+
+    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(predicted.save).toHaveBeenCalled();
+    expect(predicted.isWithdrawal).toBe(true);
+  });
+
   it('does not swallow a genuine second payment of the same amount in one month', async () => {
     const rule = {
       _id: 'rule-1',

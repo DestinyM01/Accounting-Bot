@@ -132,6 +132,11 @@ describe('TransactionsService', () => {
         }),
       );
     });
+
+    it('combines the unitemized filter with the others instead of overriding them', async () => {
+      await service.findAll({ type: 'income', unitemized: true });
+      expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining({ amount: { $gt: 0, $lt: 0 } }));
+    });
   });
 
   describe('setCategory', () => {
@@ -380,6 +385,20 @@ describe('TransactionsService', () => {
       ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
       await expect(service.update('t1', { amount: 130 })).rejects.toThrow('ledger down');
       expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { amount: -100 } });
+    });
+
+    it('rolls a withdrawal back only while the old amount still covers its items', async () => {
+      mockModel.findOne = jest.fn().mockResolvedValue({ _id: 't1', userId: 1, amount: -5000, transactionName: 'atm', isWithdrawal: true, allocatedCash: 4500 });
+      mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({});
+      mockModel.updateOne = jest.fn().mockResolvedValue({ matchedCount: 0 });
+      ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
+      const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+      await expect(service.update('t1', { amount: 6000 })).rejects.toThrow('ledger down');
+      expect(mockModel.updateOne).toHaveBeenCalledWith(
+        { _id: 't1', $expr: { $lte: [{ $ifNull: ['$allocatedCash', 0] }, 5000 + 0.005] } },
+        { $set: { amount: -5000 } },
+      );
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('needs manual repair'), expect.anything());
     });
 
     it("refuses to shrink a withdrawal below what's itemized", async () => {

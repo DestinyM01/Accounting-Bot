@@ -44,20 +44,20 @@ describe('CategorySpendService', () => {
   });
 
   it("reads only the items of the period's withdrawals, and applies them", async () => {
-    txModel.find.mockReturnValue(
-      query([
-        { _id: 'w1', amount: -5000, category: 'cash', isWithdrawal: true },
-        { _id: 't1', amount: -200, category: 'food' },
-      ]),
-    );
-    itemModel.find.mockReturnValue(
-      query([
-        { withdrawalId: 'w1', amount: 3000, category: 'food' },
-        { withdrawalId: 'w1', amount: 1500, category: 'transport' },
-      ]),
-    );
+    const rows = query([
+      { _id: 'w1', amount: -5000, category: 'cash', isWithdrawal: true },
+      { _id: 't1', amount: -200, category: 'food' },
+    ]);
+    const itemRows = query([
+      { withdrawalId: 'w1', amount: 3000, category: 'food' },
+      { withdrawalId: 'w1', amount: 1500, category: 'transport' },
+    ]);
+    txModel.find.mockReturnValue(rows);
+    itemModel.find.mockReturnValue(itemRows);
     const totals = await service.byCategory(FROM, TO);
     expect(itemModel.find).toHaveBeenCalledWith({ userId: 1, withdrawalId: { $in: ['w1'] } });
+    expect(rows.select).toHaveBeenCalledWith('amount category isWithdrawal');
+    expect(itemRows.select).toHaveBeenCalledWith('withdrawalId amount category');
     expect(totals).toEqual([
       { category: 'food', total: 3200 },
       { category: 'transport', total: 1500 },

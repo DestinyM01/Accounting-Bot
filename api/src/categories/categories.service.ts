@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
 import { CategoryReferencesService, NO_USAGE, totalUses } from './category-references.service';
 import { BUILT_IN_NAMES, EMOJIS, PALETTE, isKnownEmoji, isPaletteColor, nameError, normalizeName } from './category-rules';
+import { Category } from '../shared/schemas/category.enum';
 
 const BUILT_IN = [
   { name: 'food',          color: '#10e5a0', emoji: '🍔' },
@@ -156,6 +157,9 @@ export class CategoriesService {
     let pending: Pending | null = null;
     if (moveTo) {
       if (moveTo === cat.name) throw new BadRequestException('Choose a different category to move it to');
+      if (moveTo === Category.CASH && usage.cashItems > 0) {
+        throw new BadRequestException("Cash items can't move into cash — pick where the cash went");
+      }
       const active = (await this.list()).map((c) => c.name);
       if (!active.includes(moveTo)) throw new BadRequestException(`${moveTo} is not an active category`);
       pending = { from: cat.name, to: moveTo };

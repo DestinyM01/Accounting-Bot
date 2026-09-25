@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { Types } from 'mongoose';
 import { CashService } from './cash.service';
 import { CashModule } from './cash.module';
 import { LedgerModule } from '../shared/ledger/ledger.module';
@@ -28,7 +29,7 @@ const withdrawal = (over: Record<string, unknown> = {}) => ({
 describe('CashService', () => {
   let service: CashService;
   let txModel: { findOne: jest.Mock; findOneAndUpdate: jest.Mock; updateOne: jest.Mock };
-  let itemModel: { find: jest.Mock; create: jest.Mock; findOneAndDelete: jest.Mock };
+  let itemModel: { find: jest.Mock; create: jest.Mock; findOneAndDelete: jest.Mock; exists: jest.Mock };
   let categories: { assertValid: jest.Mock };
 
   beforeEach(async () => {
@@ -42,6 +43,7 @@ describe('CashService', () => {
       find: jest.fn(() => query([])),
       create: jest.fn().mockResolvedValue({ _id: ITEM }),
       findOneAndDelete: jest.fn(() => query(null)),
+      exists: jest.fn().mockResolvedValue(null),
     };
     categories = {
       assertValid: jest.fn(async (c: string) => {
@@ -66,6 +68,8 @@ describe('CashService', () => {
         { _id: 'i2', category: 'transport', amount: 1500 },
       ]);
       itemModel.find.mockReturnValue(items);
+      // The counter can sit high after a crash; the breakdown must still read the items.
+      txModel.findOne.mockReturnValue(query(withdrawal({ allocatedCash: 4800 })));
       expect(await service.breakdown(W)).toEqual({
         id: W, name: 'cajero automatico', timestamp: new Date('2026-09-20T15:00:00Z'),
         amount: 5000, allocated: 4500, remaining: 500,
@@ -90,7 +94,8 @@ describe('CashService', () => {
 
   describe('add', () => {
     it('reserves the amount on the withdrawal in one guarded write, then records the item', async () => {
-      await expect(service.add(W, { category: 'food', amount: 300, description: '  groceries ' })).resolves.toEqual({ id: ITEM });
+      const result = await service.add(W, { category: 'food', amount: 300, description: '  groceries ' });
+      expect(result.id).toBe(String(itemModel.create.mock.calls[0][0]._id));
       expect(txModel.findOneAndUpdate).toHaveBeenCalledWith(
         {
           _id: W, userId: 1, isWithdrawal: true, amount: { $lt: 0 }, ...SPENDING_ONLY,
@@ -104,13 +109,15 @@ describe('CashService', () => {
         { $inc: { allocatedCash: 300 } },
         { new: true },
       );
-      expect(itemModel.create).toHaveBeenCalledWith({ userId: 1, withdrawalId: W, category: 'food', amount: 300, description: 'groceries' });
+      expect(itemModel.create).toHaveBeenCalledWith({
+        _id: expect.any(Types.ObjectId), userId: 1, withdrawalId: W, category: 'food', amount: 300, description: 'groceries',
+      });
       expect(txModel.findOneAndUpdate.mock.invocationCallOrder[0]).toBeLessThan(itemModel.create.mock.invocationCallOrder[0]);
     });
 
     it('rounds the amount to cents and drops an empty description', async () => {
       await service.add(W, { category: 'food', amount: 12.3456, description: '   ' });
-      expect(itemModel.create).toHaveBeenCalledWith({ userId: 1, withdrawalId: W, category: 'food', amount: 12.35 });
+      expect(itemModel.create).toHaveBeenCalledWith({ _id: expect.any(Types.ObjectId), userId: 1, withdrawalId: W, category: 'food', amount: 12.35 });
     });
 
     it('refuses more than is left, naming what is left, and records nothing', async () => {
@@ -156,10 +163,27 @@ describe('CashService', () => {
       expect(txModel.findOneAndUpdate).not.toHaveBeenCalled();
     });
 
-    it('hands the reservation back when the item cannot be recorded', async () => {
+    it('hands the reservation back when the item was not written', async () => {
       itemModel.create.mockRejectedValueOnce(new Error('write failed'));
+      itemModel.exists.mockResolvedValueOnce(null);
       await expect(service.add(W, { category: 'food', amount: 300 })).rejects.toThrow('write failed');
+      const writtenId = itemModel.create.mock.calls[0][0]._id;
+      expect(itemModel.exists).toHaveBeenCalledWith({ _id: writtenId });
       expect(txModel.updateOne).toHaveBeenCalledWith({ _id: W }, { $inc: { allocatedCash: -300 } });
+    });
+
+    it('keeps the reservation when the item was written despite the error', async () => {
+      itemModel.create.mockRejectedValueOnce(new Error('write failed'));
+      itemModel.exists.mockResolvedValueOnce({ _id: 'x' });
+      await expect(service.add(W, { category: 'food', amount: 300 })).rejects.toThrow('write failed');
+      expect(txModel.updateOne).not.toHaveBeenCalled();
+    });
+
+    it('keeps the reservation when it cannot tell whether the item was written', async () => {
+      itemModel.create.mockRejectedValueOnce(new Error('write failed'));
+      itemModel.exists.mockRejectedValueOnce(new Error('exists failed'));
+      await expect(service.add(W, { category: 'food', amount: 300 })).rejects.toThrow('write failed');
+      expect(txModel.updateOne).not.toHaveBeenCalled();
     });
   });
 
