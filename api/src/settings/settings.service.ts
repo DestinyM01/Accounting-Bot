@@ -103,6 +103,18 @@ export class SettingsService {
     return this.view();
   }
 
+  /** Forgets the saved reports section: it follows the server's config (env) again. */
+  async resetReports(): Promise<SettingsView> {
+    await this.model.updateOne({ userId: this.userId }, { $unset: { reports: '' } });
+    return this.view();
+  }
+
+  /** Forgets the saved accounts section: it follows the server's config (env) again. */
+  async resetAccounts(): Promise<SettingsView> {
+    await this.model.updateOne({ userId: this.userId }, { $unset: { accounts: '' } });
+    return this.view();
+  }
+
   private load(): Promise<SavedSettings> {
     return this.model.findOne({ userId: this.userId }).lean() as unknown as Promise<SavedSettings>;
   }

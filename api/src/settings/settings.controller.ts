@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Put, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { AccountsInput, ReportsInput, SettingsService } from './settings.service';
 
@@ -20,5 +20,15 @@ export class SettingsController {
   @Put('accounts')
   saveAccounts(@Body() body: AccountsInput) {
     return this.settings.saveAccounts(body ?? {});
+  }
+
+  @Delete('reports')
+  resetReports() {
+    return this.settings.resetReports();
+  }
+
+  @Delete('accounts')
+  resetAccounts() {
+    return this.settings.resetAccounts();
   }
 }

@@ -101,6 +101,15 @@
       <button id="accounts-save" type="button" class="fc-btn fc-btn--primary" [disabled]="!dirty || saving || confirmEmpty" (click)="save()">
         {{ saving ? 'Saving…' : 'Save' }}
       </button>
+      @if (savedHere) {
+        @if (confirmReset) {
+          <span role="alert">Forget what's saved here and follow the server's config?</span>
+          <button id="accounts-reset-yes" type="button" class="fc-btn fc-btn--primary" (click)="resetToConfig()">Use the server's config</button>
+          <button type="button" class="fc-btn fc-btn--ghost" (click)="confirmReset = false">Cancel</button>
+        } @else {
+          <button type="button" class="fc-btn fc-btn--ghost" [disabled]="saving" (click)="resetToConfig()">Use the server's config</button>
+        }
+      }
     </div>
   }
 </section>

@@ -157,6 +157,24 @@ describe('SettingsService', () => {
     });
   });
 
+  describe('reset', () => {
+    it('forgets the saved reports section, so it follows the server config again', async () => {
+      await service.resetReports();
+      expect(model.updateOne).toHaveBeenCalledWith({ userId: 1 }, { $unset: { reports: '' } });
+    });
+
+    it('forgets the saved accounts section', async () => {
+      await service.resetAccounts();
+      expect(model.updateOne).toHaveBeenCalledWith({ userId: 1 }, { $unset: { accounts: '' } });
+    });
+
+    it('answers the refreshed view', async () => {
+      process.env.OWN_CASH_ACCOUNTS = '2001,2002';
+      const view = await service.resetAccounts();
+      expect(view.accounts.cash).toEqual({ value: ['2001', '2002'], source: 'config' });
+    });
+  });
+
   // Pins the inclusive edges of every limit so a reviewer tightening an
   // off-by-one (e.g. `<= 3` instead of `< 3`) fails a test instead of silently
   // rejecting valid input.

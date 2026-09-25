@@ -28,6 +28,7 @@ export class AccountsSectionComponent implements OnInit, OnDestroy {
   draft: Record<ListKey, string> = { cash: '', senders: '' };
   draftError: Record<ListKey, string> = { cash: '', senders: '' };
   confirmEmpty = false;
+  confirmReset = false;
   saving = false;
   saveError = '';
   saved = '';
@@ -52,6 +53,12 @@ export class AccountsSectionComponent implements OnInit, OnDestroy {
     if (!v) return false;
     const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
     return !same(this.cash, v.cash.value) || !same(this.senders, v.senders.value);
+  }
+
+  /** Whether either list is currently a saved override, so resetting to config means something. */
+  get savedHere(): boolean {
+    const v = this.view;
+    return !!v && (v.cash.source === 'saved' || v.senders.source === 'saved');
   }
 
   /** Why a value can't be added (the api's own rules), or '' when it can. */
@@ -116,6 +123,34 @@ export class AccountsSectionComponent implements OnInit, OnDestroy {
   cancelEmpty() {
     this.confirmEmpty = false;
     this.focus('accounts-save');
+  }
+
+  /** First click asks; the second forgets the saved lists so the section follows the server's config again. */
+  resetToConfig() {
+    if (!this.confirmReset) {
+      this.confirmReset = true;
+      this.focus('accounts-reset-yes');
+      return;
+    }
+    this.confirmReset = false;
+    this.saving = true;
+    this.saveError = '';
+    this.saved = '';
+    this.subs.add(
+      this.api.resetAccountSettings().subscribe({
+        next: (s) => {
+          this.saving = false;
+          this.apply(s.accounts);
+          this.saved = "Now following the server's config.";
+          this.focus('cash-input');
+        },
+        error: (e: HttpErrorResponse) => {
+          this.saving = false;
+          this.saveError = this.message(e, "Couldn't reset. Please try again.");
+          this.focus('accounts-save');
+        },
+      }),
+    );
   }
 
   private apply(v: AccountsView) {

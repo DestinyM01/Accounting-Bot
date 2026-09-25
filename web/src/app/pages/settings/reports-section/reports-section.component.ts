@@ -24,6 +24,7 @@ export class ReportsSectionComponent implements OnInit, OnDestroy {
   weekly = true;
   monthly = true;
   recipient = '';
+  confirmReset = false;
   saving = false;
   saveError = '';
   saved = '';
@@ -58,6 +59,12 @@ export class ReportsSectionComponent implements OnInit, OnDestroy {
     return this.weekly !== v.weekly.value || this.monthly !== v.monthly.value || this.recipient.trim() !== this.savedRecipient;
   }
 
+  /** Whether any of the three fields is currently a saved override, so resetting to config means something. */
+  get savedHere(): boolean {
+    const v = this.view;
+    return !!v && (v.weekly.source === 'saved' || v.monthly.source === 'saved' || v.recipient.source === 'saved');
+  }
+
   get testLabel(): string {
     switch (this.testState) {
       case 'sending': return 'Sending…';
@@ -82,6 +89,34 @@ export class ReportsSectionComponent implements OnInit, OnDestroy {
         error: (e: HttpErrorResponse) => {
           this.saving = false;
           this.saveError = this.message(e, "Couldn't save. Please try again.");
+          this.focus('reports-recipient');
+        },
+      }),
+    );
+  }
+
+  /** First click asks; the second forgets the saved reports section so it follows the server's config again. */
+  resetToConfig() {
+    if (!this.confirmReset) {
+      this.confirmReset = true;
+      this.focus('reports-reset-yes');
+      return;
+    }
+    this.confirmReset = false;
+    this.saving = true;
+    this.saveError = '';
+    this.saved = '';
+    this.subs.add(
+      this.api.resetReportSettings().subscribe({
+        next: (s) => {
+          this.saving = false;
+          this.apply(s.reports);
+          this.saved = "Now following the server's config.";
+          this.focus('reports-weekly');
+        },
+        error: (e: HttpErrorResponse) => {
+          this.saving = false;
+          this.saveError = this.message(e, "Couldn't reset. Please try again.");
           this.focus('reports-recipient');
         },
       }),

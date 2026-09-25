@@ -238,6 +238,14 @@ export class ApiService {
     return this.http.put<SettingsView>(`${this.base}/settings/accounts`, body);
   }
 
+  resetReportSettings(): Observable<SettingsView> {
+    return this.http.delete<SettingsView>(`${this.base}/settings/reports`);
+  }
+
+  resetAccountSettings(): Observable<SettingsView> {
+    return this.http.delete<SettingsView>(`${this.base}/settings/accounts`);
+  }
+
   getIngestionStatus(): Observable<IngestionStatusView> {
     return this.http.get<IngestionStatusView>(`${this.base}/ingestion/status`);
   }
