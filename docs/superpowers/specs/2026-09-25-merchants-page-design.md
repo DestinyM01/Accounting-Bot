@@ -104,7 +104,9 @@ If the call fails between steps 3 and 4, retrying is safe. The moved rows are no
 - **Behaviour.**
   - One row is edited at a time. Every other action button is disabled while a request is in flight.
   - Errors show the api's message (the 400/409 text) inside the form or row that asked.
-  - Focus moves to the picker or the Forget button when a form opens. It returns to the row's Change button on cancel or save. After a forget, it goes to the next row's Change button, or to Add merchant when none is left.
+  - Focus moves to the picker or the Forget button when a form opens.
+  - On cancel, focus returns to the button that opened the form. After saving a change, it goes to the row's Change button.
+  - After a forget, it goes to the next row's Change button, else the previous row's, else Add merchant.
 - **Phone width (≤ 640 px).** Each row stacks: the key and pill, then the counts, then the actions. There is no horizontal scroll.
 - **Styling.** Theme tokens only; no colour literals.
 
