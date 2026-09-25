@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { Chart, registerables } from 'chart.js';
 import { ApiService } from '../../core/services/api.service';
 import { ChartPoint, TopTransaction } from '../../core/services/api.models';
+import { HOVER_COLUMN, axisStyle, chartTheme, tooltipStyle, withAlpha } from '../../core/ui/chart-theme';
 
 Chart.register(...registerables);
 
@@ -52,32 +53,30 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
     const canvas = this.chartCanvas?.nativeElement;
     if (!canvas) return;
 
+    const t = chartTheme();
+    const bar = (_: unknown, i: number, arr: unknown[]) => (i === arr.length - 1 ? t.income : withAlpha(t.income, 0.35));
     this.chart = new Chart(canvas.getContext('2d')!, {
       type: 'bar',
       data: {
-        labels:   points.map(p => p.month),
+        labels: points.map(p => p.month),
         datasets: [{
-          data:            points.map(p => p.total),
-          backgroundColor: points.map((_, i, arr) =>
-            i === arr.length - 1 ? '#10e5a0' : 'rgba(16,229,160,0.35)'
-          ),
+          data: points.map(p => p.total),
+          backgroundColor: points.map(bar),
+          hoverBackgroundColor: points.map(bar),
           borderRadius: 4,
         }],
       },
       options: {
-        responsive:          true,
+        responsive: true,
         maintainAspectRatio: false,
+        interaction: HOVER_COLUMN,
         plugins: {
-          legend:  { display: false },
-          tooltip: {
-            backgroundColor: '#0e1726',
-            borderColor: 'rgba(255,255,255,0.08)', borderWidth: 1,
-            titleColor: '#94a3b8', bodyColor: '#e2e8f0',
-          },
+          legend: { display: false },
+          tooltip: tooltipStyle(t),
         },
         scales: {
-          x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', font: { size: 11 } } },
-          y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', font: { size: 11 } } },
+          x: axisStyle(t),
+          y: axisStyle(t),
         },
       },
     });

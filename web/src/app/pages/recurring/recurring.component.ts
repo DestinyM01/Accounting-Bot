@@ -7,6 +7,7 @@ import { RecurringEntry } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
 import { Chart, registerables } from 'chart.js';
 import { SankeyController, Flow } from 'chartjs-chart-sankey';
+import { chartTheme, tooltipStyle } from '../../core/ui/chart-theme';
 
 Chart.register(...registerables, SankeyController, Flow);
 
@@ -52,8 +53,6 @@ export class RecurringComponent implements OnInit, OnDestroy {
 
   private readonly HUB = 'hub';
   private readonly SAV = 'sav';
-  private readonly HUB_COLOR = '#14b8a6';
-  private readonly SAV_COLOR = '#34d399';
 
   constructor(private api: ApiService, private catSvc: CategoryService) {}
 
@@ -98,7 +97,8 @@ export class RecurringComponent implements OnInit, OnDestroy {
 
     const data: { from: string; to: string; flow: number }[] = [];
     const labels: Record<string, string> = { [this.HUB]: 'Monthly Income', [this.SAV]: 'Savings' };
-    const colors: Record<string, string> = { [this.HUB]: this.HUB_COLOR, [this.SAV]: this.SAV_COLOR };
+    const t = chartTheme();
+    const colors: Record<string, string> = { [this.HUB]: t.accent, [this.SAV]: t.income };
 
     income.forEach(r => {
       const key = `in:${r.id}`;
@@ -116,7 +116,7 @@ export class RecurringComponent implements OnInit, OnDestroy {
       data.push({ from: this.HUB, to: this.SAV, flow: surplus });
     }
 
-    const nodeColor = (name: string) => colors[name] ?? '#94a3b8';
+    const nodeColor = (name: string) => colors[name] ?? t.muted;
 
     this.flowChart = new Chart(canvas, {
       type: 'sankey',
@@ -138,11 +138,7 @@ export class RecurringComponent implements OnInit, OnDestroy {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: '#0e1726',
-            borderColor: 'rgba(255,255,255,0.08)',
-            borderWidth: 1,
-            titleColor: '#94a3b8',
-            bodyColor: '#e2e8f0',
+            ...tooltipStyle(t),
             callbacks: {
               label: (ctx: any) => {
                 const d = ctx.dataset.data[ctx.dataIndex];
