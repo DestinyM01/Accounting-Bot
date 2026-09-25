@@ -5,6 +5,7 @@ import { RecurringController } from '../recurring/recurring.controller';
 import { BalanceController } from '../balance/balance.controller';
 import { CategoriesController } from '../categories/categories.controller';
 import { CashController } from '../cash/cash.controller';
+import { SettingsController } from '../settings/settings.controller';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 
 // The write surface is the API's first way to move the user's money. The guard
@@ -16,6 +17,7 @@ describe.each([
   ['BalanceController', BalanceController],
   ['CategoriesController', CategoriesController],
   ['CashController', CashController],
+  ['SettingsController', SettingsController],
 ])('%s auth guard', (_name, Ctrl) => {
   it('is protected by JwtAuthGuard at class level', () => {
     const guards: unknown[] = Reflect.getMetadata(GUARDS_METADATA, Ctrl) ?? [];

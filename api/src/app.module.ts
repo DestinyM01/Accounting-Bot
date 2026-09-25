@@ -16,6 +16,7 @@ import { CashModule } from './cash/cash.module';
 import { IngestionModule } from './ingestion/ingestion.module';
 import { ReportsModule } from './reports/reports.module';
 import { HealthController } from './health/health.controller';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { HealthController } from './health/health.controller';
     CashModule,
     IngestionModule,
     ReportsModule,
+    SettingsModule,
   ],
   controllers: [HealthController],
 })
