@@ -43,6 +43,8 @@ export class TransactionsComponent implements OnInit, OnDestroy {
 
   confirmingDelete: string | null = null;
   pendingId: string | null = null;
+  /** Rows with a category PATCH in flight, so each review row is independent of the others. */
+  reviewing = new Set<string>();
   filedNote = '';
 
   private search$ = new Subject<string>();
@@ -82,6 +84,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   load(append: boolean) {
     if (append) this.loadingMore = true;
     else        this.loading     = true;
+    this.filedNote = '';
 
     this.api.getTransactions({
       limit:  this.limit,
@@ -167,22 +170,35 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     }, 0);
   }
 
-  assignCategory(tx: Transaction, category: string) {
-    if (!category || this.pendingId) return;
-    this.pendingId = tx._id;
+  /**
+   * Sets one row's category. `select` is passed only by the review dropdown,
+   * so a failed guess can be reset to what the row actually holds. Tracked in
+   * `reviewing` rather than the shared `pendingId`, so one row's request in
+   * flight never disables every other row still waiting for review.
+   */
+  assignCategory(tx: Transaction, category: string, select?: HTMLSelectElement) {
+    if (!category || this.reviewing.has(tx._id)) return;
+    this.reviewing.add(tx._id);
     this.filedNote = '';
     this.api.setTransactionCategory(tx._id, category).subscribe({
       next: ({ alsoFiled }) => {
-        this.pendingId = null;
+        this.reviewing.delete(tx._id);
         tx.category = category;
         tx.categoryNeedsReview = false;
         if (alsoFiled > 0) {
-          this.filedNote = `Also filed ${alsoFiled} other ${tx.transactionName} ${alsoFiled === 1 ? 'row' : 'rows'} as ${category}.`;
+          const merchant = (tx.merchant || tx.transactionName).toLowerCase().split(/[\s*#]+/).filter((t) => t && !/\d/.test(t)).join(' ');
+          this.filedNote = `Also filed ${alsoFiled} other ${merchant} ${alsoFiled === 1 ? 'row' : 'rows'} as ${category}.`;
           this.events.notify(); // the other rows changed too: reload in place
         }
+        // Move focus to the next row still waiting for review, so confirming
+        // one guess after another needs no re-aiming at the list.
+        const rows = this.filtered;
+        const next = rows.slice(rows.indexOf(tx) + 1).find((t) => t.categoryNeedsReview);
+        if (next) setTimeout(() => document.getElementById(`confirm-${next._id}`)?.focus(), 0);
       },
       error: () => {
-        this.pendingId = null;
+        this.reviewing.delete(tx._id);
+        if (select) select.value = tx.category;
         alert('Failed to set category. Please try again.');
       },
     });
