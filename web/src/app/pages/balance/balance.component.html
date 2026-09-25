@@ -57,6 +57,9 @@
     @if (chartError) {
       <p class="fc-error" role="alert">{{ chartError }}</p>
     }
+    @if (chartLoading && daily.length === 0) {
+      <p class="bal-muted">Loading…</p>
+    }
     <div class="bal-chart-box">
       <canvas #chartCanvas role="img" aria-label="Daily closing balance over the last 90 days"></canvas>
     </div>

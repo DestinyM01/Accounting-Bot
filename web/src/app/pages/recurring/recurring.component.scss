@@ -514,3 +514,36 @@
 @media (max-width: 700px) {
   .rp-flow-panel { display: none; }
 }
+
+// A phone is too narrow for the table's five columns and for two panels side by
+// side: everything stacks. The flow chart keeps its own ≤ 700 px hide above.
+@media (max-width: 640px) {
+  .summary-row,
+  .bottom-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .table-head {
+    display: none;
+  }
+
+  .table-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'tx del'
+      'sched amt'
+      'cat amt';
+    row-gap: 6px;
+    padding: 14px 16px;
+
+    .col-tx { grid-area: tx; min-width: 0; }
+    .col-sched { grid-area: sched; }
+    .col-cat { grid-area: cat; }
+    .col-amt { grid-area: amt; align-self: center; text-align: right; }
+    .col-del { grid-area: del; }
+  }
+
+  .row-name {
+    overflow-wrap: anywhere;
+  }
+}

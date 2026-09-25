@@ -55,6 +55,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
 
   daily: DailyBalance[] = [];
   chartError = '';
+  chartLoading = false;
 
   filter: Filter = 'all';
   items: BalanceHistoryItem[] = [];
@@ -238,12 +239,14 @@ export class BalanceComponent implements OnInit, OnDestroy {
 
   private loadChart(): void {
     const gen = ++this.chartGen;
+    this.chartLoading = true;
     this.subs.add(
       this.api.getDailyBalance(90).subscribe({
         next: (points) => {
           if (gen !== this.chartGen) return;
           this.daily = points;
           this.chartError = '';
+          this.chartLoading = false;
           // Build on the next tick, after this change-detection pass has rendered.
           setTimeout(() => {
             if (!this.destroyed && gen === this.chartGen) this.buildChart();
@@ -252,6 +255,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
         error: () => {
           if (gen !== this.chartGen) return;
           this.chartError = "Couldn't load the chart.";
+          this.chartLoading = false;
         },
       }),
     );
