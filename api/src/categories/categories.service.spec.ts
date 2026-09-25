@@ -142,7 +142,10 @@ describe('CategoriesService', () => {
         { $set: { name: 'fitness', pending: { from: 'gym', to: 'fitness' } } },
       );
       expect(refs.migrate).toHaveBeenCalledWith('gym', 'fitness');
-      expect(model.updateOne).toHaveBeenCalledWith({ _id: ID }, { $set: { pending: null } });
+      expect(model.updateOne).toHaveBeenCalledWith(
+        { _id: ID, 'pending.from': 'gym', 'pending.to': 'fitness' },
+        { $set: { pending: null } },
+      );
       expect(refs.migrate.mock.invocationCallOrder[0]).toBeLessThan(model.updateOne.mock.invocationCallOrder[0]);
     });
 
@@ -165,6 +168,7 @@ describe('CategoriesService', () => {
       await expect(service.update(ID, { emoji: '🎯' })).rejects.toThrow(/still being moved into travel/);
       await expect(service.remove(ID, 'health')).rejects.toThrow(/still being moved into travel/);
       expect(model.findOneAndUpdate).not.toHaveBeenCalled();
+      expect(model.findOne).toHaveBeenCalledWith({ userId: 1, 'pending.to': 'travel' });
     });
 
     it('refuses to rename a legacy custom category that carries a built-in name', async () => {
@@ -194,7 +198,7 @@ describe('CategoriesService', () => {
       model.findOneAndUpdate.mockResolvedValueOnce({ _id: ID });
       await service.remove(ID);
       expect(model.findOneAndUpdate).toHaveBeenCalledWith(
-        { _id: ID, userId: 1, active: true, pending: null },
+        { _id: ID, userId: 1, name: 'gym', active: true, pending: null },
         { $set: { active: false, pending: null } },
       );
       expect(refs.migrate).not.toHaveBeenCalled();
@@ -206,11 +210,14 @@ describe('CategoriesService', () => {
       model.findOneAndUpdate.mockResolvedValueOnce({ _id: ID });
       await service.remove(ID, 'health');
       expect(model.findOneAndUpdate).toHaveBeenCalledWith(
-        { _id: ID, userId: 1, active: true, pending: null },
+        { _id: ID, userId: 1, name: 'gym', active: true, pending: null },
         { $set: { active: false, pending: { from: 'gym', to: 'health' } } },
       );
       expect(refs.migrate).toHaveBeenCalledWith('gym', 'health');
-      expect(model.updateOne).toHaveBeenCalledWith({ _id: ID }, { $set: { pending: null } });
+      expect(model.updateOne).toHaveBeenCalledWith(
+        { _id: ID, 'pending.from': 'gym', 'pending.to': 'health' },
+        { $set: { pending: null } },
+      );
       expect(model.findOneAndUpdate.mock.invocationCallOrder[0]).toBeLessThan(refs.migrate.mock.invocationCallOrder[0]);
     });
 
@@ -218,6 +225,12 @@ describe('CategoriesService', () => {
       model.findOne.mockReturnValueOnce(query(gym()));
       await expect(service.remove(ID, 'health')).rejects.toBeInstanceOf(ConflictException);
       expect(refs.migrate).not.toHaveBeenCalled();
+    });
+
+    it('refuses to delete a category that was already deleted', async () => {
+      model.findOne.mockImplementation(findOneBy(gym({ active: false })));
+      await expect(service.remove(ID)).rejects.toThrow(/was deleted/);
+      expect(model.findOneAndUpdate).not.toHaveBeenCalled();
     });
 
     it('counts a category as in use through recurring rules or budgets alone', async () => {
@@ -235,7 +248,7 @@ describe('CategoriesService', () => {
       model.findOneAndUpdate.mockResolvedValueOnce({ _id: ID });
       await service.remove(ID);
       expect(model.findOneAndUpdate).toHaveBeenCalledWith(
-        { _id: ID, userId: 1, active: true, pending: null },
+        { _id: ID, userId: 1, name: 'food', active: true, pending: null },
         { $set: { active: false, pending: null } },
       );
       expect(refs.migrate).not.toHaveBeenCalled();
@@ -247,7 +260,10 @@ describe('CategoriesService', () => {
       model.findOne.mockReturnValueOnce(query(gym({ active: false, pending: { from: 'gym', to: 'health' } })));
       await expect(service.finish(ID)).resolves.toEqual({ id: ID });
       expect(refs.migrate).toHaveBeenCalledWith('gym', 'health');
-      expect(model.updateOne).toHaveBeenCalledWith({ _id: ID }, { $set: { pending: null } });
+      expect(model.updateOne).toHaveBeenCalledWith(
+        { _id: ID, 'pending.from': 'gym', 'pending.to': 'health' },
+        { $set: { pending: null } },
+      );
     });
 
     it('answers 404 when there is no unfinished move', async () => {
@@ -284,6 +300,16 @@ describe('CategoriesService', () => {
       ]);
       expect(o.palette).toHaveLength(10);
       expect(o.emojis).toHaveLength(20);
+    });
+
+    it("gives a legacy custom category sharing a built-in's name no usage of its own", async () => {
+      model.find.mockReturnValueOnce(query([gym({ name: 'food' })]));
+      refs.usage.mockResolvedValue(new Map([['food', { transactions: 42, recurring: 0, budgets: 1 }]]));
+      const o = await service.overview();
+      const builtInFood = o.categories.find((c) => c.isBuiltIn && c.name === 'food');
+      const customFood = o.categories.find((c) => !c.isBuiltIn && c.name === 'food');
+      expect(builtInFood!.usage).toEqual({ transactions: 42, recurring: 0, budgets: 1 });
+      expect(customFood!.usage).toEqual({ transactions: 0, recurring: 0, budgets: 0 });
     });
   });
 });

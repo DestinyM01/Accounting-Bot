@@ -69,7 +69,10 @@ export class CategoriesService {
         })),
         ...custom.map((c) => ({
           id: String(c._id), name: c.name, emoji: c.emoji, color: c.color, isBuiltIn: false, active: c.active,
-          usage: usageOf(c.name), pending: c.pending ?? null,
+          // A legacy custom category named like a built-in shares that name's data with the
+          // built-in: its own row shows no usage, and remove() hides it without moving anything.
+          usage: BUILT_IN_NAMES.includes(c.name) ? { ...NO_USAGE } : usageOf(c.name),
+          pending: c.pending ?? null,
         })),
       ],
       palette: PALETTE,
@@ -160,8 +163,11 @@ export class CategoriesService {
     }
 
     // Hiding it and reserving its name are one write: from here nothing new can pick it.
+    // Pinning the name guards against a rename finishing in another tab between the read
+    // above and this write, which would otherwise record a move from a name that no longer
+    // holds the data.
     const claimed = await this.model.findOneAndUpdate(
-      { _id: cat._id, userId: this.userId, active: true, pending: null },
+      { _id: cat._id, userId: this.userId, name: cat.name, active: true, pending: null },
       { $set: { active: false, pending } },
     );
     if (!claimed) throw new ConflictException(`${cat.name} changed meanwhile — reload and try again`);
@@ -178,7 +184,8 @@ export class CategoriesService {
 
   private async completeMove(id: unknown, pending: Pending): Promise<void> {
     await this.refs.migrate(pending.from, pending.to);
-    await this.model.updateOne({ _id: id }, { $set: { pending: null } });
+    // Only clear the move this call finished: a newer one may have replaced it meanwhile.
+    await this.model.updateOne({ _id: id, 'pending.from': pending.from, 'pending.to': pending.to }, { $set: { pending: null } });
   }
 
   private async findOwn(id: string) {

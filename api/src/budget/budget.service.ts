@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { Budget } from '../shared/schemas/budget.schema';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { SPENDING_ONLY } from '../shared/schemas/transfer-kind';
+import { CategoriesService } from '../categories/categories.service';
 
 @Injectable()
 export class BudgetService {
@@ -12,6 +13,7 @@ export class BudgetService {
   constructor(
     @InjectModel(Budget.name) private budgetModel: Model<Budget>,
     @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
+    private readonly categories: CategoriesService,
   ) {}
 
   async get(month?: number, year?: number) {
@@ -56,6 +58,7 @@ export class BudgetService {
   }
 
   async set(category: string, limitAmount: number, month?: number, year?: number): Promise<void> {
+    await this.categories.assertValid(category);
     const now = new Date();
     const m = month ?? now.getMonth() + 1;
     const y = year ?? now.getFullYear();
