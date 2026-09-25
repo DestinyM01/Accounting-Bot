@@ -1976,3 +1976,47 @@ Expected: `7`; the `git grep` shows only `categoriesService.create(` in the cont
 
 1. Spec review, then code-quality review; fixes; a preview-harness screenshot of the page (desktop and phone); private-identifier gate; push.
 2. Hand the user: restart `accounting-api` and `accounting-web` once CI is green; open **Categories**; create one, rename it, then delete it into another category and watch the usage move.
+
+## As built (2026-09-24)
+
+Tasks 1–7 landed as written in `cbaf83c`, `5d8b004`, `5f2c212`, `203b9e6`, `50de781`, `dfd877e` and `272fd81`. Counts matched the plan (api 42 suites / 422 tests).
+
+**Preview:** a scratch harness rendered the real component against fake data, with screenshots at 1280 px and 375 px. They show:
+- the create form's live hint for "Coffee Shop";
+- the other rows locked while a form is open;
+- the delete-and-move sentence "Move its 12 transactions, 1 recurring rule and 2 budgets to", with the category itself and a mid-move one left out of the targets;
+- no horizontal scroll at phone width.
+
+**Spec review:** close, but not compliant. Every move trace was correct: delete, an interruption followed by Finish, rename, reserved names, revival and validation. Fixed in `333e451` and `a9d52d9`:
+- A move's destination is locked until the move finishes: the api answers 409 and the page disables Edit and Delete. Without the lock, finishing would put the rest of the data under a dead name, and a recurring rule there would book to it every month.
+- A failed change reloads the page, so an interrupted move shows its Finish move.
+- `migrate(x, x)` does nothing. It used to delete every budget of `x`.
+- A legacy custom category carrying a built-in's name is hidden without moving the built-in's data, and can't be renamed.
+- Tests that couldn't fail now can.
+- Errors keep their colour, and Finish move waits while another form is open.
+
+**Code-quality review:** no critical issues; ready once fixed. Fixed in `152966d`, `c9403d3` and `e804c70`:
+- **The page could lock up.** If the category being edited or deleted was deleted in another tab, every button stayed disabled. The form now closes and the error shows on the page.
+- **The legacy built-in-named category couldn't be deleted from the page.** It showed the built-in's usage, so the page always asked for a move, which the api refuses. It now shows no usage of its own.
+- **Guarded writes.** The delete claim pins the name. Clearing `pending` clears only the move that just finished, so a newer move is never wiped.
+- **Budgets check their category.** `BudgetService.set` now validates against the active list, which the spec says every writer does.
+- **Focus and accessibility.** Focus returns after every failure and after a reload that re-renders rows. A lock's reason is visible text tied to the disabled buttons. Each Finish move names its move.
+- **Colours.** `CategoryService` rebuilds its colour map, so a deleted or renamed category stops keeping its colour.
+
+**Decided:** a legacy name that isn't normalized (for example `Gym`, or `Side Income`) is normalized on its first edit from the page, because the page always sends the rule-conforming name. A name that can't be normalized (`Side Income`) must be renamed before saving. This moves legacy data onto the rule; the api still accepts an emoji-only change.
+
+Final: api 42 suites / 432 tests, repo 14 / 83, web build clean with zero warnings.
+
+## Follow-ups
+
+- **Two tabs moving at the same moment.** The destination lock is check-then-act. Tab A moves `gym` into `travel` while tab B moves `travel` elsewhere, both between each other's checks. If A's transactions step runs after B's, `gym`'s data ends up under the dead `travel`. Fix: after each claim, re-check the other side, and undo your own claim with a 409 on a collision. For a move, check that the target is still active and not a `pending.from`; for a category, check that it has no incoming `pending.to`. Both sides write before they read, so at least one of them sees the other.
+- **The known race, in full.** A write under the old name that lands after `migrate` has passed that collection stays under the old name. The writers:
+  - the ingester;
+  - web writes (transactions, recurring rules, budgets): each validates against the active list, but a request already past validation when the claim lands can still write;
+  - the recurring scheduler, which books a rule it read before the rename under the old name.
+
+  Such a row keeps a dead name until it is edited. A fix would re-run `migrate` a few minutes after a move completes.
+- **No database uniqueness for names.** Two simultaneous creates of the same name can both pass `assertNameFree`. Fix: a partial unique index on `{ userId, name }` for `active: true`, after checking the existing data for duplicates.
+- **Renaming onto a deleted category's name** leaves an inactive record with the same name beside the active one. Everything reads `active: true`, so nothing misbehaves; tidy it up if the unique index lands.
+- **References a delete doesn't move.** Usage counts only live transactions and active rules. A delete without a move therefore leaves soft-deleted transactions and inactive rules under the dead name. A future restore feature must re-validate their category.
+- **The Budget page's "Create Category" placeholder card** could link to `/categories`.
