@@ -74,7 +74,8 @@ export class CalculatorComponent implements OnInit, OnDestroy {
     const r = this.result;
     if (!r) return '';
     const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-    return `After ${r.years.length} years: ${money(r.finalBalance)} — ${money(r.putIn)} put in, ${money(r.interest)} interest`;
+    const years = r.years.length === 1 ? '1 year' : `${r.years.length} years`;
+    return `After ${years}: ${money(r.finalBalance)} — ${money(r.putIn)} put in, ${money(r.interest)} interest`;
   }
 
   useMyNumbers() {
@@ -103,6 +104,9 @@ export class CalculatorComponent implements OnInit, OnDestroy {
     if (typeof input === 'string') {
       this.inputError = input;
       this.stale = !!this.result;
+      // Bump the generation and drop loading so a reply already in flight can't overwrite this invalid state.
+      ++this.gen;
+      this.loading = false;
       return;
     }
     const gen = ++this.gen;
@@ -141,6 +145,8 @@ export class CalculatorComponent implements OnInit, OnDestroy {
     // Theme colours, read at runtime so the chart follows the design tokens.
     const css = getComputedStyle(document.documentElement);
     const token = (name: string) => css.getPropertyValue(name).trim();
+    // Same formatting as the Balance page's tooltip.
+    const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
     const first = !this.chart;
     this.chart?.destroy();
     this.chart = new Chart(canvas, {
@@ -156,10 +162,20 @@ export class CalculatorComponent implements OnInit, OnDestroy {
         responsive: true,
         maintainAspectRatio: false,
         animation: first ? undefined : false,
-        plugins: { legend: { labels: { color: token('--text-muted') } } },
+        plugins: {
+          legend: { labels: { color: token('--text-muted') } },
+          tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${money(c.parsed.y ?? 0)}` } },
+        },
         scales: {
           x: { stacked: true, grid: { color: token('--border') }, ticks: { color: token('--text-muted'), maxTicksLimit: 10 } },
-          y: { stacked: true, grid: { color: token('--border') }, ticks: { color: token('--text-muted') } },
+          y: {
+            stacked: true,
+            grid: { color: token('--border') },
+            ticks: {
+              color: token('--text-muted'),
+              callback: (value) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
+            },
+          },
         },
       },
     });

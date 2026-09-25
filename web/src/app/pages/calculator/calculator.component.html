@@ -9,11 +9,31 @@
       <h2 id="calc-inputs-title">Your plan</h2>
       <label class="fc-field">
         <span>Starting amount ($)</span>
-        <input class="fc-input" type="number" min="0" step="0.01" [(ngModel)]="start" (ngModelChange)="onChange()" name="start" />
+        <input
+          class="fc-input"
+          type="number"
+          min="0"
+          max="1000000000000"
+          step="0.01"
+          [(ngModel)]="start"
+          (ngModelChange)="onChange()"
+          name="start"
+          [disabled]="mineLoading"
+        />
       </label>
       <label class="fc-field">
         <span>Monthly deposit ($)</span>
-        <input class="fc-input" type="number" min="0" step="0.01" [(ngModel)]="monthly" (ngModelChange)="onChange()" name="monthly" />
+        <input
+          class="fc-input"
+          type="number"
+          min="0"
+          max="1000000000000"
+          step="0.01"
+          [(ngModel)]="monthly"
+          (ngModelChange)="onChange()"
+          name="monthly"
+          [disabled]="mineLoading"
+        />
       </label>
       <label class="fc-field">
         <span>Annual rate (%)</span>
@@ -30,9 +50,11 @@
       </button>
       <p class="calc-note" aria-live="polite">
         @if (mine) {
-          Your balance today · average saved over {{ mineSpan }}: {{ mine.monthlySavings | currency: 'USD' : 'symbol' : '1.2-2' }}
           @if (mine.spentMore) {
-            — you spent more than you earned, so {{ 0 | currency: 'USD' : 'symbol' : '1.2-2' }}
+            Your balance today · average saved over {{ mineSpan }}: you spent more than you earned, so
+            {{ 0 | currency: 'USD' : 'symbol' : '1.2-2' }}
+          } @else {
+            Your balance today · average saved over {{ mineSpan }}: {{ mine.monthlySavings | currency: 'USD' : 'symbol' : '1.2-2' }}
           }
         }
       </p>
@@ -50,7 +72,7 @@
         @if (stale) {
           <p class="calc-note">Showing the last valid result</p>
         }
-        <div class="calc-figures" aria-live="polite">
+        <div class="calc-figures" aria-live="polite" aria-atomic="true">
           <div class="calc-figure">
             <span>Final balance</span>
             <strong>{{ result.finalBalance | currency: 'USD' : 'symbol' : '1.2-2' }}</strong>
@@ -79,7 +101,7 @@
           {{ showTable ? 'Hide the table' : 'Show the table' }}
         </button>
         @if (showTable) {
-          <div id="calc-table" class="calc-table-wrap">
+          <div id="calc-table" class="calc-table-wrap" tabindex="0" role="region" aria-label="Year-by-year table">
             <table class="calc-table">
               <thead>
                 <tr>
