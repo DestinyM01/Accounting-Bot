@@ -104,6 +104,9 @@ export class IngestionService {
     const senders = this.parsers.flatMap((p) => p.senders);
     const mails = await this.mail.fetchSince(since, senders);
 
+    // Mails before the window can't come back: don't leave them on the unreadable list.
+    await this.status.forgetUnreadableBefore(since);
+
     // Dedupe BEFORE any work. The watermark never advances, so every poll
     // re-fetches every mail since the start date; without this, each poll
     // re-ran FX, categorisation (a model call per unknown merchant) and the

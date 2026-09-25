@@ -60,8 +60,10 @@ export class IngestionStatusService {
             bookingFailed: counts.bookingFailed,
             lastError: null,
           },
+          // The old counts are no longer in the schema; strict: false lets this one write remove them.
+          $unset: { skipped: '', failed: '' },
         },
-        { upsert: true },
+        { upsert: true, strict: false },
       ),
     );
   }
@@ -87,6 +89,17 @@ export class IngestionStatusService {
         },
         { upsert: true },
       ),
+    );
+  }
+
+  /**
+   * Forgets unreadable mails received before the reading window: they can't be
+   * fetched again, so they would sit on the list forever. Dismissals are kept, in
+   * case the start date moves back.
+   */
+  async forgetUnreadableBefore(since: Date): Promise<void> {
+    await this.quietly('forget unreadable mails outside the window', () =>
+      this.unreadableModel.deleteMany({ userId: this.userId, receivedAt: { $lt: since }, dismissed: { $ne: true } }),
     );
   }
 

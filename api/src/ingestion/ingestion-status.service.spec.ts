@@ -57,8 +57,26 @@ describe('IngestionStatusService', () => {
     await service.recordRun({ created: 1, alreadyBooked: 2, notTransactions: 3, unreadable: 1, bookingFailed: 0 }, AT);
     expect(statusModel.updateOne).toHaveBeenCalledWith(
       { userId: 1 },
-      { $set: { lastRunAt: AT, created: 1, alreadyBooked: 2, notTransactions: 3, unreadable: 1, bookingFailed: 0, lastError: null } },
-      { upsert: true },
+      {
+        $set: { lastRunAt: AT, created: 1, alreadyBooked: 2, notTransactions: 3, unreadable: 1, bookingFailed: 0, lastError: null },
+        $unset: { skipped: '', failed: '' },
+      },
+      { upsert: true, strict: false },
+    );
+  });
+
+  it('forgets unreadable mails from before the reading window, keeping dismissals', async () => {
+    const since = new Date('2026-09-01T04:00:00Z');
+    await service.forgetUnreadableBefore(since);
+    expect(unreadableModel.deleteMany).toHaveBeenCalledWith({ userId: 1, receivedAt: { $lt: since }, dismissed: { $ne: true } });
+  });
+
+  it('removes the old skipped/failed fields when it records a run', async () => {
+    await service.recordRun({ created: 1, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0 }, AT);
+    expect(statusModel.updateOne).toHaveBeenCalledWith(
+      { userId: 1 },
+      expect.objectContaining({ $unset: { skipped: '', failed: '' } }),
+      expect.objectContaining({ upsert: true, strict: false }),
     );
   });
 

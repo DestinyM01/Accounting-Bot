@@ -86,7 +86,7 @@ describe('IngestionService', () => {
   let fx: { usdToDop: jest.Mock };
   let settings: { accounts: jest.Mock };
   let status: {
-    dismissedAmong: jest.Mock; recordUnreadable: jest.Mock; clearUnreadable: jest.Mock; clearUnreadableMany: jest.Mock; recordRun: jest.Mock; recordFailure: jest.Mock;
+    dismissedAmong: jest.Mock; recordUnreadable: jest.Mock; clearUnreadable: jest.Mock; clearUnreadableMany: jest.Mock; recordRun: jest.Mock; recordFailure: jest.Mock; forgetUnreadableBefore: jest.Mock;
   };
   let memory: { all: jest.Mock };
   let loggerErrorSpy: jest.SpyInstance;
@@ -135,6 +135,7 @@ describe('IngestionService', () => {
       clearUnreadableMany: jest.fn().mockResolvedValue(undefined),
       recordRun: jest.fn().mockResolvedValue(undefined),
       recordFailure: jest.fn().mockResolvedValue(undefined),
+      forgetUnreadableBefore: jest.fn().mockResolvedValue(undefined),
     };
     memory = { all: jest.fn().mockResolvedValue(new Map()) };
 
@@ -974,6 +975,11 @@ describe('IngestionService', () => {
       await service.run();
 
       expect(status.clearUnreadableMany).toHaveBeenCalledWith(['m1']);
+    });
+
+    it('forgets unreadable mails from before the reading window on each run', async () => {
+      await service.run();
+      expect(status.forgetUnreadableBefore).toHaveBeenCalledWith(expect.any(Date));
     });
 
     it('reads the account lists once per run, not once per mail', async () => {
