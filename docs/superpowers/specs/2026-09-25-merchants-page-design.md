@@ -107,6 +107,7 @@ If the call fails between steps 3 and 4, retrying is safe. The moved rows are no
   - Focus moves to the picker or the Forget button when a form opens.
   - On cancel, focus returns to the button that opened the form. After saving a change, it goes to the row's Change button.
   - After a forget, it goes to the next row's Change button, else the previous row's, else Add merchant.
+- **Filter while a form is open.** The row being changed or forgotten stays visible even when it doesn't match the filter.
 - **Phone width (≤ 640 px).** Each row stacks: the key and pill, then the counts, then the actions. There is no horizontal scroll.
 - **Styling.** Theme tokens only; no colour literals.
 
@@ -144,3 +145,17 @@ Before the list loads, nothing is flagged, so a custom guess doesn't flash as de
   - a clean build and no colour literals in the new stylesheet;
   - preview-harness screenshots of the list, the add form's preview states, a change, a forget, a deleted-category row and the phone layout;
   - the Transactions review cell with a deleted guess.
+
+## Settled in review (2026-09-25)
+
+- **The guarded memory update** in `change` matches `category: { $in: [old, chosen] }`. A second submit of the same choice, from another tab, therefore succeeds instead of answering 409. Any other category set in between still gives 409, now worded "This merchant changed at the same time; some of its rows may have moved. Check the list and try again."
+- **Messages.**
+  - An inactive category reads "{category} is not an active category", matching the Categories page.
+  - Add's 409 capitalises the category: "Already remembered as Food; …".
+- **Sorting.** `list` sorts keys with Spanish collation, so "ñame" comes before "oso".
+- **Filtering.** The filter keeps the row being changed or forgotten visible.
+- **Keeping the page current.**
+  - A change or a forget updates the row at once, then the list reloads.
+  - A picked category that disappears on reload is cleared.
+  - A failed add checks the name again.
+- **The Transactions page** refreshes the category list when it opens, so a category created elsewhere isn't shown as a deleted guess. A failed pick on a deleted guess goes back to "Choose a category".

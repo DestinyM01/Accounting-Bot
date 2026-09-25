@@ -387,7 +387,7 @@ describe('MerchantMemoryService', () => {
       memoryModel.updateOne.mockResolvedValue({ matchedCount: 0 });
       const err = await service.change(ID, 'entertainment').catch((e) => e);
       expect(err).toBeInstanceOf(ConflictException);
-      expect(err.message).toBe('This merchant changed at the same time; some of its rows may have moved. Reload and check.');
+      expect(err.message).toBe('This merchant changed at the same time; some of its rows may have moved. Check the list and try again.');
     });
 
     it('writes nothing when the category is the same', async () => {

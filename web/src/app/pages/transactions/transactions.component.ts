@@ -62,6 +62,9 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     this.searchSub = this.search$.pipe(debounceTime(300), distinctUntilChanged())
       .subscribe(() => { this.offset = 0; this.load(false); });
     this.eventsSub = this.events.changed$.subscribe(() => this.reloadInPlace());
+    // The category list is loaded once at app start; refresh it so a category
+    // created elsewhere since then isn't shown as a deleted guess (isDeletedGuess).
+    this.catSvc.load();
     this.load(false);
   }
 

@@ -218,7 +218,7 @@ export class MerchantMemoryService {
       { $set: { category: chosen, updatedAt: new Date() } },
     );
     if (res.matchedCount === 0) {
-      throw new ConflictException('This merchant changed at the same time; some of its rows may have moved. Reload and check.');
+      throw new ConflictException('This merchant changed at the same time; some of its rows may have moved. Check the list and try again.');
     }
     return { moved };
   }
