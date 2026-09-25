@@ -172,16 +172,21 @@
   border: 2px dashed var(--border) !important;
   background: transparent !important;
   color: var(--text-muted);
-  cursor: default;
+  cursor: pointer;
   font-size: 0.875rem;
   gap: 12px;
   min-height: 160px;
+  text-decoration: none;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover { color: var(--text); border-color: var(--accent) !important; }
+  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }
 .create-icon {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.05);
+  background: var(--color-surface-hover);
   display: flex;
   align-items: center;
   justify-content: center;

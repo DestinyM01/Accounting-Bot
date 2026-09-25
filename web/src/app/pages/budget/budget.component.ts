@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule, CurrencyPipe, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/services/api.service';
 import { BudgetEntry } from '../../core/services/api.models';
@@ -9,7 +10,7 @@ import { CategoryService } from '../../core/services/category.service';
 @Component({
   selector: 'app-budget',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, TitleCasePipe, FormsModule, MatIconModule],
+  imports: [CommonModule, CurrencyPipe, TitleCasePipe, FormsModule, RouterLink, MatIconModule],
   templateUrl: './budget.component.html',
   styleUrls: ['./budget.component.scss'],
 })
