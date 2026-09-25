@@ -155,6 +155,11 @@ describe('IngestionService', () => {
     }).compile();
 
     service = module.get<IngestionService>(IngestionService);
+    // Under load Nest's ModuleTokenFactory itself warns ("is taking Xms to
+    // serialize") during compile(), above; that would count as this test's
+    // own warning or error and flake the exact-count assertions below.
+    loggerWarnSpy.mockClear();
+    loggerErrorSpy.mockClear();
   });
 
   afterEach(() => {

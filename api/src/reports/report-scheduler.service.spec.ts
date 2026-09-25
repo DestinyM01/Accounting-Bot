@@ -89,6 +89,10 @@ describe('ReportSchedulerService', () => {
       ],
     }).compile();
     service = module.get(ReportSchedulerService);
+    // Under load Nest's ModuleTokenFactory itself warns ("is taking Xms to
+    // serialize") during compile(), above; that would count as this test's
+    // own warning and flake the "warns once" assertions below.
+    warnSpy.mockClear();
   });
 
   afterEach(() => {
