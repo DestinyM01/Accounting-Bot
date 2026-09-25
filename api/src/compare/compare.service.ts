@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { Mistral } from '@mistralai/mistralai';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { NOT_DELETED, SPENDING_ONLY } from '../shared/schemas/transfer-kind';
+import { CategorySpendService } from '../cash/category-spend.service';
 
 export interface PeriodSummary {
   month: string;
@@ -26,6 +27,7 @@ export class CompareService {
 
   constructor(
     @InjectModel(Transaction.name) private txModel: Model<Transaction>,
+    private readonly spend: CategorySpendService,
   ) {
     if (process.env.MISTRAL_API_KEY) {
       this.client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
@@ -65,27 +67,21 @@ export class CompareService {
     const start = new Date(year, m - 1, 1);
     const end   = new Date(year, m,     1);
 
-    const txs = await this.txModel
-      .find({
-        userId: this.userId,
-        timestamp: { $gte: start, $lt: end },
-        ...SPENDING_ONLY,
-      })
-      .select('amount category')
-      .lean();
+    const [txs, categories] = await Promise.all([
+      this.txModel
+        .find({
+          userId: this.userId,
+          timestamp: { $gte: start, $lt: end },
+          ...SPENDING_ONLY,
+        })
+        .select('amount')
+        .lean(),
+      this.spend.byCategory(start, end),
+    ]);
 
     const totalIncome   = txs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
     const totalExpenses = txs.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
-
-    const catMap: Record<string, number> = {};
-    for (const t of txs.filter(t => t.amount < 0)) {
-      const cat = t.category || 'other';
-      catMap[cat] = (catMap[cat] || 0) + Math.abs(t.amount);
-    }
-    const topCategories = Object.entries(catMap)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([category, amount]) => ({ category, amount }));
+    const topCategories = categories.slice(0, 3).map(({ category, total }) => ({ category, amount: total }));
 
     return { month, totalIncome, totalExpenses, net: totalIncome - totalExpenses, topCategories };
   }

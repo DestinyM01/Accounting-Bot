@@ -3,9 +3,8 @@ import { getModelToken } from '@nestjs/mongoose';
 import { BadRequestException } from '@nestjs/common';
 import { BudgetService } from './budget.service';
 import { Budget } from '../shared/schemas/budget.schema';
-import { Transaction } from '../shared/schemas/transaction.schema';
-import { SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 import { CategoriesService } from '../categories/categories.service';
+import { CategorySpendService } from '../cash/category-spend.service';
 
 const mockBudgetModel = {
   find:             jest.fn(function() { return this; }),
@@ -13,13 +12,8 @@ const mockBudgetModel = {
   findOneAndUpdate: jest.fn(),
 };
 
-const mockTransactionModel = {
-  find:   jest.fn(function() { return this; }),
-  select: jest.fn(function() { return this; }),
-  lean:   jest.fn().mockResolvedValue([]),
-};
-
 const mockCategories = { assertValid: jest.fn().mockResolvedValue(undefined) };
+const mockSpend = { byCategory: jest.fn() };
 
 describe('BudgetService', () => {
   let service: BudgetService;
@@ -27,21 +21,31 @@ describe('BudgetService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     mockCategories.assertValid.mockResolvedValue(undefined);
+    mockSpend.byCategory.mockResolvedValue([]);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BudgetService,
         { provide: getModelToken(Budget.name), useValue: mockBudgetModel },
-        { provide: getModelToken(Transaction.name), useValue: mockTransactionModel },
         { provide: CategoriesService, useValue: mockCategories },
+        { provide: CategorySpendService, useValue: mockSpend },
       ],
     }).compile();
     service = module.get<BudgetService>(BudgetService);
   });
 
   describe('get', () => {
-    it('excludes deleted rows and internal/unresolved transfers from the spent calculation', async () => {
-      await service.get(8, 2026);
-      expect(mockTransactionModel.find).toHaveBeenCalledWith(expect.objectContaining(SPENDING_ONLY));
+    it("takes each budget's spent from CategorySpendService, for the month asked", async () => {
+      mockBudgetModel.lean.mockResolvedValueOnce([
+        { category: 'housing', limitAmount: 20000 },
+        { category: 'food', limitAmount: 5000 },
+      ]);
+      mockSpend.byCategory.mockResolvedValueOnce([{ category: 'food', total: 3200 }, { category: 'cash', total: 500 }]);
+      const rows = await service.get(8, 2026);
+      expect(mockSpend.byCategory).toHaveBeenCalledWith(new Date(2026, 7, 1), new Date(2026, 8, 1));
+      expect(rows).toEqual([
+        { category: 'housing', limit: 20000, spent: 0, remaining: 20000, percentage: 0, month: 8, year: 2026 },
+        { category: 'food', limit: 5000, spent: 3200, remaining: 1800, percentage: 64, month: 8, year: 2026 },
+      ]);
     });
   });
 

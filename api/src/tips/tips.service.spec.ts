@@ -3,6 +3,9 @@ import { getModelToken } from '@nestjs/mongoose';
 import { TipsService } from './tips.service';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { SPENDING_ONLY } from '../shared/schemas/transfer-kind';
+import { CategorySpendService } from '../cash/category-spend.service';
+
+const spend = { byCategory: jest.fn() };
 
 let leanResult: any[] = [];
 
@@ -18,10 +21,12 @@ describe('TipsService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     leanResult = [];
+    spend.byCategory.mockResolvedValue([]);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TipsService,
         { provide: getModelToken(Transaction.name), useValue: mockModel },
+        { provide: CategorySpendService, useValue: spend },
       ],
     }).compile();
     service = module.get<TipsService>(TipsService);
@@ -36,17 +41,13 @@ describe('TipsService', () => {
   });
 
   describe('getTips', () => {
-    // Internal transfers post as transactionType EXPENSE with a negative
-    // amount — exactly the shape the 3-month category breakdown sums — so
-    // without this exclusion they inflate the spending numbers fed to Mistral.
-    it('excludes deleted rows and internal/unresolved transfers from the 3-month category breakdown query', async () => {
+    it("reads each of the last 3 months' categories from CategorySpendService", async () => {
       await service.getTips();
-
-      const calls = (mockModel.find as jest.Mock).mock.calls;
-      const categoryCalls = calls.filter(([q]) => q.amount && q.amount.$lt !== undefined);
-      expect(categoryCalls.length).toBe(3); // one per of the last 3 months
-      for (const [q] of categoryCalls) {
-        expect(q).toEqual(expect.objectContaining(SPENDING_ONLY));
+      expect(spend.byCategory).toHaveBeenCalledTimes(3);
+      const now = new Date();
+      for (let i = 2; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        expect(spend.byCategory).toHaveBeenCalledWith(start, new Date(start.getFullYear(), start.getMonth() + 1, 1));
       }
     });
 

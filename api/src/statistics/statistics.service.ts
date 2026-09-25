@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { SPENDING_ONLY } from '../shared/schemas/transfer-kind';
+import { CategorySpendService } from '../cash/category-spend.service';
 
 @Injectable()
 export class StatisticsService {
@@ -10,6 +11,7 @@ export class StatisticsService {
 
   constructor(
     @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
+    private readonly spend: CategorySpendService,
   ) {}
 
   /** Current-month summary: total income, total expense, net */
@@ -74,32 +76,11 @@ export class StatisticsService {
     return results;
   }
 
-  /** Expense breakdown by category for current month */
+  /** Expense breakdown by category for a month, cash itemization applied. */
   async byCategory(month?: number, year?: number) {
     const now = new Date();
     const m = month ?? now.getMonth() + 1;
     const y = year ?? now.getFullYear();
-    const start = new Date(y, m - 1, 1);
-    const end = new Date(y, m, 1);
-
-    const txs = await this.transactionModel
-      .find({
-        userId: this.userId,
-        timestamp: { $gte: start, $lt: end },
-        amount: { $lt: 0 },
-        ...SPENDING_ONLY,
-      })
-      .select('amount category')
-      .lean();
-
-    const grouped: Record<string, number> = {};
-    for (const t of txs) {
-      const cat = t.category || 'other';
-      grouped[cat] = (grouped[cat] || 0) + Math.abs(t.amount);
-    }
-
-    return Object.entries(grouped)
-      .map(([category, total]) => ({ category, total: Math.round(total * 100) / 100 }))
-      .sort((a, b) => b.total - a.total);
+    return this.spend.byCategory(new Date(y, m - 1, 1), new Date(y, m, 1));
   }
 }

@@ -7,6 +7,7 @@ import { Recurring } from '../shared/schemas/recurring.schema';
 import { SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 import { StatisticsService } from '../statistics/statistics.service';
 import { BudgetService } from '../budget/budget.service';
+import { CategorySpendService } from '../cash/category-spend.service';
 import { ReportPeriod } from './report-periods';
 
 const at = (iso: string) => new Date(iso);
@@ -38,6 +39,7 @@ describe('ReportDataService', () => {
   let recurringModel: { find: jest.Mock };
   let statistics: { summary: jest.Mock; byCategory: jest.Mock };
   let budgets: { get: jest.Mock };
+  let spend: { byCategory: jest.Mock };
 
   beforeEach(async () => {
     process.env.BOSS_USER_ID = '1';
@@ -52,6 +54,7 @@ describe('ReportDataService', () => {
       byCategory: jest.fn().mockResolvedValue([]),
     };
     budgets = { get: jest.fn().mockResolvedValue([]) };
+    spend = { byCategory: jest.fn().mockResolvedValue([]) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -60,6 +63,7 @@ describe('ReportDataService', () => {
         { provide: getModelToken(Recurring.name), useValue: recurringModel },
         { provide: StatisticsService, useValue: statistics },
         { provide: BudgetService, useValue: budgets },
+        { provide: CategorySpendService, useValue: spend },
       ],
     }).compile();
     service = module.get(ReportDataService);
@@ -85,6 +89,11 @@ describe('ReportDataService', () => {
           { amount: -300, transactionName: 'misc', timestamp: at('2026-09-26T15:00:00Z') },
         ]),
       );
+      spend.byCategory.mockResolvedValueOnce([
+        { category: 'housing', total: 12000 },
+        { category: 'other', total: 300 },
+        { category: 'food', total: 150 },
+      ]);
       const { week } = await service.weekly(WEEK, NOW);
       expect(week.spent).toBe(12450);
       expect(week.income).toBe(45000);
@@ -93,6 +102,7 @@ describe('ReportDataService', () => {
         { category: 'other', total: 300 },
         { category: 'food', total: 150 },
       ]);
+      expect(spend.byCategory).toHaveBeenCalledWith(WEEK.from, WEEK.to);
       expect(week.largest).toEqual([
         { name: 'Rent Co', at: at('2026-09-23T15:00:00Z'), amount: 12000 },
         { name: 'misc', at: at('2026-09-26T15:00:00Z'), amount: 300 },
@@ -101,13 +111,9 @@ describe('ReportDataService', () => {
     });
 
     it('keeps only the top 5 categories', async () => {
-      const rows = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((category, i) => ({
-        amount: -(i + 1) * 10,
-        category,
-        transactionName: category,
-        timestamp: at('2026-09-22T15:00:00Z'),
-      }));
-      txModel.find.mockReturnValue(query(rows));
+      spend.byCategory.mockResolvedValueOnce(
+        ['g', 'f', 'e', 'd', 'c', 'b', 'a'].map((category, i) => ({ category, total: (7 - i) * 10 })),
+      );
       const { week } = await service.weekly(WEEK, NOW);
       expect(week.topCategories.map((c) => c.category)).toEqual(['g', 'f', 'e', 'd', 'c']);
     });

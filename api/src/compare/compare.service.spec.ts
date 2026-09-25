@@ -3,6 +3,9 @@ import { getModelToken } from '@nestjs/mongoose';
 import { CompareService } from './compare.service';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { NOT_DELETED, SPENDING_ONLY } from '../shared/schemas/transfer-kind';
+import { CategorySpendService } from '../cash/category-spend.service';
+
+const spend = { byCategory: jest.fn() };
 
 const MAY_TXS = [
   { amount: 1000, category: 'salary',    timestamp: new Date('2026-05-15') },
@@ -29,10 +32,12 @@ describe('CompareService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     leanResult = MAY_TXS;
+    spend.byCategory.mockResolvedValue([{ category: 'food', total: 250 }, { category: 'transport', total: 150 }]);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CompareService,
         { provide: getModelToken(Transaction.name), useValue: mockModel },
+        { provide: CategorySpendService, useValue: spend },
       ],
     }).compile();
     service = module.get<CompareService>(CompareService);
@@ -85,11 +90,17 @@ describe('CompareService', () => {
       const result = await service.compare('2026-05', '2026-05');
       expect(result.monthA.topCategories[0].category).toBe('food');
       expect(result.monthA.topCategories[0].amount).toBe(250);
+      expect(spend.byCategory).toHaveBeenCalledWith(new Date(2026, 4, 1), new Date(2026, 5, 1));
     });
 
     it('includes at most 3 top categories', async () => {
+      spend.byCategory.mockResolvedValue(['a', 'b', 'c', 'd'].map((category, i) => ({ category, total: 100 - i })));
       const result = await service.compare('2026-05', '2026-05');
-      expect(result.monthA.topCategories.length).toBeLessThanOrEqual(3);
+      expect(result.monthA.topCategories).toEqual([
+        { category: 'a', amount: 100 },
+        { category: 'b', amount: 99 },
+        { category: 'c', amount: 98 },
+      ]);
     });
 
     it('attaches Mistral analysis to result', async () => {

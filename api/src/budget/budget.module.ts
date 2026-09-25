@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Budget, BudgetSchema } from '../shared/schemas/budget.schema';
-import { Transaction, TransactionSchema } from '../shared/schemas/transaction.schema';
 import { CategoriesModule } from '../categories/categories.module';
+import { CashModule } from '../cash/cash.module';
 import { BudgetController } from './budget.controller';
 import { BudgetService } from './budget.service';
 
@@ -10,9 +10,9 @@ import { BudgetService } from './budget.service';
   imports: [
     MongooseModule.forFeature([
       { name: Budget.name, schema: BudgetSchema },
-      { name: Transaction.name, schema: TransactionSchema },
     ]),
     CategoriesModule,
+    CashModule,
   ],
   controllers: [BudgetController],
   providers: [BudgetService],

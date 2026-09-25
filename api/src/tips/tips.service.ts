@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { Mistral } from '@mistralai/mistralai';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { SPENDING_ONLY } from '../shared/schemas/transfer-kind';
+import { CategorySpendService } from '../cash/category-spend.service';
 
 export interface Tip {
   title: string;
@@ -37,6 +38,7 @@ export class TipsService {
 
   constructor(
     @InjectModel(Transaction.name) private txModel: Model<Transaction>,
+    private readonly spend: CategorySpendService,
   ) {
     if (process.env.MISTRAL_API_KEY) {
       this.client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
@@ -66,32 +68,14 @@ export class TipsService {
     const now    = new Date();
     const blocks: string[] = [];
 
-    // Last 3 calendar months of expenses by category
+    // Last 3 calendar months of expenses by category, cash itemization applied
     for (let i = 2; i >= 0; i--) {
-      const d     = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const start = d;
-      const end   = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-      const label = d.toLocaleString('en', { month: 'long', year: 'numeric' });
+      const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const end   = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+      const label = start.toLocaleString('en', { month: 'long', year: 'numeric' });
 
-      const txs = await this.txModel
-        .find({
-          userId: this.userId,
-          timestamp: { $gte: start, $lt: end },
-          amount: { $lt: 0 },
-          ...SPENDING_ONLY,
-        })
-        .select('amount category')
-        .lean();
-
-      const grouped: Record<string, number> = {};
-      for (const t of txs) {
-        const cat = t.category || 'other';
-        grouped[cat] = (grouped[cat] || 0) + Math.abs(t.amount);
-      }
-
-      const lines = Object.entries(grouped)
-        .sort((a, b) => b[1] - a[1])
-        .map(([cat, amt]) => `  ${cat}: $${amt.toFixed(2)}`)
+      const lines = (await this.spend.byCategory(start, end))
+        .map(({ category, total }) => `  ${category}: $${total.toFixed(2)}`)
         .join('\n');
 
       blocks.push(`${label}:\n${lines || '  (no expenses recorded)'}`);

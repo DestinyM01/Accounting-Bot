@@ -2,9 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Budget } from '../shared/schemas/budget.schema';
-import { Transaction } from '../shared/schemas/transaction.schema';
-import { SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 import { CategoriesService } from '../categories/categories.service';
+import { CategorySpendService } from '../cash/category-spend.service';
 
 @Injectable()
 export class BudgetService {
@@ -12,8 +11,8 @@ export class BudgetService {
 
   constructor(
     @InjectModel(Budget.name) private budgetModel: Model<Budget>,
-    @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
     private readonly categories: CategoriesService,
+    private readonly spend: CategorySpendService,
   ) {}
 
   async get(month?: number, year?: number) {
@@ -29,26 +28,15 @@ export class BudgetService {
 
     const start = new Date(y, m - 1, 1);
     const end = new Date(y, m, 1);
-
-    const expenses = await this.transactionModel
-      .find({
-        userId: this.userId,
-        timestamp: { $gte: start, $lt: end },
-        amount: { $lt: 0 },
-        ...SPENDING_ONLY,
-      })
-      .select('category amount')
-      .lean();
+    // Itemized cash counts toward its category's budget (see CategorySpendService).
+    const spentBy = new Map((await this.spend.byCategory(start, end)).map((c) => [c.category, c.total]));
 
     return budgets.map((b) => {
-      const spent = expenses
-        .filter((t) => t.category === b.category)
-        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-
+      const spent = spentBy.get(b.category) ?? 0;
       return {
         category: b.category,
         limit: b.limitAmount,
-        spent: Math.round(spent * 100) / 100,
+        spent,
         remaining: Math.round((b.limitAmount - spent) * 100) / 100,
         percentage: Math.min(100, Math.round((spent / b.limitAmount) * 100)),
         month: m,

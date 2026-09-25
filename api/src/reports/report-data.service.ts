@@ -6,6 +6,7 @@ import { Recurring } from '../shared/schemas/recurring.schema';
 import { NOT_DELETED, SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 import { StatisticsService } from '../statistics/statistics.service';
 import { BudgetService } from '../budget/budget.service';
+import { CategorySpendService } from '../cash/category-spend.service';
 import { planOccurrences, schedulableFrom } from '../recurring/due-occurrences';
 import { ReportPeriod } from './report-periods';
 import { BudgetLine, CategoryTotal, Health, MonthlyReportData, RecurringProblem, WeeklyReportData } from './report-types';
@@ -38,6 +39,7 @@ export class ReportDataService {
     @InjectModel(Recurring.name) private readonly recurringModel: Model<Recurring>,
     private readonly statistics: StatisticsService,
     private readonly budgets: BudgetService,
+    private readonly spend: CategorySpendService,
   ) {}
 
   async weekly(period: ReportPeriod, now: Date): Promise<WeeklyReportData> {
@@ -50,15 +52,8 @@ export class ReportDataService {
     const spent = expenses.reduce((s, t) => s + Math.abs(t.amount), 0);
     const income = txs.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
 
-    const byCategory = new Map<string, number>();
-    for (const t of expenses) {
-      const category = t.category || 'other';
-      byCategory.set(category, (byCategory.get(category) ?? 0) + Math.abs(t.amount));
-    }
-    const topCategories: CategoryTotal[] = [...byCategory.entries()]
-      .map(([category, total]) => ({ category, total: round2(total) }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5);
+    // Itemized cash counts under its categories (see CategorySpendService); the week's total is unchanged.
+    const topCategories: CategoryTotal[] = (await this.spend.byCategory(period.from, period.to)).slice(0, 5);
     const largest = [...expenses]
       .sort((a, b) => a.amount - b.amount) // most negative first
       .slice(0, 3)
