@@ -45,7 +45,7 @@ A personal finance tracker: a **web dashboard** for entry, review and reporting,
 | **Recurring** | Create rules; upcoming billing and what was billed this month. The API checks hourly and books each rule on its day (08:00 local), catching up days missed within 31 days |
 | **Categories** | Create, edit, rename and delete your own categories; deleting one in use moves its transactions, recurring rules, budgets and cash items to a category you choose |
 | **Cash envelopes** | Itemize an ATM withdrawal into what the cash was spent on; items count toward their categories' budgets and statistics without adding to total spending |
-| **Settings** | See when bank mail was last read, check it now, dismiss mails that aren't transactions; turn the weekly and monthly emails on or off and choose where they go; edit the account numbers that tell your own transfers from spending |
+| **Settings** | See when bank mail was last read, check it now, dismiss mails that aren't transactions; turn the weekly and monthly emails on or off and choose where they go; edit the account numbers and name fragments that tell your own transfers from spending |
 | **Tips** | AI-generated personalised financial tips (Mistral, 1-hour cache) |
 | **Email reports** | A weekly digest (Monday 07:00) and a monthly summary (the 1st), sent by the API through Gmail; "Send a test digest" on the Settings page sends one now |
 
@@ -180,7 +180,7 @@ The web app expects the API at `/api` (proxied in `angular.json` or via nginx in
    - `notificaciones@bsc.com.do` (Banco Santa Cruz)
    - `notificacionestubancoapp@banreservas.com` (Banreservas)
 3. `INGEST_START_AT` should be set to roughly when you switch ingestion on — it's the forward-only guard that stops historical mail being ingested and double-counting against your current balance.
-4. If `OWN_ACCOUNT_IDENTIFIERS` is unset, Banreservas transfers are skipped entirely — the direction can't be determined, and the system refuses to guess.
+4. If the sender list is empty (saved on the Settings page, else `OWN_ACCOUNT_IDENTIFIERS`), Banreservas transfers are skipped entirely — the direction can't be determined, and the system refuses to guess.
 
 ---
 
@@ -267,6 +267,8 @@ All endpoints require a `Bearer` JWT token (issued by Authentik).
 | `GET` | `/api/analytics/top10` | Top 10 most frequent transactions (all time) |
 | `GET` | `/api/analytics/chart/:name` | Monthly totals for a specific transaction name |
 | `GET` | `/health` | Health check |
+
+Saving a section on the Settings page stores all of its values; later changes to the corresponding Secret keys stop applying to it.
 
 ---
 

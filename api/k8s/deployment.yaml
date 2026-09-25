@@ -67,7 +67,10 @@ spec:
             # The next three are user-specific: real account digits and a
             # deploy-time timestamp. This repository is public, so they live in
             # the Secret, never in this manifest. optional: true only keeps the
-            # pod starting before the keys exist.
+            # pod starting before the keys exist. These are starting values only:
+            # a value saved on the Settings page overrides the Secret's for
+            # OWN_ACCOUNT_IDENTIFIERS and OWN_CASH_ACCOUNTS, and once saved,
+            # later changes here stop applying to it.
             #
             # Their absence does NOT make the ingester inert — only missing
             # GMAIL_USER/GMAIL_APP_PASSWORD does. Without OWN_CASH_ACCOUNTS every
@@ -94,6 +97,8 @@ spec:
                   optional: true
             # Optional: where the weekly digest and monthly summary go. Unset,
             # they go to GMAIL_USER. In the Secret, never here: the repo is public.
+            # This is a starting value only: a value saved on the Settings page
+            # overrides it, and once saved, later changes here stop applying to it.
             - name: REPORT_TO
               valueFrom:
                 secretKeyRef:
