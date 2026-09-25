@@ -35,6 +35,7 @@ import { popularParser } from './parsers/popular.parser';
 import { ParsedTransaction } from './parsers/types';
 import { SettingsService } from '../settings/settings.service';
 import { IngestionStatusService } from './ingestion-status.service';
+import { MerchantMemoryService } from '../merchants/merchant-memory.service';
 
 const parserParseMock = popularParser.parse as jest.Mock;
 
@@ -82,6 +83,7 @@ describe('IngestionService', () => {
   let status: {
     dismissedAmong: jest.Mock; recordUnreadable: jest.Mock; clearUnreadable: jest.Mock; clearUnreadableMany: jest.Mock; recordRun: jest.Mock; recordFailure: jest.Mock;
   };
+  let memory: { all: jest.Mock };
   let loggerErrorSpy: jest.SpyInstance;
   let loggerWarnSpy: jest.SpyInstance;
 
@@ -129,6 +131,7 @@ describe('IngestionService', () => {
       recordRun: jest.fn().mockResolvedValue(undefined),
       recordFailure: jest.fn().mockResolvedValue(undefined),
     };
+    memory = { all: jest.fn().mockResolvedValue(new Map()) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -142,6 +145,7 @@ describe('IngestionService', () => {
         { provide: FxService, useValue: fx },
         { provide: SettingsService, useValue: settings },
         { provide: IngestionStatusService, useValue: status },
+        { provide: MerchantMemoryService, useValue: memory },
       ],
     }).compile();
 
@@ -960,6 +964,43 @@ describe('IngestionService', () => {
       expect(result).toEqual({ created: 3, skipped: 0, failed: 0 });
       expect(categories.list).toHaveBeenCalledTimes(1);
       expect(recurringModel.find).toHaveBeenCalledTimes(1);
+      expect(memory.all).toHaveBeenCalledTimes(1);
+    });
+
+    it('files a remembered merchant straight away: no review, no AI', async () => {
+      memory.all.mockResolvedValue(new Map([['prime video', 'food']]));
+      mail.fetchSince.mockResolvedValue([makeMail()]);
+      parserParseMock.mockReturnValue(makeParsed({ counterparty: 'PRIME VIDEO*2K3JD' }));
+
+      await service.run();
+
+      const created = txModel.create.mock.calls[0][0];
+      expect(created.category).toBe('food');
+      expect(created.categoryNeedsReview).toBe(false);
+      expect(categorizer.categorize).not.toHaveBeenCalled();
+    });
+
+    it('asks the categorizer when the remembered category no longer exists', async () => {
+      memory.all.mockResolvedValue(new Map([['prime video', 'gone']]));
+      mail.fetchSince.mockResolvedValue([makeMail()]);
+      parserParseMock.mockReturnValue(makeParsed({ counterparty: 'PRIME VIDEO*2K3JD' }));
+
+      await service.run();
+
+      expect(categorizer.categorize).toHaveBeenCalled();
+    });
+
+    it('never applies the memory to income or ATM withdrawals', async () => {
+      memory.all.mockResolvedValue(new Map([['cajero automatico', 'food'], ['some wire', 'food']]));
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'm1' }), makeMail({ messageId: 'm2' })]);
+      parserParseMock
+        .mockReturnValueOnce(makeParsed({ isWithdrawal: true, counterparty: 'Cajero Automatico' }))
+        .mockReturnValueOnce(makeParsed({ direction: 'income', counterparty: 'Some Wire' }));
+
+      await service.run();
+
+      expect(txModel.create.mock.calls[0][0].category).toBe('cash');
+      expect(txModel.create.mock.calls[1][0].category).toBe('other');
     });
 
     // The category allow-list has one source of truth: CategoriesService. A

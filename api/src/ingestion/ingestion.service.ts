@@ -21,6 +21,8 @@ import { banreservasParser } from './parsers/banreservas.parser';
 import { matchedPeriod, RuleLike } from './reconciliation.service';
 import { SettingsService } from '../settings/settings.service';
 import { IngestionStatusService, RunCounts } from './ingestion-status.service';
+import { MerchantMemoryService } from '../merchants/merchant-memory.service';
+import { merchantKey } from '../merchants/merchant-key';
 
 /** Per-run state shared by every mail: loaded once, never once per mail. */
 interface RunContext {
@@ -28,6 +30,8 @@ interface RunContext {
   allowed: string[];
   /** The user's active recurring rules. */
   rules: RuleLike[];
+  /** Bank merchants the user already categorized: merchantKey → category. */
+  remembered: Map<string, string>;
 }
 
 /** How far apart the two legs of one internal transfer may be reported by their banks. */
@@ -49,6 +53,7 @@ export class IngestionService {
     private readonly fx: FxService,
     private readonly settings: SettingsService,
     private readonly status: IngestionStatusService,
+    private readonly memory: MerchantMemoryService,
   ) {}
 
   /** Set while a run is in flight so a slow run is never overlapped by the next tick. */
@@ -182,6 +187,7 @@ export class IngestionService {
       // cash is for ATM withdrawals only, which never reach the categorizer: never a guess for a merchant.
       allowed: (await this.categories.list()).map((c) => c.name).filter((name) => name !== Category.CASH),
       rules: rules as unknown as RuleLike[],
+      remembered: await this.memory.all(),
     };
   }
 
@@ -200,12 +206,15 @@ export class IngestionService {
       amount = await this.fx.usdToDop(p.amount);
     }
 
+    const remembered = ctx.remembered.get(merchantKey(p.counterparty));
     const { category, needsReview } =
       p.direction === 'income'
         ? { category: 'other', needsReview: true }   // a wire could be salary, a gift, a refund — ask
         : p.isWithdrawal
           ? { category: Category.CASH, needsReview: false } // cash out of an ATM: itemized later on the web
-          : await this.categorizer.categorize(p.counterparty, ctx.allowed);
+          : remembered && ctx.allowed.includes(remembered)
+            ? { category: remembered, needsReview: false } // the user already decided this merchant
+            : await this.categorizer.categorize(p.counterparty, ctx.allowed);
 
     const signed = p.direction === 'expense' ? -Math.abs(amount) : Math.abs(amount);
 

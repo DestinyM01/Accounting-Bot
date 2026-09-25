@@ -8,6 +8,7 @@ import { Migration, MigrationSchema } from '../shared/schemas/migration.schema';
 import { LedgerModule } from '../shared/ledger/ledger.module';
 import { CategoriesModule } from '../categories/categories.module';
 import { SettingsModule } from '../settings/settings.module';
+import { MerchantsModule } from '../merchants/merchants.module';
 import { IngestionService } from './ingestion.service';
 import { IngestionStatusService } from './ingestion-status.service';
 import { IngestionController } from './ingestion.controller';
@@ -28,6 +29,7 @@ import { MailTimeBackfillService } from './mail-time-backfill.service';
     LedgerModule,
     CategoriesModule,
     SettingsModule,
+    MerchantsModule,
   ],
   controllers: [IngestionController],
   providers: [IngestionService, MailClient, CategorizerService, FxService, IngestionStatusService, MailTimeBackfillService],
