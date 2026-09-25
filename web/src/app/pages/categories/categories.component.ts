@@ -259,6 +259,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
 
   /** Every picker in the app follows (CategoryService); every list reloads, this page included (changed$). */
   private afterChange(focusIds: string[]): void {
+    this.pageError = '';
     this.focusAfterLoad = focusIds;
     this.categorySvc.load();
     this.events.notify();
