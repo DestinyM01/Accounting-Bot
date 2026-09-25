@@ -50,6 +50,9 @@ interface NamedRow {
 
 const keyOf = (t: NamedRow): string => merchantKey(t.merchant || t.transactionName);
 
+/** Capitalises a category name's first letter, the way the web shows it. */
+const title = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+
 /**
  * cash is only for ATM cash, and other is the "don't know" bucket:
  * remembering either would skip the AI for that merchant forever.
@@ -139,7 +142,7 @@ export class MerchantMemoryService {
         rows: counts.get(e.key) ?? 0,
         usable: usable.has(e.category),
       }))
-      .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+      .sort((a, b) => a.key.localeCompare(b.key, 'es'));
   }
 
   /** The key a typed name produces, how many booked rows carry it, and the category already remembered for it. */
@@ -163,7 +166,7 @@ export class MerchantMemoryService {
     const chosen = await this.assertUsable(category);
     const existing = await this.memoryModel.findOne({ userId: this.userId, key }).lean();
     // Adding never moves history: an existing merchant is changed from its row in the list.
-    if (existing) throw new ConflictException(`Already remembered as ${existing.category}; change it in the list`);
+    if (existing) throw new ConflictException(`Already remembered as ${title(existing.category)}; change it in the list`);
     let created: { _id: unknown };
     try {
       created = await this.memoryModel.create({ userId: this.userId, key, category: chosen, updatedAt: new Date() });
@@ -186,9 +189,11 @@ export class MerchantMemoryService {
 
   /**
    * Changes a merchant's category. Its rows still in the old category, and its
-   * rows waiting for review, move first; the memory follows only if nothing
-   * changed it in between (else 409). If the memory update fails, a retry is
-   * safe: the moved rows are no longer in the old category.
+   * rows waiting for review, move first; the memory follows only if it still
+   * holds the old category or already holds the chosen one — a double-submit
+   * of the same choice from another tab then succeeds instead of 409ing.
+   * Anything else in between still answers 409. If the memory update fails, a
+   * retry is safe: the moved rows are no longer in the old category.
    */
   async change(id: string, category: unknown): Promise<{ moved: number }> {
     const chosen = await this.assertUsable(category);
@@ -209,10 +214,12 @@ export class MerchantMemoryService {
       moved = res.modifiedCount;
     }
     const res = await this.memoryModel.updateOne(
-      { _id: entry._id, userId: this.userId, category: old },
+      { _id: entry._id, userId: this.userId, category: { $in: [old, chosen] } },
       { $set: { category: chosen, updatedAt: new Date() } },
     );
-    if (res.matchedCount === 0) throw new ConflictException('This merchant changed at the same time; reload and try again');
+    if (res.matchedCount === 0) {
+      throw new ConflictException('This merchant changed at the same time; some of its rows may have moved. Reload and check.');
+    }
     return { moved };
   }
 
@@ -232,7 +239,7 @@ export class MerchantMemoryService {
   private async assertUsable(category: unknown): Promise<string> {
     if (typeof category !== 'string' || !category) throw new BadRequestException('category is required');
     if (NEVER_REMEMBERED.includes(category)) throw new BadRequestException('Cash and Other are never remembered');
-    if (!(await this.usableCategories()).has(category)) throw new BadRequestException(`unknown category: ${category}`);
+    if (!(await this.usableCategories()).has(category)) throw new BadRequestException(`${category} is not an active category`);
     return category;
   }
 

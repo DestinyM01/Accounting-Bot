@@ -127,6 +127,15 @@ describe('MerchantMemoryService', () => {
     errorSpy.mockRestore();
   });
 
+  it("never fails the user's change when filing the waiting rows fails", async () => {
+    const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    txModel.find.mockReturnValue(query([{ _id: 't2', merchant: 'PRIME VIDEO*9XQ1' }]));
+    txModel.updateMany.mockRejectedValue(new Error('db down'));
+    await expect(service.learn(row(), 'entertainment')).resolves.toBe(0);
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
   it('hands ingestion every remembered merchant', async () => {
     memoryModel.find.mockReturnValue(query([{ key: 'prime video', category: 'entertainment' }, { key: 'some store', category: 'food' }]));
     const map = await service.all();
@@ -187,6 +196,17 @@ describe('MerchantMemoryService', () => {
       const [m] = await service.list();
       expect(m.usable).toBe(false);
     });
+
+    it('sorts accented names where a Spanish reader expects them', async () => {
+      memoryModel.find.mockReturnValue(
+        query([
+          { _id: 'm1', key: 'oso shop', category: 'food', updatedAt: null },
+          { _id: 'm2', key: 'ñame shop', category: 'food', updatedAt: null },
+        ]),
+      );
+      const rows = await service.list();
+      expect(rows.map((r) => r.key)).toEqual(['ñame shop', 'oso shop']);
+    });
   });
 
   describe('match', () => {
@@ -200,6 +220,10 @@ describe('MerchantMemoryService', () => {
 
     it('says nothing is remembered for a new merchant', async () => {
       await expect(service.match('UBER *TRIP')).resolves.toEqual({ key: 'uber trip', rows: 0, remembered: null });
+    });
+
+    it('accepts a name of exactly 200 characters', async () => {
+      await expect(service.match('a'.repeat(200))).resolves.toEqual({ key: 'a'.repeat(200), rows: 0, remembered: null });
     });
 
     it.each([
@@ -232,6 +256,35 @@ describe('MerchantMemoryService', () => {
       );
     });
 
+    it('reports the rows actually filed, not the rows found', async () => {
+      memoryModel.create.mockResolvedValue({ _id: 'm9' });
+      txModel.find.mockReturnValue(
+        query([{ _id: 't1', merchant: 'UBER *TRIP 4X2' }, { _id: 't2', merchant: 'UBER *TRIP 9XQ1' }]),
+      );
+      txModel.updateMany.mockResolvedValue({ modifiedCount: 1 });
+      await expect(service.add('UBER *TRIP', 'transport')).resolves.toEqual({ id: 'm9', key: 'uber trip', alsoFiled: 1 });
+    });
+
+    it('accepts a name of exactly 200 characters', async () => {
+      memoryModel.create.mockResolvedValue({ _id: 'm9' });
+      await service.add('a'.repeat(200), 'food');
+      expect(memoryModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({ key: 'a'.repeat(200) }),
+      );
+    });
+
+    it("explains that Cash and Other are never remembered", async () => {
+      const err = await service.add('UBER *TRIP', 'cash').catch((e) => e);
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.message).toBe('Cash and Other are never remembered');
+    });
+
+    it('names an inactive category in its 400', async () => {
+      const err = await service.add('UBER *TRIP', 'gym').catch((e) => e);
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.message).toBe('gym is not an active category');
+    });
+
     it.each([
       ['an over-long name', 'x'.repeat(201), 'transport'],
       ['a name that is not text', 42, 'transport'],
@@ -243,13 +296,14 @@ describe('MerchantMemoryService', () => {
     ])('refuses %s with 400 and remembers nothing', async (_label, name, category) => {
       await expect(service.add(name, category)).rejects.toBeInstanceOf(BadRequestException);
       expect(memoryModel.create).not.toHaveBeenCalled();
+      expect(memoryModel.findOne).not.toHaveBeenCalled();
     });
 
     it('answers 409 when the merchant is already remembered, and changes nothing', async () => {
       memoryModel.findOne.mockReturnValue(query({ category: 'food' }));
       const err = await service.add('UBER *TRIP', 'transport').catch((e) => e);
       expect(err).toBeInstanceOf(ConflictException);
-      expect(err.message).toBe('Already remembered as food; change it in the list');
+      expect(err.message).toBe('Already remembered as Food; change it in the list');
       expect(memoryModel.create).not.toHaveBeenCalled();
       expect(txModel.updateMany).not.toHaveBeenCalled();
     });
@@ -300,9 +354,20 @@ describe('MerchantMemoryService', () => {
         { $set: { category: 'entertainment', categoryNeedsReview: false } },
       );
       expect(memoryModel.updateOne).toHaveBeenCalledWith(
-        { _id: ID, userId: 1, category: 'food' },
+        { _id: ID, userId: 1, category: { $in: ['food', 'entertainment'] } },
         { $set: { category: 'entertainment', updatedAt: expect.any(Date) } },
       );
+    });
+
+    it('reports the rows actually moved, not the rows found', async () => {
+      txModel.find.mockReturnValue(
+        query([
+          { _id: 't1', merchant: 'PRIME VIDEO*2K3JD' },
+          { _id: 't2', merchant: 'prime video*9xq1' },
+        ]),
+      );
+      txModel.updateMany.mockResolvedValue({ modifiedCount: 1 });
+      await expect(service.change(ID, 'entertainment')).resolves.toEqual({ moved: 1 });
     });
 
     it('moves the rows before it updates the memory, so a retry after a failure is safe', async () => {
@@ -320,7 +385,9 @@ describe('MerchantMemoryService', () => {
 
     it('answers 409 when something changed the memory in between', async () => {
       memoryModel.updateOne.mockResolvedValue({ matchedCount: 0 });
-      await expect(service.change(ID, 'entertainment')).rejects.toBeInstanceOf(ConflictException);
+      const err = await service.change(ID, 'entertainment').catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.message).toBe('This merchant changed at the same time; some of its rows may have moved. Reload and check.');
     });
 
     it('writes nothing when the category is the same', async () => {
@@ -332,6 +399,7 @@ describe('MerchantMemoryService', () => {
 
     it.each([['gym'], ['cash'], ['other'], [undefined]])('refuses %s with 400 and writes nothing', async (category) => {
       await expect(service.change(ID, category)).rejects.toBeInstanceOf(BadRequestException);
+      expect(memoryModel.findOne).not.toHaveBeenCalled();
       expect(txModel.updateMany).not.toHaveBeenCalled();
       expect(memoryModel.updateOne).not.toHaveBeenCalled();
     });
