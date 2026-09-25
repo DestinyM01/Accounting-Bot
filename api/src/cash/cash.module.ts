@@ -6,6 +6,7 @@ import { CategoriesModule } from '../categories/categories.module';
 import { CategorySpendService } from './category-spend.service';
 import { CashService } from './cash.service';
 import { CashController } from './cash.controller';
+import { CounterRepairService } from './counter-repair.service';
 
 // No LedgerModule, on purpose: items never move the balance (pinned in cash.service.spec.ts).
 @Module({
@@ -17,7 +18,7 @@ import { CashController } from './cash.controller';
     CategoriesModule,
   ],
   controllers: [CashController],
-  providers: [CategorySpendService, CashService],
-  exports: [CategorySpendService],
+  providers: [CategorySpendService, CashService, CounterRepairService],
+  exports: [CategorySpendService, CounterRepairService],
 })
 export class CashModule {}

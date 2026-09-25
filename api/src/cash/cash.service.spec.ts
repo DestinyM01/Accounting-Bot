@@ -5,6 +5,7 @@ import { BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import { Error as MongooseError, Types, mongo } from 'mongoose';
 import { CashService } from './cash.service';
 import { CashModule } from './cash.module';
+import { CounterRepairService } from './counter-repair.service';
 import { LedgerModule } from '../shared/ledger/ledger.module';
 import { LedgerService } from '../shared/ledger/ledger.service';
 import { Transaction } from '../shared/schemas/transaction.schema';
@@ -52,6 +53,7 @@ describe('CashService', () => {
     const mod = await Test.createTestingModule({
       providers: [
         CashService,
+        CounterRepairService,
         { provide: getModelToken(Transaction.name), useValue: txModel },
         { provide: getModelToken(CashAllocation.name), useValue: itemModel },
         { provide: CategoriesService, useValue: categories },

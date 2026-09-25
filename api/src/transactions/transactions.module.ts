@@ -4,6 +4,7 @@ import { Transaction, TransactionSchema } from '../shared/schemas/transaction.sc
 import { LedgerModule } from '../shared/ledger/ledger.module';
 import { CategoriesModule } from '../categories/categories.module';
 import { MerchantsModule } from '../merchants/merchants.module';
+import { CashModule } from '../cash/cash.module';
 import { TransactionsController } from './transactions.controller';
 import { TransactionsService } from './transactions.service';
 
@@ -13,6 +14,7 @@ import { TransactionsService } from './transactions.service';
     LedgerModule,
     CategoriesModule,
     MerchantsModule,
+    CashModule,
   ],
   controllers: [TransactionsController],
   providers: [TransactionsService],

@@ -9,6 +9,7 @@ import { LedgerService } from '../shared/ledger/ledger.service';
 import { CategoriesService } from '../categories/categories.service';
 import { MerchantMemoryService } from '../merchants/merchant-memory.service';
 import { HALF_CENT, money } from '../cash/cash-rules';
+import { CounterRepairService } from '../cash/counter-repair.service';
 
 export interface CreateTransactionBody {
   type: 'income' | 'expense';
@@ -85,6 +86,7 @@ export class TransactionsService {
     private readonly ledger: LedgerService,
     private readonly categories: CategoriesService,
     private readonly memory: MerchantMemoryService,
+    private readonly counters: CounterRepairService,
   ) {}
 
   /**
@@ -241,7 +243,7 @@ export class TransactionsService {
   }
 
   async update(id: string, body: UpdateTransactionBody): Promise<void> {
-    const tx = await this.transactionModel.findOne({ _id: id, userId: this.userId, ...NOT_DELETED });
+    let tx = await this.transactionModel.findOne({ _id: id, userId: this.userId, ...NOT_DELETED });
     if (!tx) throw new NotFoundException();
 
     const patch: Record<string, unknown> = {};
@@ -256,7 +258,14 @@ export class TransactionsService {
       patch.amount = newSigned;
       // A withdrawal can't shrink below what's already itemized (see CashService).
       if (tx.isWithdrawal && Math.abs(newSigned) + HALF_CENT < (tx.allocatedCash ?? 0)) {
-        throw new BadRequestException(`${money(tx.allocatedCash ?? 0)} of this withdrawal is itemized — remove items first`);
+        // A counter left above its items blocks an honest edit: repair it once and look again.
+        if (await this.counters.repair(id)) {
+          tx = await this.transactionModel.findOne({ _id: id, userId: this.userId, ...NOT_DELETED });
+          if (!tx) throw new NotFoundException();
+        }
+        if (tx.isWithdrawal && Math.abs(newSigned) + HALF_CENT < (tx.allocatedCash ?? 0)) {
+          throw new BadRequestException(`${money(tx.allocatedCash ?? 0)} of this withdrawal is itemized — remove items first`);
+        }
       }
       // internal / unresolved rows never moved the balance, so a new amount must not either.
       if (!isNonSpendingTransfer(tx.transferKind)) delta = newSigned - tx.amount;

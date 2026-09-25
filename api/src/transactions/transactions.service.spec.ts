@@ -6,6 +6,7 @@ import { NOT_DELETED, SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 import { LedgerService } from '../shared/ledger/ledger.service';
 import { CategoriesService } from '../categories/categories.service';
 import { MerchantMemoryService } from '../merchants/merchant-memory.service';
+import { CounterRepairService } from '../cash/counter-repair.service';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 
@@ -58,6 +59,8 @@ const categoriesService = {
 
 const memory = { learn: jest.fn().mockResolvedValue(0) };
 
+const repair = { repair: jest.fn().mockResolvedValue(false) };
+
 describe('TransactionsService', () => {
   let service: TransactionsService;
 
@@ -74,6 +77,7 @@ describe('TransactionsService', () => {
     ledger.apply.mockResolvedValue({ previousBalance: 0, newBalance: 0 });
     ledger.reverse.mockResolvedValue({ previousBalance: 0, newBalance: 0 });
     memory.learn.mockResolvedValue(0);
+    repair.repair.mockResolvedValue(false);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -82,6 +86,7 @@ describe('TransactionsService', () => {
         { provide: LedgerService, useValue: ledger },
         { provide: CategoriesService, useValue: categoriesService },
         { provide: MerchantMemoryService, useValue: memory },
+        { provide: CounterRepairService, useValue: repair },
       ],
     }).compile();
     service = module.get<TransactionsService>(TransactionsService);
@@ -493,6 +498,23 @@ describe('TransactionsService', () => {
       mockModel.findOne.mockResolvedValue(live({ isWithdrawal: true, allocatedCash: 4500, amount: -5000 }));
       await expect(service.update('t1', { amount: 4000 })).rejects.toThrow('$4,500.00 of this withdrawal is itemized — remove items first');
       expect(mockModel.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('repairs a stuck withdrawal counter once, then lets a fair amount edit through', async () => {
+      // First read: the counter (480) blocks shrinking to 400. After the repair the row reads 300.
+      mockModel.findOne
+        .mockResolvedValueOnce({ _id: 't1', amount: -500, isWithdrawal: true, allocatedCash: 480, transactionName: 'cajero' })
+        .mockResolvedValueOnce({ _id: 't1', amount: -500, isWithdrawal: true, allocatedCash: 300, transactionName: 'cajero' });
+      repair.repair.mockResolvedValue(true);
+      mockModel.findOneAndUpdate.mockResolvedValue({ _id: 't1' });
+      await expect(service.update('t1', { amount: 400 })).resolves.toBeUndefined();
+      expect(repair.repair).toHaveBeenCalledWith('t1');
+    });
+
+    it('still refuses when the items really hold more than the new amount, naming what they hold', async () => {
+      mockModel.findOne.mockResolvedValue({ _id: 't1', amount: -500, isWithdrawal: true, allocatedCash: 480, transactionName: 'cajero' });
+      repair.repair.mockResolvedValue(false);
+      await expect(service.update('t1', { amount: 400 })).rejects.toThrow(/\$480\.00 of this withdrawal is itemized/);
     });
 
     it('guards a withdrawal amount edit against items added meanwhile', async () => {

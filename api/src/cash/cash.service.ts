@@ -7,6 +7,7 @@ import { Category } from '../shared/schemas/category.enum';
 import { NOT_DELETED, SPENDING_ONLY, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
 import { CategoriesService } from '../categories/categories.service';
 import { HALF_CENT, money, round2 } from './cash-rules';
+import { CounterRepairService } from './counter-repair.service';
 
 export interface CashItemInput {
   category?: unknown;
@@ -46,6 +47,7 @@ export class CashService {
     @InjectModel(Transaction.name) private readonly txModel: Model<Transaction>,
     @InjectModel(CashAllocation.name) private readonly itemModel: Model<CashAllocation>,
     private readonly categories: CategoriesService,
+    private readonly counters: CounterRepairService,
   ) {}
 
   /** A live withdrawal and its items, oldest first. What's allocated and left is computed from the items. */
@@ -79,7 +81,7 @@ export class CashService {
     // within the withdrawal, so two concurrent adds can't both fit into the same remainder.
     let reserved = await this.reserve(withdrawalId, amount);
     // A refusal can come from a counter left high by an earlier failure: repair it once and retry.
-    if (!reserved && (await this.repairCounter(withdrawalId))) reserved = await this.reserve(withdrawalId, amount);
+    if (!reserved && (await this.counters.repair(withdrawalId))) reserved = await this.reserve(withdrawalId, amount);
     if (!reserved) throw await this.whyNotReserved(withdrawalId);
 
     // The id is chosen here so it's ready to return as soon as create succeeds;
@@ -120,33 +122,6 @@ export class CashService {
       { $inc: { allocatedCash: amount } },
       { new: true },
     );
-  }
-
-  /**
-   * Lowers a counter left above its items (a crash between the reservation and the
-   * insert, or an ambiguous insert error) to the items' sum, with a write guarded on
-   * the value read. Returns true when it corrected one. Known limit: an add from
-   * another tab that has reserved but not yet inserted, in the same milliseconds,
-   * would be undercounted by its amount. A concurrent remove() (item already deleted,
-   * counter decrement not yet applied) or a pending release after a refused insert
-   * can also land after this read, leaving the counter below the items by that
-   * amount, which would allow over-itemizing by it. These windows are milliseconds
-   * wide and there is one user.
-   */
-  private async repairCounter(withdrawalId: string): Promise<boolean> {
-    const tx = await this.txModel.findOne({ _id: withdrawalId, userId: this.userId, ...NOT_DELETED }).lean();
-    if (!tx || !this.itemizable(tx)) return false;
-    const items = await this.itemModel.find({ userId: this.userId, withdrawalId: String(tx._id) }).lean();
-    const sum = round2(items.reduce((s, i) => s + i.amount, 0));
-    const counter = tx.allocatedCash ?? 0;
-    if (counter <= sum + HALF_CENT) return false;
-    const res = await this.txModel.updateOne(
-      { _id: tx._id, userId: this.userId, allocatedCash: tx.allocatedCash },
-      { $set: { allocatedCash: sum } },
-    );
-    if (!res.modifiedCount) return false;
-    this.logger.warn(`Withdrawal ${String(tx._id)}: itemized counter was ${round2(counter)} but its items sum to ${sum}; corrected`);
-    return true;
   }
 
   /**
