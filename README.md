@@ -191,14 +191,11 @@ The web app expects the API at `/api` (proxied in `angular.json` or via nginx in
 
 ```bash
 cd api
-pnpm test          # 22 unit tests across 3 suites
+pnpm test          # the api's Jest suite
 pnpm test:watch    # watch mode
 ```
 
-Test coverage:
-- `transactions.service.spec.ts` — 6 tests (exportCsv, buildFilter, CSV escaping)
-- `compare.service.spec.ts` — 8 tests (getAvailableMonths, period summaries, Mistral)
-- `analytics.service.spec.ts` — 8 tests (top-10 aggregation, monthly chart)
+The api suite covers bank-mail parsing and ingestion, the ledger and balance, recurring bookings, email reports, categories, cash envelopes, merchant memory, settings, the growth calculator and the Santo Domingo time helpers. It runs in America/Santo_Domingo, the same zone as the api image. The web app has no unit tests: it is checked with a clean `ng build` and in a browser.
 
 ---
 
