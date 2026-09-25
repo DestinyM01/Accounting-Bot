@@ -5,6 +5,7 @@ import { Transaction } from '../shared/schemas/transaction.schema';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { Budget } from '../shared/schemas/budget.schema';
 import { CashAllocation } from '../shared/schemas/cash-allocation.schema';
+import { MerchantCategory } from '../shared/schemas/merchant-category.schema';
 
 /** A chainable stand-in for a Mongoose query that resolves to `result`. */
 function query(result: unknown) {
@@ -18,6 +19,7 @@ describe('CategoryReferencesService', () => {
   let recurringModel: { aggregate: jest.Mock; updateMany: jest.Mock };
   let budgetModel: { aggregate: jest.Mock; find: jest.Mock; findOne: jest.Mock; updateOne: jest.Mock; findOneAndDelete: jest.Mock };
   let itemModel: { aggregate: jest.Mock; updateMany: jest.Mock };
+  let memoryModel: { updateMany: jest.Mock };
 
   beforeEach(async () => {
     process.env.BOSS_USER_ID = '1';
@@ -31,6 +33,7 @@ describe('CategoryReferencesService', () => {
       findOneAndDelete: jest.fn(() => query(null)),
     };
     itemModel = { aggregate: jest.fn().mockResolvedValue([]), updateMany: jest.fn().mockResolvedValue({}) };
+    memoryModel = { updateMany: jest.fn().mockResolvedValue({}) };
     const mod = await Test.createTestingModule({
       providers: [
         CategoryReferencesService,
@@ -38,6 +41,7 @@ describe('CategoryReferencesService', () => {
         { provide: getModelToken(Recurring.name), useValue: recurringModel },
         { provide: getModelToken(Budget.name), useValue: budgetModel },
         { provide: getModelToken(CashAllocation.name), useValue: itemModel },
+        { provide: getModelToken(MerchantCategory.name), useValue: memoryModel },
       ],
     }).compile();
     service = mod.get(CategoryReferencesService);
@@ -69,6 +73,14 @@ describe('CategoryReferencesService', () => {
     const order = (m: jest.Mock) => m.mock.invocationCallOrder[0];
     expect(order(txModel.updateMany)).toBeLessThan(order(itemModel.updateMany));
     expect(order(itemModel.updateMany)).toBeLessThan(order(recurringModel.updateMany));
+  });
+
+  it('moves remembered merchant choices along, after the cash items', async () => {
+    await service.migrate('gym', 'health');
+    expect(memoryModel.updateMany).toHaveBeenCalledWith({ userId: 1, category: 'gym' }, { $set: { category: 'health' } });
+    const order = (m: jest.Mock) => m.mock.invocationCallOrder[0];
+    expect(order(itemModel.updateMany)).toBeLessThan(order(memoryModel.updateMany));
+    expect(order(memoryModel.updateMany)).toBeLessThan(order(recurringModel.updateMany));
   });
 
   it('renames a budget when the target category has none that month', async () => {
@@ -113,5 +125,6 @@ describe('CategoryReferencesService', () => {
     expect(txModel.updateMany).not.toHaveBeenCalled();
     expect(budgetModel.find).not.toHaveBeenCalled();
     expect(budgetModel.findOneAndDelete).not.toHaveBeenCalled();
+    expect(memoryModel.updateMany).not.toHaveBeenCalled();
   });
 });

@@ -5,6 +5,7 @@ import { Transaction } from '../shared/schemas/transaction.schema';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { Budget } from '../shared/schemas/budget.schema';
 import { CashAllocation } from '../shared/schemas/cash-allocation.schema';
+import { MerchantCategory } from '../shared/schemas/merchant-category.schema';
 import { NOT_DELETED } from '../shared/schemas/transfer-kind';
 
 export interface Usage {
@@ -30,6 +31,7 @@ export class CategoryReferencesService {
     @InjectModel(Recurring.name) private readonly recurringModel: Model<Recurring>,
     @InjectModel(Budget.name) private readonly budgetModel: Model<Budget>,
     @InjectModel(CashAllocation.name) private readonly itemModel: Model<CashAllocation>,
+    @InjectModel(MerchantCategory.name) private readonly memoryModel: Model<MerchantCategory>,
   ) {}
 
   /** Live transactions, active recurring rules, budgets (any month) and cash items per category name. */
@@ -65,6 +67,8 @@ export class CategoryReferencesService {
     // Deleted transactions and inactive rules too: nothing may name a dead category.
     await this.txModel.updateMany({ userId: this.userId, category: from }, { $set: { category: to } });
     await this.itemModel.updateMany({ userId: this.userId, category: from }, { $set: { category: to } });
+    // Remembered merchant choices (see MerchantMemoryService) follow the category too.
+    await this.memoryModel.updateMany({ userId: this.userId, category: from }, { $set: { category: to } });
     await this.recurringModel.updateMany({ userId: this.userId, category: from }, { $set: { category: to } });
 
     const budgets = await this.budgetModel.find({ userId: this.userId, category: from }).lean();

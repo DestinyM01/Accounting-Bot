@@ -5,6 +5,7 @@ import { Transaction, TransactionSchema } from '../shared/schemas/transaction.sc
 import { Recurring, RecurringSchema } from '../shared/schemas/recurring.schema';
 import { Budget, BudgetSchema } from '../shared/schemas/budget.schema';
 import { CashAllocation, CashAllocationSchema } from '../shared/schemas/cash-allocation.schema';
+import { MerchantCategory, MerchantCategorySchema } from '../shared/schemas/merchant-category.schema';
 import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
 import { CategoryReferencesService } from './category-references.service';
@@ -17,6 +18,7 @@ import { CategoryReferencesService } from './category-references.service';
       { name: Recurring.name, schema: RecurringSchema },
       { name: Budget.name, schema: BudgetSchema },
       { name: CashAllocation.name, schema: CashAllocationSchema },
+      { name: MerchantCategory.name, schema: MerchantCategorySchema },
     ]),
   ],
   controllers: [CategoriesController],
