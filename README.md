@@ -39,6 +39,7 @@ A personal finance tracker: a **web dashboard** for entry, review and reporting,
 | **Balance** | Set the balance to the total your accounts show (recorded as an adjustment, never as income or expense); a 90-day chart and the full history, filterable by kind |
 | **Transactions** | Full transaction list with type, category, and date-range filters; one-click CSV export |
 | **Merchant memory** | Remembers the category you choose for each bank merchant, so later charges from it are filed without review; AI guesses are confirmed in one click |
+| **Merchants** | Every bank merchant the app files on its own, with its booked rows: change its category (its rows still in the old category follow), forget it, or add one by hand with a live preview of what the name matches |
 | **Budget** | Visual budget progress per category |
 | **Statistics** | Monthly income/expense chart and category breakdown |
 | **Compare** | Pick any two months and get a side-by-side summary + Mistral AI narrative |
