@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model } from 'mongoose';
 import { MerchantCategory } from '../shared/schemas/merchant-category.schema';
@@ -153,10 +153,49 @@ export class MerchantMemoryService {
     return { key, rows: rows.filter((t) => keyOf(t) === key).length, remembered: entry?.category ?? null };
   }
 
+  /** Remembers a merchant typed by hand, then files its rows waiting for review. */
+  async add(name: unknown, category: unknown): Promise<{ id: string; key: string; alsoFiled: number }> {
+    if (typeof name !== 'string' || name.length > MAX_NAME) {
+      throw new BadRequestException(`name must be text of at most ${MAX_NAME} characters`);
+    }
+    const key = merchantKey(name);
+    if (!key) throw new BadRequestException("That name can't identify a merchant");
+    const chosen = await this.assertUsable(category);
+    const existing = await this.memoryModel.findOne({ userId: this.userId, key }).lean();
+    // Adding never moves history: an existing merchant is changed from its row in the list.
+    if (existing) throw new ConflictException(`Already remembered as ${existing.category}; change it in the list`);
+    let created: { _id: unknown };
+    try {
+      created = await this.memoryModel.create({ userId: this.userId, key, category: chosen, updatedAt: new Date() });
+    } catch (err) {
+      // Two adds of the same name at once: the unique index on { userId, key } lets only one in.
+      if ((err as { code?: number } | null)?.code === 11000) {
+        throw new ConflictException('Already remembered; change it in the list');
+      }
+      throw err;
+    }
+    let alsoFiled = 0;
+    try {
+      alsoFiled = await this.fileWaiting(key, chosen);
+    } catch (err) {
+      // The merchant is remembered; its waiting rows are filed by the next ✓ on one of them.
+      this.logger.error(`Could not file waiting rows for "${key}"`, err instanceof Error ? err.stack : String(err));
+    }
+    return { id: String(created._id), key, alsoFiled };
+  }
+
   /** The active categories a merchant can be remembered under. */
   private async usableCategories(): Promise<Set<string>> {
     const names = (await this.categories.list()).map((c) => c.name);
     return new Set(names.filter((n) => !NEVER_REMEMBERED.includes(n)));
+  }
+
+  /** 400 unless `category` is an active category other than cash or other; returns it. */
+  private async assertUsable(category: unknown): Promise<string> {
+    if (typeof category !== 'string' || !category) throw new BadRequestException('category is required');
+    if (NEVER_REMEMBERED.includes(category)) throw new BadRequestException('Cash and Other are never remembered');
+    if (!(await this.usableCategories()).has(category)) throw new BadRequestException(`unknown category: ${category}`);
+    return category;
   }
 
   /** The merchant rows (MERCHANT_ROWS) that also match `extra`, with only their names. */

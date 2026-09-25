@@ -215,4 +215,64 @@ describe('MerchantMemoryService', () => {
       expect(memoryModel.findOne).not.toHaveBeenCalled();
     });
   });
+
+  describe('add', () => {
+    it('remembers a merchant typed by hand and files its rows waiting for review', async () => {
+      memoryModel.create.mockResolvedValue({ _id: 'm9' });
+      const waiting = query([{ _id: 't1', merchant: 'UBER *TRIP 4X2' }, { _id: 't2', merchant: 'UBER *EATS' }]);
+      txModel.find.mockReturnValue(waiting);
+      txModel.updateMany.mockResolvedValue({ modifiedCount: 1 });
+      await expect(service.add('UBER *TRIP', 'transport')).resolves.toEqual({ id: 'm9', key: 'uber trip', alsoFiled: 1 });
+      expect(memoryModel.findOne).toHaveBeenCalledWith({ userId: 1, key: 'uber trip' });
+      expect(memoryModel.create).toHaveBeenCalledWith({ userId: 1, key: 'uber trip', category: 'transport', updatedAt: expect.any(Date) });
+      expect(txModel.find).toHaveBeenCalledWith({ ...MERCHANT_ROWS, categoryNeedsReview: true });
+      expect(txModel.updateMany).toHaveBeenCalledWith(
+        { _id: { $in: ['t1'] }, categoryNeedsReview: true, deletedAt: null },
+        { $set: { category: 'transport', categoryNeedsReview: false } },
+      );
+    });
+
+    it.each([
+      ['an over-long name', 'x'.repeat(201), 'transport'],
+      ['a name that is not text', 42, 'transport'],
+      ['a name with no usable key', '#123 4X2', 'transport'],
+      ['a deleted category', 'UBER *TRIP', 'gym'],
+      ['cash', 'UBER *TRIP', 'cash'],
+      ['other', 'UBER *TRIP', 'other'],
+      ['a missing category', 'UBER *TRIP', undefined],
+    ])('refuses %s with 400 and remembers nothing', async (_label, name, category) => {
+      await expect(service.add(name, category)).rejects.toBeInstanceOf(BadRequestException);
+      expect(memoryModel.create).not.toHaveBeenCalled();
+    });
+
+    it('answers 409 when the merchant is already remembered, and changes nothing', async () => {
+      memoryModel.findOne.mockReturnValue(query({ category: 'food' }));
+      const err = await service.add('UBER *TRIP', 'transport').catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.message).toBe('Already remembered as food; change it in the list');
+      expect(memoryModel.create).not.toHaveBeenCalled();
+      expect(txModel.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('answers 409 when a simultaneous add won the unique index', async () => {
+      memoryModel.create.mockRejectedValue(Object.assign(new Error('E11000 duplicate key'), { code: 11000 }));
+      await expect(service.add('UBER *TRIP', 'transport')).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('passes any other database failure on', async () => {
+      const failure = new Error('db down');
+      memoryModel.create.mockRejectedValue(failure);
+      await expect(service.add('UBER *TRIP', 'transport')).rejects.toBe(failure);
+    });
+
+    it('still answers when filing the waiting rows fails: logged, 0 filed', async () => {
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      memoryModel.create.mockResolvedValue({ _id: 'm9' });
+      txModel.find.mockReturnValue(query([{ _id: 't1', merchant: 'UBER *TRIP 4X2' }]));
+      txModel.updateMany.mockRejectedValue(new Error('db down'));
+      await expect(service.add('UBER *TRIP', 'transport')).resolves.toEqual({ id: 'm9', key: 'uber trip', alsoFiled: 0 });
+      expect(errorSpy).toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+  });
 });
