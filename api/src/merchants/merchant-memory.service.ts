@@ -1,6 +1,6 @@
-import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model } from 'mongoose';
+import { FilterQuery, Model, Types } from 'mongoose';
 import { MerchantCategory } from '../shared/schemas/merchant-category.schema';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { NOT_DELETED, NON_SPENDING_KINDS, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
@@ -182,6 +182,44 @@ export class MerchantMemoryService {
       this.logger.error(`Could not file waiting rows for "${key}"`, err instanceof Error ? err.stack : String(err));
     }
     return { id: String(created._id), key, alsoFiled };
+  }
+
+  /**
+   * Changes a merchant's category. Its rows still in the old category, and its
+   * rows waiting for review, move first; the memory follows only if nothing
+   * changed it in between (else 409). If the memory update fails, a retry is
+   * safe: the moved rows are no longer in the old category.
+   */
+  async change(id: string, category: unknown): Promise<{ moved: number }> {
+    const chosen = await this.assertUsable(category);
+    const entry = Types.ObjectId.isValid(id)
+      ? await this.memoryModel.findOne({ _id: id, userId: this.userId }).lean()
+      : null;
+    if (!entry) throw new NotFoundException('That merchant is no longer remembered');
+    const old = entry.category;
+    if (old === chosen) return { moved: 0 };
+    const stillOld = { $or: [{ category: old }, { categoryNeedsReview: true }] };
+    const ids = (await this.merchantRows(stillOld)).filter((t) => keyOf(t) === entry.key).map((t) => t._id);
+    let moved = 0;
+    if (ids.length > 0) {
+      const res = await this.txModel.updateMany(
+        { _id: { $in: ids }, ...NOT_DELETED, ...stillOld },
+        { $set: { category: chosen, categoryNeedsReview: false } },
+      );
+      moved = res.modifiedCount;
+    }
+    const res = await this.memoryModel.updateOne(
+      { _id: entry._id, userId: this.userId, category: old },
+      { $set: { category: chosen, updatedAt: new Date() } },
+    );
+    if (res.matchedCount === 0) throw new ConflictException('This merchant changed at the same time; reload and try again');
+    return { moved };
+  }
+
+  /** Forgets a merchant. Its booked rows stay as they are; its next mail goes back to the AI with review. */
+  async forget(id: string): Promise<void> {
+    if (!Types.ObjectId.isValid(id)) return;
+    await this.memoryModel.deleteOne({ _id: id, userId: this.userId });
   }
 
   /** The active categories a merchant can be remembered under. */

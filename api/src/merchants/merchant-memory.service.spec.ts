@@ -275,4 +275,95 @@ describe('MerchantMemoryService', () => {
       errorSpy.mockRestore();
     });
   });
+
+  describe('change', () => {
+    const ID = '64b000000000000000000001';
+
+    beforeEach(() => {
+      memoryModel.findOne.mockReturnValue(query({ _id: ID, key: 'prime video', category: 'food' }));
+      memoryModel.updateOne.mockResolvedValue({ matchedCount: 1 });
+    });
+
+    it("moves the merchant's rows still in the old category and its waiting rows, then the memory", async () => {
+      const rows = query([
+        { _id: 't1', merchant: 'PRIME VIDEO*2K3JD' },
+        { _id: 't2', merchant: 'SOME STORE' },
+        { _id: 't3', transactionName: 'prime video' },
+      ]);
+      txModel.find.mockReturnValue(rows);
+      txModel.updateMany.mockResolvedValue({ modifiedCount: 2 });
+      await expect(service.change(ID, 'entertainment')).resolves.toEqual({ moved: 2 });
+      expect(memoryModel.findOne).toHaveBeenCalledWith({ _id: ID, userId: 1 });
+      expect(txModel.find).toHaveBeenCalledWith({ ...MERCHANT_ROWS, $or: [{ category: 'food' }, { categoryNeedsReview: true }] });
+      expect(txModel.updateMany).toHaveBeenCalledWith(
+        { _id: { $in: ['t1', 't3'] }, deletedAt: null, $or: [{ category: 'food' }, { categoryNeedsReview: true }] },
+        { $set: { category: 'entertainment', categoryNeedsReview: false } },
+      );
+      expect(memoryModel.updateOne).toHaveBeenCalledWith(
+        { _id: ID, userId: 1, category: 'food' },
+        { $set: { category: 'entertainment', updatedAt: expect.any(Date) } },
+      );
+    });
+
+    it('moves the rows before it updates the memory, so a retry after a failure is safe', async () => {
+      txModel.find.mockReturnValue(query([{ _id: 't1', merchant: 'PRIME VIDEO*2K3JD' }]));
+      txModel.updateMany.mockResolvedValue({ modifiedCount: 1 });
+      await service.change(ID, 'entertainment');
+      expect(txModel.updateMany.mock.invocationCallOrder[0]).toBeLessThan(memoryModel.updateOne.mock.invocationCallOrder[0]);
+    });
+
+    it('updates only the memory when no row needs moving', async () => {
+      await expect(service.change(ID, 'entertainment')).resolves.toEqual({ moved: 0 });
+      expect(txModel.updateMany).not.toHaveBeenCalled();
+      expect(memoryModel.updateOne).toHaveBeenCalled();
+    });
+
+    it('answers 409 when something changed the memory in between', async () => {
+      memoryModel.updateOne.mockResolvedValue({ matchedCount: 0 });
+      await expect(service.change(ID, 'entertainment')).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('writes nothing when the category is the same', async () => {
+      await expect(service.change(ID, 'food')).resolves.toEqual({ moved: 0 });
+      expect(txModel.find).not.toHaveBeenCalled();
+      expect(txModel.updateMany).not.toHaveBeenCalled();
+      expect(memoryModel.updateOne).not.toHaveBeenCalled();
+    });
+
+    it.each([['gym'], ['cash'], ['other'], [undefined]])('refuses %s with 400 and writes nothing', async (category) => {
+      await expect(service.change(ID, category)).rejects.toBeInstanceOf(BadRequestException);
+      expect(txModel.updateMany).not.toHaveBeenCalled();
+      expect(memoryModel.updateOne).not.toHaveBeenCalled();
+    });
+
+    it('answers 404 for a merchant no longer remembered', async () => {
+      memoryModel.findOne.mockReturnValue(query(null));
+      await expect(service.change(ID, 'entertainment')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('answers 404 for a malformed id without querying', async () => {
+      await expect(service.change('nope', 'entertainment')).rejects.toBeInstanceOf(NotFoundException);
+      expect(memoryModel.findOne).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('forget', () => {
+    const ID = '64b000000000000000000001';
+
+    it('removes the memory and leaves every row alone', async () => {
+      await expect(service.forget(ID)).resolves.toBeUndefined();
+      expect(memoryModel.deleteOne).toHaveBeenCalledWith({ _id: ID, userId: 1 });
+      expect(txModel.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('is quiet when the merchant is already gone', async () => {
+      memoryModel.deleteOne.mockResolvedValue({ deletedCount: 0 });
+      await expect(service.forget(ID)).resolves.toBeUndefined();
+    });
+
+    it('is quiet for a malformed id, without querying', async () => {
+      await expect(service.forget('nope')).resolves.toBeUndefined();
+      expect(memoryModel.deleteOne).not.toHaveBeenCalled();
+    });
+  });
 });
