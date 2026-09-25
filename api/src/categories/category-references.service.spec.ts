@@ -92,4 +92,12 @@ describe('CategoryReferencesService', () => {
       expect(call[0]).toEqual(expect.objectContaining({ category: 'gym' }));
     }
   });
+
+  it('does nothing when moving a name to itself', async () => {
+    budgetModel.find.mockReturnValue(query([{ _id: 'b1', month: 9, year: 2026, limitAmount: 2000 }]));
+    await service.migrate('gym', 'gym');
+    expect(txModel.updateMany).not.toHaveBeenCalled();
+    expect(budgetModel.find).not.toHaveBeenCalled();
+    expect(budgetModel.findOneAndDelete).not.toHaveBeenCalled();
+  });
 });

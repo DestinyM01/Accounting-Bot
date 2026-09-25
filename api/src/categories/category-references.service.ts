@@ -52,6 +52,7 @@ export class CategoryReferencesService {
    * after it was interrupted — never changes anything already moved.
    */
   async migrate(from: string, to: string): Promise<void> {
+    if (from === to) return; // a budget would find itself as its own target and be deleted
     // Deleted transactions and inactive rules too: nothing may name a dead category.
     await this.txModel.updateMany({ userId: this.userId, category: from }, { $set: { category: to } });
     await this.recurringModel.updateMany({ userId: this.userId, category: from }, { $set: { category: to } });

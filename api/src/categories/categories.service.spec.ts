@@ -18,6 +18,10 @@ const gym = (overrides: Record<string, unknown> = {}) => ({
   _id: ID, userId: 1, name: 'gym', emoji: '💪', color: '#3b82f6', active: true, pending: null, ...overrides,
 });
 
+/** Answer findOne by filter: the category itself when looked up by id, `others(filter)` otherwise. */
+const findOneBy = (self: unknown, others: (filter: any) => unknown = () => null) =>
+  (filter: any) => query(filter._id ? self : others(filter));
+
 describe('CategoriesService', () => {
   let service: CategoriesService;
   let model: { find: jest.Mock; findOne: jest.Mock; findOneAndUpdate: jest.Mock; create: jest.Mock; updateOne: jest.Mock };
@@ -89,6 +93,7 @@ describe('CategoriesService', () => {
     it('rejects a name an unfinished move is still moving away from', async () => {
       model.findOne.mockReturnValueOnce(query(gym({ active: false, pending: { from: 'gym', to: 'health' } })));
       await expect(service.create({ name: 'gym', emoji: '💪', color: '#3b82f6' })).rejects.toThrow(/still being moved/);
+      expect(model.findOne).toHaveBeenCalledWith({ userId: 1, $or: [{ name: 'gym', active: true }, { 'pending.from': 'gym' }] });
     });
 
     it('revives a deleted category instead of duplicating it', async () => {
@@ -122,7 +127,7 @@ describe('CategoriesService', () => {
     });
 
     it('rejects an invalid emoji, colour or name', async () => {
-      model.findOne.mockReturnValue(query(gym()));
+      model.findOne.mockImplementation(findOneBy(gym()));
       await expect(service.update(ID, { emoji: '🦄' })).rejects.toBeInstanceOf(BadRequestException);
       await expect(service.update(ID, { color: '#123456' })).rejects.toBeInstanceOf(BadRequestException);
       await expect(service.update(ID, { name: 'a b' })).rejects.toBeInstanceOf(BadRequestException);
@@ -142,11 +147,29 @@ describe('CategoriesService', () => {
     });
 
     it('refuses to rename onto a category that already exists', async () => {
-      model.findOne
-        .mockReturnValueOnce(query(gym()))
-        .mockReturnValueOnce(query(gym({ _id: OLD_ID, name: 'fitness' })));
+      model.findOne.mockImplementation(findOneBy(gym(), (f) => (f.$or ? gym({ _id: OLD_ID, name: 'fitness' }) : null)));
       await expect(service.update(ID, { name: 'fitness' })).rejects.toThrow(/delete gym and move it there/);
       expect(refs.migrate).not.toHaveBeenCalled();
+    });
+
+    it('refuses to edit a deleted category', async () => {
+      model.findOne.mockImplementation(findOneBy(gym({ active: false })));
+      await expect(service.update(ID, { emoji: '🎯' })).rejects.toThrow(/was deleted/);
+    });
+
+    it('locks a category that an unfinished move is moving into', async () => {
+      const travel = gym({ name: 'travel' });
+      model.findOne.mockImplementation(
+        findOneBy(travel, (f) => (f['pending.to'] === 'travel' ? gym({ _id: OLD_ID, active: false, pending: { from: 'gym', to: 'travel' } }) : null)),
+      );
+      await expect(service.update(ID, { emoji: '🎯' })).rejects.toThrow(/still being moved into travel/);
+      await expect(service.remove(ID, 'health')).rejects.toThrow(/still being moved into travel/);
+      expect(model.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('refuses to rename a legacy custom category that carries a built-in name', async () => {
+      model.findOne.mockImplementation(findOneBy(gym({ name: 'food' })));
+      await expect(service.update(ID, { name: 'groceries' })).rejects.toThrow(/built-in/);
     });
   });
 
@@ -159,7 +182,9 @@ describe('CategoriesService', () => {
     });
 
     it('rejects moving to itself or to a category that is not active', async () => {
-      model.findOne.mockReturnValue(query(gym()));
+      model.findOne.mockImplementation(findOneBy(gym()));
+      // The active list contains gym itself, so only the "move to itself" check can reject 'gym'.
+      model.find.mockReturnValue(query([{ _id: ID, name: 'gym', color: '#3b82f6', emoji: '💪' }]));
       await expect(service.remove(ID, 'gym')).rejects.toBeInstanceOf(BadRequestException);
       await expect(service.remove(ID, 'nope')).rejects.toBeInstanceOf(BadRequestException);
     });
@@ -192,6 +217,27 @@ describe('CategoriesService', () => {
     it('answers 409 when another change got there first', async () => {
       model.findOne.mockReturnValueOnce(query(gym()));
       await expect(service.remove(ID, 'health')).rejects.toBeInstanceOf(ConflictException);
+      expect(refs.migrate).not.toHaveBeenCalled();
+    });
+
+    it('counts a category as in use through recurring rules or budgets alone', async () => {
+      model.findOne.mockImplementation(findOneBy(gym()));
+      refs.usage.mockResolvedValueOnce(new Map([['gym', { transactions: 0, recurring: 1, budgets: 0 }]]));
+      await expect(service.remove(ID)).rejects.toThrow(/in use/);
+      refs.usage.mockResolvedValueOnce(new Map([['gym', { transactions: 0, recurring: 0, budgets: 1 }]]));
+      await expect(service.remove(ID)).rejects.toThrow(/in use/);
+    });
+
+    it('hides a legacy custom category that carries a built-in name without moving the built-in data', async () => {
+      model.findOne.mockImplementation(findOneBy(gym({ name: 'food' })));
+      refs.usage.mockResolvedValue(new Map([['food', { transactions: 42, recurring: 0, budgets: 1 }]]));
+      await expect(service.remove(ID, 'other')).rejects.toThrow(/built-in/);
+      model.findOneAndUpdate.mockResolvedValueOnce({ _id: ID });
+      await service.remove(ID);
+      expect(model.findOneAndUpdate).toHaveBeenCalledWith(
+        { _id: ID, userId: 1, active: true, pending: null },
+        { $set: { active: false, pending: null } },
+      );
       expect(refs.migrate).not.toHaveBeenCalled();
     });
   });

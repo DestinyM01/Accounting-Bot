@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CustomCategory } from '../shared/schemas/custom-category.schema';
 import { CategoryReferencesService, NO_USAGE } from './category-references.service';
-import { EMOJIS, PALETTE, isKnownEmoji, isPaletteColor, nameError, normalizeName } from './category-rules';
+import { BUILT_IN_NAMES, EMOJIS, PALETTE, isKnownEmoji, isPaletteColor, nameError, normalizeName } from './category-rules';
 
 const BUILT_IN = [
   { name: 'food',          color: '#10e5a0', emoji: '🍔' },
@@ -119,6 +119,9 @@ export class CategoriesService {
       return { id: String(cat._id) };
     }
 
+    if (BUILT_IN_NAMES.includes(cat.name)) {
+      throw new BadRequestException(`${cat.name} shares its name with a built-in category and can't be renamed`);
+    }
     const invalid = nameError(to);
     if (invalid) throw new BadRequestException(invalid);
     await this.assertNameFree(to, `${to} already exists — delete ${cat.name} and move it there to merge`);
@@ -137,7 +140,13 @@ export class CategoriesService {
   /** Deletes a custom category, moving everything that uses it to `moveTo` (required while it is in use). */
   async remove(id: string, moveTo?: string): Promise<void> {
     const cat = await this.findEditable(id);
-    const usage = (await this.refs.usage()).get(cat.name) ?? NO_USAGE;
+    // A legacy custom category carrying a built-in's name (the old api allowed one) shares
+    // that name's data with the built-in: never move it, only hide the record.
+    const sharesBuiltIn = BUILT_IN_NAMES.includes(cat.name);
+    if (sharesBuiltIn && moveTo) {
+      throw new BadRequestException(`${cat.name} shares its name with a built-in category; delete it without moving`);
+    }
+    const usage = sharesBuiltIn ? NO_USAGE : (await this.refs.usage()).get(cat.name) ?? NO_USAGE;
     const inUse = usage.transactions + usage.recurring + usage.budgets > 0;
 
     let pending: Pending | null = null;
@@ -181,7 +190,14 @@ export class CategoriesService {
 
   private async findEditable(id: string) {
     const cat = await this.findOwn(id);
-    if (!cat.active || cat.pending) throw new ConflictException(`${cat.name} is being moved — finish that move first`);
+    if (!cat.active) throw new ConflictException(`${cat.name} was deleted`);
+    if (cat.pending) throw new ConflictException(`${cat.name} is being moved — finish that move first`);
+    // A category an unfinished move is still moving data into must stay as it is,
+    // or finishing that move would put the rest of the data under a dead name.
+    const incoming = await this.model.findOne({ userId: this.userId, 'pending.to': cat.name }).lean();
+    if (incoming) {
+      throw new ConflictException(`${incoming.pending.from} is still being moved into ${cat.name} — finish that move first`);
+    }
     return cat;
   }
 
