@@ -7,6 +7,7 @@ import { Subject, Subscription, debounceTime } from 'rxjs';
 import { Chart, registerables } from 'chart.js';
 import { ApiService } from '../../core/services/api.service';
 import { GrowthInput, GrowthResult, MyNumbers } from '../../core/services/api.models';
+import { HOVER_COLUMN, axisStyle, chartTheme, tooltipStyle } from '../../core/ui/chart-theme';
 
 Chart.register(...registerables);
 
@@ -143,8 +144,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
     const r = this.result;
     if (this.destroyed || !canvas || !r) return;
     // Theme colours, read at runtime so the chart follows the design tokens.
-    const css = getComputedStyle(document.documentElement);
-    const token = (name: string) => css.getPropertyValue(name).trim();
+    const t = chartTheme();
     // Same formatting as the Balance page's tooltip.
     const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
     const first = !this.chart;
@@ -154,25 +154,26 @@ export class CalculatorComponent implements OnInit, OnDestroy {
       data: {
         labels: r.years.map((y) => `Year ${y.year}`),
         datasets: [
-          { label: 'Put in', data: r.years.map((y) => y.putIn), backgroundColor: token('--text-muted'), stack: 'total' },
-          { label: 'Interest', data: r.years.map((y) => y.interest), backgroundColor: token('--accent'), stack: 'total' },
+          { label: 'Put in', data: r.years.map((y) => y.putIn), backgroundColor: t.muted, stack: 'total' },
+          { label: 'Interest', data: r.years.map((y) => y.interest), backgroundColor: t.accent, stack: 'total' },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         animation: first ? undefined : false,
+        interaction: HOVER_COLUMN,
         plugins: {
-          legend: { labels: { color: token('--text-muted') } },
-          tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${money(c.parsed.y ?? 0)}` } },
+          legend: { labels: { color: t.muted } },
+          tooltip: { ...tooltipStyle(t), callbacks: { label: (c) => `${c.dataset.label}: ${money(c.parsed.y ?? 0)}` } },
         },
         scales: {
-          x: { stacked: true, grid: { color: token('--border') }, ticks: { color: token('--text-muted'), maxTicksLimit: 10 } },
+          x: { ...axisStyle(t), stacked: true, ticks: { ...axisStyle(t).ticks, maxTicksLimit: 10 } },
           y: {
+            ...axisStyle(t),
             stacked: true,
-            grid: { color: token('--border') },
             ticks: {
-              color: token('--text-muted'),
+              ...axisStyle(t).ticks,
               callback: (value) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
             },
           },

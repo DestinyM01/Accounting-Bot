@@ -6,7 +6,7 @@ import { forkJoin } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { CategoryPoint, MonthlyPoint, MonthlySummary } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
-import { HOVER_COLUMN, axisStyle, chartTheme, tooltipStyle, withAlpha } from '../../core/ui/chart-theme';
+import { HOVER_COLUMN, axisStyle, chartTheme, moneyLabel, tooltipStyle, withAlpha } from '../../core/ui/chart-theme';
 
 Chart.register(...registerables);
 
@@ -93,7 +93,7 @@ export class StatisticsComponent implements OnInit {
             data: this.monthly.map(m => m.income),
             borderColor: t.income, borderWidth: 2,
             fill: true, backgroundColor: gIncome,
-            pointRadius: 0, pointHoverRadius: 4,
+            pointRadius: 0, pointBackgroundColor: t.income, pointHoverRadius: 4,
             pointHoverBackgroundColor: t.income, pointHoverBorderColor: t.income,
             tension: 0.4,
           },
@@ -102,7 +102,7 @@ export class StatisticsComponent implements OnInit {
             data: this.monthly.map(m => m.expense),
             borderColor: t.expense, borderWidth: 2,
             fill: true, backgroundColor: gExpense,
-            pointRadius: 0, pointHoverRadius: 4,
+            pointRadius: 0, pointBackgroundColor: t.expense, pointHoverRadius: 4,
             pointHoverBackgroundColor: t.expense, pointHoverBorderColor: t.expense,
             tension: 0.4,
           },
@@ -113,7 +113,7 @@ export class StatisticsComponent implements OnInit {
         interaction: HOVER_COLUMN,
         plugins: {
           legend: { display: false },
-          tooltip: tooltipStyle(t),
+          tooltip: { ...tooltipStyle(t), callbacks: { label: moneyLabel } },
         },
         scales: {
           x: axisStyle(t),

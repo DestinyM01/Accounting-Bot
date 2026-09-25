@@ -11,7 +11,7 @@ import {
 } from '../../core/services/api.models';
 import { TransactionEventsService } from '../../core/services/transaction-events.service';
 import { CategoryService } from '../../core/services/category.service';
-import { HOVER_COLUMN, axisStyle, chartTheme, tooltipStyle, withAlpha } from '../../core/ui/chart-theme';
+import { HOVER_COLUMN, axisStyle, chartTheme, moneyLabel, tooltipStyle, withAlpha } from '../../core/ui/chart-theme';
 
 Chart.register(...registerables);
 
@@ -159,6 +159,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             borderColor: t.income,
             borderWidth: 2,
             pointRadius: 0,
+            pointBackgroundColor: t.income,
             pointHoverRadius: 4,
             pointHoverBackgroundColor: t.income,
             pointHoverBorderColor: t.income,
@@ -173,6 +174,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             borderWidth: 2,
             borderDash: [6, 4],
             pointRadius: 0,
+            pointBackgroundColor: t.expense,
             pointHoverRadius: 4,
             pointHoverBackgroundColor: t.expense,
             pointHoverBorderColor: t.expense,
@@ -189,7 +191,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         interaction: HOVER_COLUMN,
         plugins: {
           legend: { display: false },
-          tooltip: tooltipStyle(t),
+          tooltip: { ...tooltipStyle(t), callbacks: { label: moneyLabel } },
         },
         scales: {
           x: axisStyle(t),

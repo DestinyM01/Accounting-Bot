@@ -304,6 +304,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
             borderWidth: 2,
             stepped: true,
             pointRadius: 0,
+            pointBackgroundColor: t.accent,
             pointHoverRadius: 4,
             pointHoverBackgroundColor: t.accent,
             pointHoverBorderColor: t.accent,

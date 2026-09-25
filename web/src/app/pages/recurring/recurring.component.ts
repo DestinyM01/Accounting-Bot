@@ -127,6 +127,7 @@ export class RecurringComponent implements OnInit, OnDestroy {
           colorFrom: (c: any) => nodeColor(c.dataset.data[c.dataIndex].from),
           colorTo:   (c: any) => nodeColor(c.dataset.data[c.dataIndex].to),
           colorMode: 'gradient',
+          color: t.text,
           borderWidth: 0,
           nodeWidth: 14,
           nodePadding: 14,
@@ -214,7 +215,9 @@ export class RecurringComponent implements OnInit, OnDestroy {
   /** The bill's due day this month ("Sep 20"), not when the booking ran. */
   billedDate(r: RecurringEntry): string {
     const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), r.dayOfMonth)
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const day = Math.min(r.dayOfMonth, lastDay);
+    return new Date(now.getFullYear(), now.getMonth(), day)
       .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 

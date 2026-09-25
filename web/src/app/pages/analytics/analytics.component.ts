@@ -4,7 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { Chart, registerables } from 'chart.js';
 import { ApiService } from '../../core/services/api.service';
 import { ChartPoint, TopTransaction } from '../../core/services/api.models';
-import { HOVER_COLUMN, axisStyle, chartTheme, tooltipStyle, withAlpha } from '../../core/ui/chart-theme';
+import { HOVER_COLUMN, axisStyle, chartTheme, moneyLabel, tooltipStyle, withAlpha } from '../../core/ui/chart-theme';
 
 Chart.register(...registerables);
 
@@ -72,7 +72,7 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
         interaction: HOVER_COLUMN,
         plugins: {
           legend: { display: false },
-          tooltip: tooltipStyle(t),
+          tooltip: { ...tooltipStyle(t), callbacks: { label: moneyLabel } },
         },
         scales: {
           x: axisStyle(t),

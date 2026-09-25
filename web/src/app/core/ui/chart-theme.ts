@@ -17,17 +17,32 @@ export interface ChartTheme {
   expense: string;
 }
 
+/** toRgb results, keyed by the input colour string, so repeated tokens skip the canvas round-trip. */
+const rgbCache = new Map<string, string>();
+let sharedCtx: CanvasRenderingContext2D | null | undefined;
+
 /** Any CSS colour as rgb()/rgba(): canvas understands oklch(), but Chart.js's colour helper (used by plugins to add transparency) doesn't. */
 function toRgb(color: string): string {
-  const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
-  if (!ctx || !color) return color;
+  if (!color) return color;
+  const cached = rgbCache.get(color);
+  if (cached !== undefined) return cached;
+  // A colour canvas can't parse: fillStyle would silently keep its previous value
+  // (or default to black) rather than throw, so bail out before painting.
+  if (typeof CSS !== 'undefined' && !CSS.supports('color', color)) return color;
+  if (sharedCtx === undefined) {
+    sharedCtx = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+  }
+  const ctx = sharedCtx;
+  if (!ctx) return color;
   ctx.canvas.width = ctx.canvas.height = 1;
   ctx.clearRect(0, 0, 1, 1);
   ctx.fillStyle = color;
   ctx.fillRect(0, 0, 1, 1);
   const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
   if (a === 0 && r === 0 && g === 0 && b === 0) return color;
-  return a === 255 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${+(a / 255).toFixed(3)})`;
+  const rgb = a === 255 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${+(a / 255).toFixed(3)})`;
+  rgbCache.set(color, rgb);
+  return rgb;
 }
 
 export function chartTheme(): ChartTheme {
@@ -44,7 +59,11 @@ export function chartTheme(): ChartTheme {
   };
 }
 
-/** `color` made see-through: rgb(r, g, b) → rgba(r, g, b, a); oklch(L C H) → oklch(L C H / a); #rrggbb → rgba(r, g, b, a); anything else unchanged. */
+/**
+ * `color` made see-through: rgb(r, g, b) → rgba(r, g, b, a); oklch(L C H) → oklch(L C H / a);
+ * #rrggbb → rgba(r, g, b, a); anything else unchanged. `alpha` replaces any alpha `color`
+ * already carries (e.g. an rgba() input's own alpha is discarded) rather than multiplying it.
+ */
 export function withAlpha(color: string, alpha: number): string {
   const c = color.trim();
   const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(c);
@@ -61,7 +80,15 @@ export function withAlpha(color: string, alpha: number): string {
 
 /** The tooltip every chart uses. */
 export function tooltipStyle(t: ChartTheme) {
-  return { backgroundColor: t.card, borderColor: t.grid, borderWidth: 1, titleColor: t.muted, bodyColor: t.text };
+  return {
+    backgroundColor: t.card,
+    borderColor: t.grid,
+    borderWidth: 1,
+    titleColor: t.text,
+    bodyColor: t.text,
+    // Chart.js draws each tooltip colour key over white by default; match the tooltip card.
+    multiKeyBackground: t.card,
+  };
 }
 
 /** One axis's grid and tick labels. */
@@ -71,3 +98,11 @@ export function axisStyle(t: ChartTheme) {
 
 /** Hovering anywhere over a column shows its tooltip, with every series in it. */
 export const HOVER_COLUMN = { mode: 'index', intersect: false } as const;
+
+const MONEY = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+
+/** A tooltip label "Income: $52,000" (or just "$52,000" for an unlabelled series). */
+export function moneyLabel(ctx: { dataset: { label?: string }; parsed: { y: number | null } }): string {
+  const value = MONEY.format(ctx.parsed.y ?? 0);
+  return ctx.dataset.label ? `${ctx.dataset.label}: ${value}` : value;
+}
