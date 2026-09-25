@@ -139,6 +139,8 @@ export class MailSectionComponent implements OnInit, OnDestroy {
           // is on screen, a failed reload keeps it and reports inline instead.
           if (this.status) this.reloadError = "Couldn't reload the mail status.";
           else this.loadError = "Couldn't load the mail status.";
+          // A failed reload mid-run must not end the polling, or "Check mail now" stays disabled.
+          if (this.status?.running && !this.destroyed) this.pollTimer = setTimeout(() => this.load(), 4000);
           then?.();
         },
       }),
