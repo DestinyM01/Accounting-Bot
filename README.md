@@ -43,7 +43,7 @@ A personal finance tracker: a **web dashboard** for entry, review and reporting,
 | **Compare** | Pick any two months and get a side-by-side summary + Mistral AI narrative |
 | **Analytics** | Top-10 most frequent transactions table; click a row to see its monthly history chart |
 | **Recurring** | Create rules; upcoming billing and what was billed this month. The API checks hourly and books each rule on its day (08:00 local), catching up days missed within 31 days |
-| **Categories** | Create, edit, rename and delete your own categories; deleting one in use moves its transactions, recurring rules and budgets to a category you choose |
+| **Categories** | Create, edit, rename and delete your own categories; deleting one in use moves its transactions, recurring rules, budgets and cash items to a category you choose |
 | **Cash envelopes** | Itemize an ATM withdrawal into what the cash was spent on; items count toward their categories' budgets and statistics without adding to total spending |
 | **Tips** | AI-generated personalised financial tips (Mistral, 1-hour cache) |
 | **Email reports** | A weekly digest (Monday 07:00) and a monthly summary (the 1st), sent by the API through Gmail; "Email me a test digest" on the Dashboard sends one now |

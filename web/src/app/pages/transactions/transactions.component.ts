@@ -1,21 +1,21 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { debounceTime, distinctUntilChanged, Subject, Subscription } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
-import { CashBreakdown, Transaction, TransactionPage } from '../../core/services/api.models';
+import { Transaction, TransactionPage } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
 import { TransactionEventsService } from '../../core/services/transaction-events.service';
 import { TransactionFormService } from '../../core/services/transaction-form.service';
+import { CashPanelComponent } from './cash-panel/cash-panel.component';
 
 @Component({
   selector: 'app-transactions',
   standalone: true,
   imports: [CommonModule, CurrencyPipe, DatePipe, TitleCasePipe, FormsModule,
-            MatIconModule, MatSelectModule],
+            MatIconModule, MatSelectModule, CashPanelComponent],
   templateUrl: './transactions.component.html',
   styleUrls: ['./transactions.component.scss'],
 })
@@ -36,16 +36,8 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   needsReviewOnly = false;
   unitemizedOnly  = false;
 
-  /** The withdrawal whose itemize panel is open (one at a time), its breakdown and the add form. */
+  /** The withdrawal whose itemize panel is open (one at a time). The panel owns its own state. */
   cashFor: string | null = null;
-  cash: CashBreakdown | null = null;
-  cashLoading = false;
-  cashBusy    = false;
-  cashError   = '';
-  itemCategory    = '';
-  itemAmount: number | null = null;
-  itemDescription = '';
-  private cashGen = 0;
 
   get categories(): string[] { return this.catSvc.all.map(c => c.name); }
 
@@ -145,116 +137,23 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     this.load(false);
   }
 
-  get itemCategories(): string[] { return this.categories.filter((c) => c !== 'cash'); }
-
   /** Cash of this withdrawal not yet itemized, from the list's counter. */
   unitemized(tx: Transaction): number {
     if (!tx.isWithdrawal || !tx.isExpense) return 0;
     return Math.max(0, Math.round((tx.amount - (tx.allocatedCash ?? 0)) * 100) / 100);
   }
 
-  get canAddItem(): boolean {
-    const a = this.itemAmount;
-    return !!this.cash && !this.cashBusy && !!this.itemCategory
-      && typeof a === 'number' && a > 0 && a <= this.cash.remaining + 0.005;
-  }
-
   toggleCash(tx: Transaction) {
-    if (this.cashFor === tx._id) {
-      this.cashFor = null;
-      this.cash = null;
-      this.focusSoon(`itemize-${tx._id}`);
-      return;
-    }
-    this.cashFor = tx._id;
-    this.cash = null;
-    this.cashError = '';
-    this.resetItemForm();
-    this.loadCash(tx, () => this.focusSoon('cash-category', `itemize-${tx._id}`));
-  }
-
-  addItem(tx: Transaction) {
-    if (!this.canAddItem) return;
-    this.cashBusy = true;
-    this.cashError = '';
-    const description = this.itemDescription.trim();
-    this.api.addCashItem(tx._id, {
-      category: this.itemCategory,
-      amount: this.itemAmount!,
-      ...(description ? { description } : {}),
-    }).subscribe({
-      next: () => {
-        this.cashBusy = false;
-        this.resetItemForm();
-        this.loadCash(tx, () => this.focusSoon('cash-category', `itemize-${tx._id}`));
-      },
-      error: (e: HttpErrorResponse) => {
-        this.cashBusy = false;
-        this.cashError = this.cashMessage(e, "Couldn't add the item. Please try again.");
-        this.loadCash(tx); // another tab may have itemized meanwhile: show what's really left
-      },
-    });
-  }
-
-  removeItem(tx: Transaction, index: number) {
-    const items = this.cash?.items ?? [];
-    const item = items[index];
-    if (!item || this.cashBusy) return;
-    const nextId = items[index + 1]?.id;
-    this.cashBusy = true;
-    this.cashError = '';
-    this.api.deleteCashItem(item.id).subscribe({
-      next: () => {
-        this.cashBusy = false;
-        this.loadCash(tx, () => this.focusSoon(...(nextId ? [`remove-${nextId}`] : []), 'cash-category', `itemize-${tx._id}`));
-      },
-      error: (e: HttpErrorResponse) => {
-        this.cashBusy = false;
-        this.cashError = this.cashMessage(e, "Couldn't remove the item. Please try again.");
-        this.loadCash(tx);
-      },
-    });
-  }
-
-  /**
-   * Loads the open panel's breakdown and updates the row's counter from it.
-   * The generation check drops a reply for a panel that was closed or reloaded since.
-   */
-  private loadCash(tx: Transaction, then?: () => void) {
-    const gen = ++this.cashGen;
-    this.cashLoading = true;
-    this.api.getCashBreakdown(tx._id).subscribe({
-      next: (b) => {
-        if (gen !== this.cashGen || this.cashFor !== tx._id) return;
-        this.cash = b;
-        this.cashLoading = false;
-        tx.allocatedCash = b.allocated;
-        then?.();
-      },
-      error: (e: HttpErrorResponse) => {
-        if (gen !== this.cashGen || this.cashFor !== tx._id) return;
-        this.cashLoading = false;
-        this.cashError = this.cashMessage(e, "Couldn't load this withdrawal's items.");
-      },
-    });
+    const closing = this.cashFor === tx._id;
+    this.cashFor = closing ? null : tx._id;
+    if (closing) this.focusSoon(`itemize-${tx._id}`);
   }
 
   /** A reload (filters, another tab, an edit) may drop the row whose panel is open: close the panel with it. */
   private dropPanelIfGone() {
     if (this.cashFor && !this.items.some((t) => t._id === this.cashFor)) {
       this.cashFor = null;
-      this.cash = null;
     }
-  }
-
-  private resetItemForm() {
-    this.itemCategory = '';
-    this.itemAmount = null;
-    this.itemDescription = '';
-  }
-
-  private cashMessage(e: HttpErrorResponse, fallback: string): string {
-    return typeof e.error?.message === 'string' ? e.error.message : fallback;
   }
 
   /** Focus the first of these elements that exists after the next render. */

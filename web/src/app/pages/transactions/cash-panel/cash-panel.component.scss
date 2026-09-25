@@ -1,0 +1,75 @@
+:host { display: block; }
+
+// ── Row actions (copied from transactions.component.scss: the remove buttons
+// use it, and component styles are encapsulated) ─────────────────────────
+.icon-act {
+  background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 8px;
+  mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
+  &:hover:not(:disabled) { background: var(--color-surface-hover); color: var(--text); }
+  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  &.danger { color: var(--expense); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+// ── Itemize a withdrawal ───────────────────────────────────────────────
+.cash-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 24px var(--space-md);
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+}
+
+.cash-remaining {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cash-muted {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.cash-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.cash-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.cash-item-desc {
+  flex: 1 1 8rem;
+  min-width: 0;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.cash-item-amount { font-variant-numeric: tabular-nums; }
+
+.cash-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-xs);
+
+  .fc-field { flex: 1 1 10rem; min-width: 0; }
+  .cash-desc-field { flex-basis: 14rem; }
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: stretch;
+    .fc-field { flex: 0 0 auto; }
+  }
+}

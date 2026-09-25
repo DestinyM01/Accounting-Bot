@@ -1,0 +1,61 @@
+<section class="cash-panel" [attr.aria-label]="'Itemize ' + tx.transactionName">
+  @if (cash) {
+    <p class="cash-remaining" aria-live="polite">
+      Remaining {{ cash.remaining | currency:'USD':'symbol':'1.2-2' }} of {{ cash.amount | currency:'USD':'symbol':'1.2-2' }}
+    </p>
+    @if (cash.items.length) {
+      <ul class="cash-items">
+        @for (item of cash.items; track item.id; let i = $index) {
+          <li class="cash-item">
+            <span class="cat-pill"
+                  [style.background]="catColor(item.category) + '22'"
+                  [style.color]="catColor(item.category)">
+              <span class="dot" [style.background]="catColor(item.category)"></span>
+              {{ item.category | titlecase }}
+            </span>
+            <span class="cash-item-desc">{{ item.description }}</span>
+            <span class="cash-item-amount">{{ item.amount | currency:'USD':'symbol':'1.2-2' }}</span>
+            <button [id]="'remove-' + item.id" type="button" class="icon-act" [disabled]="busy"
+                    [attr.aria-label]="removeLabel(item, item.amount | currency:'USD':'symbol':'1.2-2')"
+                    (click)="remove(i)">
+              <mat-icon>close</mat-icon>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+    @if (cash.remaining > 0) {
+      <form class="cash-form" (ngSubmit)="add()">
+        <label class="fc-field">
+          <span>Category</span>
+          <select [id]="ids.category" class="fc-input" [(ngModel)]="category" name="itemCategory">
+            <option value="" disabled>Where did it go?</option>
+            @for (cat of categories; track cat) {
+              <option [value]="cat">{{ cat | titlecase }}</option>
+            }
+          </select>
+        </label>
+        <label class="fc-field">
+          <span>Amount</span>
+          <input [id]="ids.amount" class="fc-input" type="number" step="0.01" min="0.01" [max]="cash.remaining"
+                 [(ngModel)]="amount" name="itemAmount" />
+        </label>
+        <label class="fc-field cash-desc-field">
+          <span>Description</span>
+          <input class="fc-input" type="text" maxlength="60" placeholder="What was it? (optional)"
+                 [(ngModel)]="description" name="itemDescription" />
+        </label>
+        <button type="submit" class="fc-btn fc-btn--primary" [disabled]="!canAdd">
+          {{ busy ? 'Adding…' : 'Add' }}
+        </button>
+      </form>
+    } @else {
+      <p class="cash-muted">All of it is itemized.</p>
+    }
+  } @else if (loading) {
+    <p class="cash-muted">Loading…</p>
+  }
+  @if (error) {
+    <p class="fc-error" role="alert">{{ error }}</p>
+  }
+</section>
