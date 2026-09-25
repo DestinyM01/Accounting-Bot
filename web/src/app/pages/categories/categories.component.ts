@@ -114,7 +114,12 @@ export class CategoriesComponent implements OnInit, OnDestroy {
     // Keep one entry per name. The built-ins come first, so a legacy custom category that
     // shares a built-in's name doesn't appear twice.
     return (this.overview?.categories ?? []).filter(
-      (x, i, all) => x.active && !x.pending && x.name !== c.name && all.findIndex((y) => y.name === x.name) === i,
+      (x, i, all) =>
+        x.active &&
+        !x.pending &&
+        x.name !== c.name &&
+        all.findIndex((y) => y.name === x.name) === i &&
+        !(x.name === 'cash' && c.usage.cashItems > 0),
     );
   }
 
