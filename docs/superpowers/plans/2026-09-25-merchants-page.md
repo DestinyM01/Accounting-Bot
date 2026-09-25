@@ -1795,3 +1795,33 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 4. Final review of the whole branch; fix anything it finds.
 5. PII gate on the diff and on the commit messages.
 6. Append "As built" and "Follow-ups" to this plan, update the memory file, push, watch CI, then give the user the `kubectl rollout restart` command.
+
+## As built (2026-09-25)
+
+Tasks 1–8 landed as written in `12c34f4`, `4098570`, `4a3da0a`, `0d32b8b`, `060f59d`, `a7857f0`, `ec534d6` and `238cdb9` (674 → 725 tests), with no deviations.
+
+**Review.** Both halves passed spec compliance. The api quality review caught 4 of 12 mutants. The fixes are in `37d2b1e`, `7046e7b` and `df87dec`:
+- **Api:**
+  - tests now pin the counts reported back (`modifiedCount`, not ids found), `learn()` never throwing when filing fails, the order of checks (400 before 404 and before the lookup) and the 200-character boundary;
+  - the `change` guard is `$in: [old, chosen]`, so a repeated submit succeeds;
+  - friendlier messages, and Spanish collation for sorting.
+- **Web:**
+  - the filter keeps an open row visible, where it used to trap the page with every button disabled;
+  - a deleted category can't stay picked, a failed add checks the name again, and a change or forget updates the row at once;
+  - `aria-describedby` for the preview line, the forget confirmation and the deleted-guess select;
+  - `TitleCasePipe` for status text;
+  - a failed pick on a deleted guess goes back to "Choose a category";
+  - the Transactions page refreshes the category list when it opens.
+- **Final review:** ready to push.
+
+Final: api 64 suites / 733 tests, `tsc` clean, web build clean. The preview harness (fake api) checked the list, all four preview lines, add, change, forget, the filter, the phone layout (375 px, no horizontal scroll) and the Transactions deleted guess.
+
+## Follow-ups
+
+- **Arrow keys on a closed select (Windows).** In Chrome on Windows, ArrowDown on a closed review `<select>` fires `change`, which files the row. This predates the change, but focus now lands on the next row's picker, so it's easier to hit.
+- **Small-text contrast.** `--text-muted` is about 3:1 on cards (status and preview lines, ghost buttons), and white on `--expense` is below 4.5:1. These are shared tokens, so the fix is app-wide.
+- **The status line sits above the list.** After a change near the bottom of a long list, the status line is off-screen (screen readers still announce it).
+- **Api title case.** The api's 409 capitalises only the first letter ("My-gym"), while the web's pipe gives "My-Gym".
+- **Shared helpers.** There are three copies of the focus-first-id helper (Categories, Merchants, Transactions), and `.mer-danger` repeats `.cat-danger`. A global `.fc-btn--danger` would remove the duplication.
+- **Scans per request.** `list`, `match` and `change` scan every bank-mail expense per call. That's fine for one person's history; storing the key on each row would be the fix if it grows.
+- **A running ingestion uses its snapshot.** Mail booked by a run that started before a change is filed under the old category, as with learning.
