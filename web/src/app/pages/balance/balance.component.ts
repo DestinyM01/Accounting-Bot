@@ -13,6 +13,7 @@ import {
   BalanceSummary,
   DailyBalance,
 } from '../../core/services/api.models';
+import { HOVER_COLUMN, axisStyle, chartTheme, tooltipStyle } from '../../core/ui/chart-theme';
 
 Chart.register(...registerables);
 
@@ -288,9 +289,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
     const isFirstBuild = !this.chart;
     this.chart?.destroy();
 
-    // Theme colours, read at runtime so the chart follows the design tokens.
-    const css = getComputedStyle(document.documentElement);
-    const token = (name: string) => css.getPropertyValue(name).trim();
+    const t = chartTheme();
     const label = (day: string) =>
       new Date(`${day}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
@@ -301,13 +300,13 @@ export class BalanceComponent implements OnInit, OnDestroy {
         datasets: [
           {
             data: this.daily.map((p) => p.balance),
-            borderColor: token('--accent'),
+            borderColor: t.accent,
             borderWidth: 2,
             stepped: true,
             pointRadius: 0,
             pointHoverRadius: 4,
-            pointHoverBackgroundColor: token('--accent'),
-            pointHoverBorderColor: token('--accent'),
+            pointHoverBackgroundColor: t.accent,
+            pointHoverBorderColor: t.accent,
             fill: false,
           },
         ],
@@ -316,14 +315,14 @@ export class BalanceComponent implements OnInit, OnDestroy {
         responsive: true,
         maintainAspectRatio: false,
         animation: isFirstBuild ? undefined : false,
-        interaction: { mode: 'index', intersect: false },
+        interaction: HOVER_COLUMN,
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { label: (c) => this.money(c.parsed.y!) } },
+          tooltip: { ...tooltipStyle(t), callbacks: { label: (c) => this.money(c.parsed.y!) } },
         },
         scales: {
-          x: { grid: { color: token('--border') }, ticks: { color: token('--text-muted'), maxTicksLimit: 6 } },
-          y: { grid: { color: token('--border') }, ticks: { color: token('--text-muted') } },
+          x: { ...axisStyle(t), ticks: { ...axisStyle(t).ticks, maxTicksLimit: 6 } },
+          y: axisStyle(t),
         },
       },
     });
