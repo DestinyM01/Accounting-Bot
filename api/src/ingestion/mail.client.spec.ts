@@ -106,4 +106,35 @@ describe('MailClient', () => {
 
     expect(mockGetMailboxLock).toHaveBeenCalledWith('Banks', { readOnly: true });
   });
+
+  // BHD's alerts have no text/plain part — mailparser hands back `text:
+  // undefined` — so the body must fall back to reading the HTML's tables.
+  it('falls back to the HTML tables as pipe rows when a mail has no text', async () => {
+    mockFetch.mockImplementation(async function* () {
+      yield { uid: 1, source: Buffer.from('html-only') };
+    });
+    mockSimpleParser.mockResolvedValue({
+      from: { value: [{ address: SENDER }] },
+      subject: 'html-only',
+      text: undefined,
+      html: '<table><tr><td>a</td><td>b</td></tr></table>',
+      messageId: '<html-only>',
+      date: new Date('2026-01-01T20:00:00Z'),
+    });
+
+    const out = await new MailClient().fetchSince(new Date('2026-01-01T00:00:00Z'), [SENDER]);
+
+    expect(out[0].body).toBe('| a | b |');
+  });
+
+  it('keeps the plain text verbatim when a mail has one', async () => {
+    mockFetch.mockImplementation(async function* () {
+      yield { uid: 1, source: Buffer.from('has-text') };
+    });
+    mockSimpleParser.mockResolvedValue(parsedMail('has-text', new Date('2026-01-01T20:00:00Z')));
+
+    const out = await new MailClient().fetchSince(new Date('2026-01-01T00:00:00Z'), [SENDER]);
+
+    expect(out[0].body).toBe('body of has-text');
+  });
 });

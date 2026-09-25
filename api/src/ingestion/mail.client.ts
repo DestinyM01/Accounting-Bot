@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
+import { htmlToText } from './html-to-text';
 
 export interface FetchedMail {
   messageId: string; // RFC message id — the dedupe key
@@ -72,7 +73,8 @@ export class MailClient {
             messageId: parsed.messageId ?? `uid-${msg.uid}`,
             sender,
             subject: parsed.subject ?? '',
-            body: parsed.text ?? '',
+            // Some banks (BHD) send HTML only: fall back to its tables as pipe rows.
+            body: parsed.text?.trim() ? parsed.text : typeof parsed.html === 'string' ? htmlToText(parsed.html) : '',
             receivedAt,
           });
         }
