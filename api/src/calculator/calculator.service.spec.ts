@@ -77,5 +77,26 @@ describe('CalculatorService', () => {
       expect(r.monthlySavings).toBe(0);
       expect(r.spentMore).toBe(false);
     });
+
+    it('uses whole calendar months even late in a month', async () => {
+      await service.myNumbers(new Date(2026, 2, 31));
+      expect(statistics.summary.mock.calls).toEqual([[12, 2025], [1, 2026], [2, 2026]]);
+    });
+
+    it('says more was spent when the average is exactly zero but there was activity', async () => {
+      statistics.summary.mockImplementation(async (m: number, y: number) => summary(m, y, 100, 100));
+      const r = await service.myNumbers(new Date(2026, 9, 1));
+      expect(r.monthlySavings).toBe(0);
+      expect(r.spentMore).toBe(true);
+    });
+
+    it('averages over 3 months even when a month had no activity', async () => {
+      statistics.summary
+        .mockResolvedValueOnce(summary(7, 2026, 300, 0))
+        .mockResolvedValueOnce(summary(8, 2026, 0, 0))
+        .mockResolvedValueOnce(summary(9, 2026, 300, 0));
+      const r = await service.myNumbers(new Date(2026, 9, 1));
+      expect(r.monthlySavings).toBe(200);
+    });
   });
 });

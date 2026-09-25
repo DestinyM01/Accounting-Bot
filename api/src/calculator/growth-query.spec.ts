@@ -20,7 +20,22 @@ describe('parseGrowthQuery', () => {
     ['years is 61', { ...ok, years: '61' }],
     ['years is not whole', { ...ok, years: '2.5' }],
     ['years is not a number', { ...ok, years: 'x' }],
+    ['monthly is negative', { ...ok, monthly: '-1' }],
+    ['start is over 1e12', { ...ok, start: '2e12' }],
+    ['start is empty', { ...ok, start: '' }],
+    ['start is an array', { ...ok, start: ['1'] }],
   ])('refuses when %s', (_label, query) => {
     expect(() => parseGrowthQuery(query as Record<string, unknown>)).toThrow(BadRequestException);
+  });
+
+  it.each([
+    ['a 0% rate', { ...ok, rate: '0' }],
+    ['a 100% rate', { ...ok, rate: '100' }],
+    ['1 year', { ...ok, years: '1' }],
+    ['60 years', { ...ok, years: '60' }],
+    ['a 1e12 starting amount', { ...ok, start: '1e12' }],
+    ['a 1e12 monthly deposit', { ...ok, monthly: '1e12' }],
+  ])('accepts %s', (_label, query) => {
+    expect(() => parseGrowthQuery(query as Record<string, unknown>)).not.toThrow();
   });
 });
