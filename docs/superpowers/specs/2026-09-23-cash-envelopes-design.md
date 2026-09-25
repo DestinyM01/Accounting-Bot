@@ -107,13 +107,13 @@ It is added to the api's `Category` enum and so becomes reserved through `BUILT_
 
 ## Rules
 
-1. **Only a live spending withdrawal takes items.** That means `isWithdrawal: true`, `amount < 0`, not deleted, and not an `internal`/`unresolved` transfer. Anything else gets a 400: "Only a cash withdrawal can be itemized". A missing row gets a 404.
+1. **Only a live spending withdrawal takes items.** A missing or deleted row is a 404. That means `isWithdrawal: true`, `amount < 0`, not deleted, and not an `internal`/`unresolved` transfer. Anything else gets a 400: "Only a cash withdrawal can be itemized". A missing row gets a 404.
 2. **`amount`:** a finite number > 0, rounded to cents, ≤ 1e12.
 3. **`category`:** must pass `CategoriesService.assertValid`, and is not `cash`. The message for `cash`: "Cash is what's left unitemized — pick where it went".
 4. **`description`:** optional. It must be a string; it is trimmed and must be ≤ 60 characters after trimming. Empty means absent.
 5. **Items can never exceed the withdrawal.** The rejection is a 400 that names what's left: "Only $500.00 is left to itemize".
 6. **Deleting an item returns its amount** to what's left.
-7. **Editing a withdrawal's amount** below what's already itemized is a 400: "$4,500.00 of this withdrawal is itemized — remove items first". The check is part of the guarded write, so a concurrent add can't slip under it.
+7. **Editing a withdrawal's amount** below what's already itemized is a 400: "$4,500.00 of this withdrawal is itemized — remove items first". The check is part of the guarded write, so a concurrent add can't slip under it. When a concurrent add is what makes the guard miss, the answer is the usual 409 "changed concurrently", and a retry then gets the 400.
 8. **Items never touch `Balance` or `BalanceHistory`.** `CashModule` does not import `LedgerModule`, and a test pins that.
 9. **Recategorizing a withdrawal is allowed.** Its remainder follows its category.
 
@@ -132,12 +132,14 @@ It is added to the api's `Category` enum and so becomes reserved through `BUILT_
    ```
    The half-cent tolerance absorbs floating-point drift from `$inc`.
 2. On a miss, one read tells apart 404, "not a withdrawal" and "only $X left".
-3. Create the `CashAllocation`. If that fails, release the reservation with `$inc: -amount` and rethrow; a failed release is logged.
+3. Create the `CashAllocation` with an id chosen beforehand. If the create throws, release the reservation (`$inc: -amount`) **only once a read confirms the item was not written**. A standalone mongod has no retryable writes, so a lost acknowledgement can hide a successful insert. If the item exists, or the read fails, the reservation stays. Then rethrow; a failed release is logged.
 4. A crash between steps 1 and 3 leaves the counter too high. That blocks some itemizing but never allows over-itemizing.
 
 **Delete an item:**
 1. `findOneAndDelete({ _id, userId })`, or 404.
 2. Then `$inc: { allocatedCash: -amount }` on its withdrawal. If that fails it is logged, and the counter is too high: fail-safe.
+
+**Edit a withdrawal's amount:** if the ledger fails after the guarded write, the rollback that restores the old amount carries the same guard: it applies only while the old amount still covers the itemized total. Otherwise the row is logged for manual repair, as every failed rollback already is.
 
 ---
 
@@ -177,13 +179,15 @@ Each one calls `CategorySpendService.byCategory` instead of grouping `Transactio
 
 - `Usage` gains `cashItems`. `usage()` counts items per category with the same `$group` shape, and in-use checks include them.
 - `migrate(from, to)` moves items with `updateMany`, between the transactions step and the recurring step.
+- Deleting a category that has cash items into `cash` is refused, and the page doesn't offer `cash` as its move target.
 - `CategoriesModule` registers the `CashAllocation` model itself, so it does not import `CashModule`.
 - On the web, `CategoryUsage` gains `cashItems`, and the usage text says "3 cash items" or "1 cash item".
 
 ## Ingestion
 
 - A parsed withdrawal (`isWithdrawal && direction === 'expense'`) is booked as `category: 'cash'`, `categoryNeedsReview: false`, without calling the categorizer. That also saves a Mistral call.
-- The categorizer's `cajero autom…` rule maps to `cash`.
+- The categorizer's `cajero autom…` rule maps to `cash`, and `cash` is never in the list the categorizer may choose from for a merchant.
+- A mail that confirms a recurring prediction in place copies `isWithdrawal` onto it, so a cash payment booked by a rule can still be itemized; the rule keeps its category.
 - Existing rows are not touched.
 
 ---
