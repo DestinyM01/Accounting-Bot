@@ -1,4 +1,4 @@
-import { parseDdMmYyyyDash12h } from './dates';
+import { parseDdMmYyyy12h, parseDdMmYyyyDash12h } from './dates';
 
 describe('parseDdMmYyyyDash12h', () => {
   it('parses "28/08/2026 - 8:33 AM"', () => {
@@ -25,5 +25,11 @@ describe('parseDdMmYyyyDash12h', () => {
 
   it('returns null for unparseable input', () => {
     expect(parseDdMmYyyyDash12h('not a date')).toBeNull();
+  });
+});
+
+describe('bank times are read in the user zone', () => {
+  it('stores a BHD "09:53 pm" as the true instant', () => {
+    expect(parseDdMmYyyy12h('24/09/2026 09:53 pm')!.toISOString()).toBe('2026-09-25T01:53:00.000Z');
   });
 });
