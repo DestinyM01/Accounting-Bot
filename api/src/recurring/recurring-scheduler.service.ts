@@ -7,7 +7,7 @@ import { Transaction } from '../shared/schemas/transaction.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { NOT_DELETED } from '../shared/schemas/transfer-kind';
 import { LedgerService } from '../shared/ledger/ledger.service';
-import { LOOKBACK_DAYS, Occurrence, planOccurrences, schedulableFrom } from './due-occurrences';
+import { isSchedulableDay, LOOKBACK_DAYS, Occurrence, planOccurrences, schedulableFrom } from './due-occurrences';
 
 export type BookingOutcome = 'booked' | 'satisfied' | 'failed';
 
@@ -77,6 +77,13 @@ export class RecurringSchedulerService {
   }
 
   private async processRule(rule: Recurring, now: Date, tally: Tally): Promise<void> {
+    if (!isSchedulableDay(rule.dayOfMonth)) {
+      this.logger.warn(
+        `Recurring ${String(rule._id)} "${rule.transactionName}": dayOfMonth ${rule.dayOfMonth} is not a day from 1 to 28; not booked`,
+      );
+      return;
+    }
+
     const plan = planOccurrences(schedulableFrom(rule), now);
 
     if (plan.tooOld.length > 0) {

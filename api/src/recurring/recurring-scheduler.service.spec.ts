@@ -294,5 +294,16 @@ describe('RecurringSchedulerService', () => {
       expect(recurringModel.updateOne).toHaveBeenLastCalledWith(...markedHandled(rule, '2026-09', later));
       expect(logSpy).toHaveBeenCalledWith(summary(0, 1, 0, 0));
     });
+
+    it('skips a rule whose day of month is outside 1..28, warns, and books the others', async () => {
+      const odd = makeRule({ transactionName: 'odd', dayOfMonth: 31, lastPeriod: '2026-08' });
+      const loan = makeRule({ transactionName: 'loan', lastPeriod: '2026-08' });
+      recurringModel.find.mockResolvedValue([odd, loan]);
+      await service.sweep(NOW);
+      expect(txModel.create).toHaveBeenCalledTimes(1);
+      expect(txModel.create).toHaveBeenCalledWith(expect.objectContaining({ transactionName: 'loan' }));
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('dayOfMonth 31'));
+      expect(logSpy).toHaveBeenCalledWith(summary(1, 0, 0, 0));
+    });
   });
 });

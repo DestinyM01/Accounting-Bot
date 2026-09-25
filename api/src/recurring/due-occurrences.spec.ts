@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { planOccurrences, schedulableFrom, SchedulableRule } from './due-occurrences';
+import { isSchedulableDay, planOccurrences, schedulableFrom, SchedulableRule } from './due-occurrences';
 
 const at = (iso: string) => new Date(iso);
 
@@ -94,4 +94,9 @@ describe('schedulableFrom', () => {
       lastExecutedAt: undefined,
     });
   });
+});
+
+describe('isSchedulableDay', () => {
+  it.each([1, 15, 28])('accepts %i', (day) => expect(isSchedulableDay(day)).toBe(true));
+  it.each([0, 29, 31, 1.5, NaN, '5', undefined])('rejects %p', (day) => expect(isSchedulableDay(day)).toBe(false));
 });

@@ -11,7 +11,14 @@ export class Recurring extends Document {
   @Prop({ required: true, enum: TransactionType }) transactionType: TransactionType;
   @Prop({ required: true }) amount: number;
   @Prop({ default: Category.OTHER }) category: string;
-  @Prop({ required: true }) dayOfMonth: number;
+  /** 1..28, so the day exists in every month (the sweep relies on it). */
+  @Prop({
+    required: true,
+    min: 1,
+    max: 28,
+    validate: { validator: Number.isInteger, message: 'dayOfMonth must be a whole number' },
+  })
+  dayOfMonth: number;
   @Prop({ required: true, default: true }) active: boolean;
   @Prop({ required: true, default: Date.now }) createdAt: Date;
   @Prop() lastExecutedAt: Date;

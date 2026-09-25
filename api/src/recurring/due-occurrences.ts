@@ -4,6 +4,11 @@ import { SANTO_DOMINGO_OFFSET_HOURS } from '../shared/santo-domingo';
 /** How far back a missed occurrence is still booked automatically. */
 export const LOOKBACK_DAYS = 31;
 
+/** A day every month has. Rules are bounded to 1..28 so an occurrence never spills into the next month. */
+export function isSchedulableDay(day: unknown): boolean {
+  return typeof day === 'number' && Number.isInteger(day) && day >= 1 && day <= 28;
+}
+
 /** 08:00 America/Santo_Domingo, as a UTC hour. */
 export const DUE_HOUR_UTC = 8 + SANTO_DOMINGO_OFFSET_HOURS;
 
