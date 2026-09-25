@@ -8,7 +8,7 @@
   } @else if (status) {
     <p class="set-line">
       @if (status.lastRun; as run) {
-        Last checked {{ run.at | date: 'MMM d, h:mm a' }} · booked {{ run.created }} · skipped {{ run.skipped }} · couldn't read {{ run.failed }}
+        Last checked {{ run.at | date: 'MMM d, h:mm a' }} · {{ countsText(run) }}
       } @else {
         Not checked yet
       }

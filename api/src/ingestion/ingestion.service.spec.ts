@@ -39,6 +39,11 @@ import { MerchantMemoryService } from '../merchants/merchant-memory.service';
 
 const parserParseMock = popularParser.parse as jest.Mock;
 
+/** A run's counts, zero unless named. */
+const counts = (over: Partial<Record<'created' | 'alreadyBooked' | 'notTransactions' | 'unreadable' | 'bookingFailed', number>> = {}) => ({
+  created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, ...over,
+});
+
 function makeParsed(overrides: Partial<ParsedTransaction> = {}): ParsedTransaction {
   return {
     bank: 'popular',
@@ -176,7 +181,7 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual(counts({ created: 1 }));
     const created = txModel.create.mock.calls[0][0];
     expect(created.amount).toBe(-100);
     expect(created.transactionType).toBe(TransactionType.EXPENSE);
@@ -189,7 +194,7 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual(counts({ created: 1 }));
     const created = txModel.create.mock.calls[0][0];
     expect(created.amount).toBe(500);
     expect(created.transactionType).toBe(TransactionType.INCOME);
@@ -210,25 +215,25 @@ describe('IngestionService', () => {
     expect(created.transactionType).not.toBe('expense');
   });
 
-  it('counts a Mongo duplicate-key error as skipped, not failed, and does not log an error', async () => {
+  it('counts a Mongo duplicate-key error as already booked, not failed, and does not log an error', async () => {
     mail.fetchSince.mockResolvedValue([makeMail()]);
     parserParseMock.mockReturnValue(makeParsed());
     txModel.create.mockRejectedValue({ code: 11000 });
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 0, skipped: 1, failed: 0 });
+    expect(result).toEqual(counts({ alreadyBooked: 1 }));
     expect(loggerErrorSpy).not.toHaveBeenCalled();
   });
 
-  it('counts a non-duplicate persist error as failed and logs an error (not skipped)', async () => {
+  it('counts a non-duplicate persist error as a failed booking and logs an error', async () => {
     mail.fetchSince.mockResolvedValue([makeMail()]);
     parserParseMock.mockReturnValue(makeParsed());
     txModel.create.mockRejectedValue(new Error('Mongo connection reset'));
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 0, skipped: 0, failed: 1 });
+    expect(result).toEqual(counts({ bookingFailed: 1 }));
     expect(loggerErrorSpy).toHaveBeenCalled();
   });
 
@@ -305,13 +310,13 @@ describe('IngestionService', () => {
     expect(ledger.apply).toHaveBeenCalledWith(150, 'income', 'Test Merchant', 'tx-id');
   });
 
-  it('increments failed and logs a warning when the matched parser cannot parse the mail (never silently dropped)', async () => {
+  it('counts a mail the parser cannot use as unreadable and logs a warning (never silently dropped)', async () => {
     mail.fetchSince.mockResolvedValue([makeMail()]);
     parserParseMock.mockReturnValue(null);
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 0, skipped: 0, failed: 1 });
+    expect(result).toEqual(counts({ unreadable: 1 }));
     expect(loggerWarnSpy).toHaveBeenCalled();
     expect(txModel.create).not.toHaveBeenCalled();
   });
@@ -326,7 +331,7 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 1, skipped: 0, failed: 1 });
+    expect(result).toEqual(counts({ created: 1, unreadable: 1 }));
     expect(txModel.create).toHaveBeenCalledTimes(1);
   });
 
@@ -350,9 +355,33 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 0, skipped: 1, failed: 0 });
+    expect(result).toEqual(counts({ notTransactions: 1 }));
     expect(status.dismissedAmong).toHaveBeenCalledWith(['m1']);
     expect(parserParseMock).not.toHaveBeenCalled();
+  });
+
+  it('puts every mail of a run in exactly one count', async () => {
+    mail.fetchSince.mockResolvedValue([
+      makeMail({ messageId: 'booked-before' }),
+      makeMail({ messageId: 'dismissed' }),
+      makeMail({ messageId: 'unknown-sender', sender: 'someone@else.example' }),
+      makeMail({ messageId: 'unreadable', body: 'unreadable' }),
+      makeMail({ messageId: 'new', body: 'new' }),
+      makeMail({ messageId: 'save-fails', body: 'save-fails' }),
+    ]);
+    // The first find is the already-booked lookup (alreadyIngested).
+    txModel.find.mockReturnValueOnce({
+      select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([{ sourceMessageId: 'booked-before' }]) }),
+    });
+    status.dismissedAmong.mockResolvedValue(new Set(['dismissed']));
+    parserParseMock.mockImplementation(({ body }: { body: string }) => (body === 'unreadable' ? null : makeParsed()));
+    txModel.create
+      .mockImplementationOnce((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc }))
+      .mockRejectedValueOnce(new Error('Mongo connection reset'));
+
+    const result = await service.run();
+
+    expect(result).toEqual(counts({ created: 1, alreadyBooked: 1, notTransactions: 2, unreadable: 1, bookingFailed: 1 }));
   });
 
   it('records a mail no parser could read, so the Settings page can show it', async () => {
@@ -409,8 +438,8 @@ describe('IngestionService', () => {
   describe('runGuarded', () => {
     it("returns and records the run's counts", async () => {
       mail.fetchSince.mockResolvedValue([]);
-      await expect(service.runGuarded()).resolves.toEqual({ created: 0, skipped: 0, failed: 0 });
-      expect(status.recordRun).toHaveBeenCalledWith({ created: 0, skipped: 0, failed: 0 });
+      await expect(service.runGuarded()).resolves.toEqual(counts());
+      expect(status.recordRun).toHaveBeenCalledWith(counts());
     });
 
     it('records and rethrows a run that failed as a whole; the cron entry point still never throws', async () => {
@@ -443,7 +472,7 @@ describe('IngestionService', () => {
       expect(service.isRunning).toBe(false);
 
       mail.fetchSince.mockResolvedValue([]);
-      await expect(service.runGuarded()).resolves.toEqual({ created: 0, skipped: 0, failed: 0 });
+      await expect(service.runGuarded()).resolves.toEqual(counts());
     });
   });
 
@@ -452,7 +481,7 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 0, skipped: 1, failed: 0 });
+    expect(result).toEqual(counts({ notTransactions: 1 }));
     expect(parserParseMock).not.toHaveBeenCalled();
   });
 
@@ -462,7 +491,7 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual(counts({ created: 1 }));
     const created = txModel.create.mock.calls[0][0];
     expect(created.transferKind).toBe('internal');
     expect(ledger.apply).not.toHaveBeenCalled();
@@ -474,7 +503,7 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual(counts({ created: 1 }));
     const created = txModel.create.mock.calls[0][0];
     expect(created.transferKind).toBe('unresolved');
     expect(ledger.apply).not.toHaveBeenCalled();
@@ -486,17 +515,17 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual(counts({ created: 1 }));
     expect(ledger.apply).toHaveBeenCalledWith(-100, 'expense', expect.any(String), expect.any(String));
   });
 
-  it('counts a non-transactional email as skipped, not failed, and does not warn', async () => {
+  it('counts a non-transactional email as not a transaction, and does not warn', async () => {
     mail.fetchSince.mockResolvedValue([makeMail()]);
     (popularParser as any).isNonTransactional = jest.fn().mockReturnValue(true);
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 0, skipped: 1, failed: 0 });
+    expect(result).toEqual(counts({ notTransactions: 1 }));
     expect(parserParseMock).not.toHaveBeenCalled();
     expect(loggerWarnSpy).not.toHaveBeenCalled();
 
@@ -535,7 +564,7 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual(counts({ created: 1 }));
     const created = txModel.create.mock.calls[0][0];
     expect(created.recurringId).toBe(String(rule._id));
   });
@@ -571,7 +600,7 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual(counts({ created: 1 }));
     expect(predicted.save).toHaveBeenCalled();
     expect(predicted.sourceMessageId).toBe('msg-42');
     expect(predicted.merchant).toBe('Landlord');
@@ -613,7 +642,7 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual(counts({ created: 1 }));
     expect(predicted.save).toHaveBeenCalled();
     expect(predicted.isWithdrawal).toBe(true);
     expect(predicted.mailTimeLocal).toBe(true);
@@ -642,7 +671,7 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual(counts({ created: 1 }));
     expect(txModel.create).toHaveBeenCalledTimes(1);
     const created = txModel.create.mock.calls[0][0];
     expect(created.recurringId).toBeUndefined();
@@ -676,7 +705,7 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual(counts({ created: 1 }));
     const created = txModel.create.mock.calls[0][0];
     expect(created.recurringId).toBeUndefined();
   });
@@ -727,7 +756,7 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual(counts({ created: 1 }));
     const created = txModel.create.mock.calls[0][0];
     expect(created.recurringId).toBe(String(ruleB._id));
   });
@@ -784,7 +813,7 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual(counts({ created: 1 }));
     const created = txModel.create.mock.calls[0][0];
     expect(created.recurringId).toBe(String(rule._id));
     expect(created.recurringPeriod).toBe('2026-01');
@@ -836,7 +865,7 @@ describe('IngestionService', () => {
 
     const result = await service.run();
 
-    expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual(counts({ created: 1 }));
     expect(predicted.save).toHaveBeenCalled();
     expect(predicted.sourceMessageId).toBe('msg-42');
     expect(txModel.create).not.toHaveBeenCalled();
@@ -854,7 +883,7 @@ describe('IngestionService', () => {
 
       const result = await service.run();
 
-      expect(result).toEqual({ created: 0, skipped: 0, failed: 1 });
+      expect(result).toEqual(counts({ bookingFailed: 1 }));
       expect(txModel.create).toHaveBeenCalledTimes(1);
       expect(txModel.deleteOne).toHaveBeenCalledWith({ _id: 'tx-id' });
       expect(loggerErrorSpy).toHaveBeenCalled();
@@ -868,8 +897,8 @@ describe('IngestionService', () => {
       const first = await service.run();
       const second = await service.run();
 
-      expect(first).toEqual({ created: 0, skipped: 0, failed: 1 });
-      expect(second).toEqual({ created: 1, skipped: 0, failed: 0 });
+      expect(first).toEqual(counts({ bookingFailed: 1 }));
+      expect(second).toEqual(counts({ created: 1 }));
       expect(txModel.create).toHaveBeenCalledTimes(2);
       expect(txModel.deleteOne).toHaveBeenCalledTimes(1);
       // The retry asks the ledger for the same movement again, and it lands.
@@ -894,7 +923,7 @@ describe('IngestionService', () => {
 
       const result = await service.run();
 
-      expect(result).toEqual({ created: 0, skipped: 1, failed: 0 });
+      expect(result).toEqual(counts({ alreadyBooked: 1 }));
       // Exact, deliberately: a soft-deleted email row must STILL block
       // re-ingestion, so this query must never filter on deletedAt.
       expect(txModel.find).toHaveBeenCalledWith({ sourceMessageId: { $in: ['msg-1'] } });
@@ -961,7 +990,7 @@ describe('IngestionService', () => {
 
       const result = await service.run();
 
-      expect(result).toEqual({ created: 3, skipped: 0, failed: 0 });
+      expect(result).toEqual(counts({ created: 3 }));
       expect(categories.list).toHaveBeenCalledTimes(1);
       expect(recurringModel.find).toHaveBeenCalledTimes(1);
       expect(memory.all).toHaveBeenCalledTimes(1);
@@ -1013,7 +1042,7 @@ describe('IngestionService', () => {
 
       const result = await service.run();
 
-      expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+      expect(result).toEqual(counts({ created: 1 }));
       const created = txModel.create.mock.calls[0][0];
       expect(created.category).toBe('Gym');
       expect(categorizer.categorize).toHaveBeenCalledWith(expect.anything(), expect.arrayContaining(['Gym']));
@@ -1099,7 +1128,7 @@ describe('IngestionService', () => {
 
       const result = await service.run();
 
-      expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+      expect(result).toEqual(counts({ created: 1 }));
       const created = txModel.create.mock.calls[0][0];
       expect(created.transferKind).toBe('unresolved');
       expect(created.transactionType).toBe(TransactionType.INCOME);
@@ -1126,7 +1155,7 @@ describe('IngestionService', () => {
       parserParseMock.mockReturnValue(sent());
       const result = await service.run();
 
-      expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+      expect(result).toEqual(counts({ created: 1 }));
       const sentCreated = txModel.create.mock.calls[1][0];
       expect(sentCreated.transferKind).toBe('internal');
       expect(sentCreated.matchedLegId).toBe('rx-id');
@@ -1159,7 +1188,7 @@ describe('IngestionService', () => {
       parserParseMock.mockReturnValue(sent());
       const result = await service.run();
 
-      expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+      expect(result).toEqual(counts({ created: 1 }));
       expect(loggerWarnSpy).toHaveBeenCalledWith(
         expect.stringContaining('Counter leg rx-id no longer unresolved; recording tx-mail unlinked'),
       );
@@ -1191,7 +1220,7 @@ describe('IngestionService', () => {
       parserParseMock.mockReturnValue(received());
       const result = await service.run();
 
-      expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
+      expect(result).toEqual(counts({ created: 1 }));
       const rxCreated = txModel.create.mock.calls[1][0];
       expect(rxCreated.transferKind).toBe('internal');
       expect(rxCreated.transactionType).toBe(TransactionType.INCOME);

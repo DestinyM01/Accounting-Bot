@@ -17,8 +17,9 @@ describe('IngestionController', () => {
   });
 
   it("runs a check now and answers with its counts", async () => {
-    const ingestion = { runGuarded: jest.fn().mockResolvedValue({ created: 1, skipped: 2, failed: 0 }) };
-    await expect(make(ingestion, {}).run()).resolves.toEqual({ created: 1, skipped: 2, failed: 0 });
+    const counts = { created: 1, alreadyBooked: 2, notTransactions: 0, unreadable: 0, bookingFailed: 0 };
+    const ingestion = { runGuarded: jest.fn().mockResolvedValue(counts) };
+    await expect(make(ingestion, {}).run()).resolves.toEqual(counts);
   });
 
   it('answers 409 while a run is in flight', async () => {

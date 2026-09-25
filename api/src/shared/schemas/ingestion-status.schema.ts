@@ -8,8 +8,10 @@ export class IngestionStatus extends Document {
   /** When the last run finished, and its counts. */
   @Prop() lastRunAt?: Date;
   @Prop() created?: number;
-  @Prop() skipped?: number;
-  @Prop() failed?: number;
+  @Prop() alreadyBooked?: number;
+  @Prop() notTransactions?: number;
+  @Prop() unreadable?: number;
+  @Prop() bookingFailed?: number;
   /** The last run that failed as a whole (e.g. IMAP login refused); null again after a successful run. */
   @Prop({ type: String, default: null }) lastError?: string | null;
   @Prop() lastErrorAt?: Date;

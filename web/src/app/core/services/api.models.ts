@@ -256,10 +256,13 @@ export interface AccountsSettingsInput {
   senders: string[];
 }
 
+/** What one mail check did with each mail it read. */
 export interface RunCounts {
   created: number;
-  skipped: number;
-  failed: number;
+  alreadyBooked: number;
+  notTransactions: number;
+  unreadable: number;
+  bookingFailed: number;
 }
 
 export interface UnreadableMailItem {

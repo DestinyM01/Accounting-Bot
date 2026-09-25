@@ -54,10 +54,10 @@ describe('IngestionStatusService', () => {
   afterEach(() => errorSpy.mockRestore());
 
   it("records a finished run's counts and clears the last error", async () => {
-    await service.recordRun({ created: 1, skipped: 2, failed: 0 }, AT);
+    await service.recordRun({ created: 1, alreadyBooked: 2, notTransactions: 3, unreadable: 1, bookingFailed: 0 }, AT);
     expect(statusModel.updateOne).toHaveBeenCalledWith(
       { userId: 1 },
-      { $set: { lastRunAt: AT, created: 1, skipped: 2, failed: 0, lastError: null } },
+      { $set: { lastRunAt: AT, created: 1, alreadyBooked: 2, notTransactions: 3, unreadable: 1, bookingFailed: 0, lastError: null } },
       { upsert: true },
     );
   });
@@ -75,7 +75,9 @@ describe('IngestionStatusService', () => {
     statusModel.updateOne.mockRejectedValue(new Error('db down'));
     unreadableModel.updateOne.mockRejectedValue(new Error('db down'));
     unreadableModel.deleteOne.mockRejectedValue(new Error('db down'));
-    await expect(service.recordRun({ created: 0, skipped: 0, failed: 0 })).resolves.toBeUndefined();
+    await expect(
+      service.recordRun({ created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0 }),
+    ).resolves.toBeUndefined();
     await expect(service.recordFailure(new Error('x'))).resolves.toBeUndefined();
     await expect(service.recordUnreadable({ messageId: 'm1', sender: 's', subject: 'x', receivedAt: AT })).resolves.toBeUndefined();
     await expect(service.clearUnreadable('m1')).resolves.toBeUndefined();
@@ -157,7 +159,16 @@ describe('IngestionStatusService', () => {
     it('shows the last run, the last error, the unreadable mails and what mail booked lately', async () => {
       process.env.INGEST_START_AT = '2026-09-24T14:58:59Z';
       statusModel.findOne.mockReturnValue(
-        query({ lastRunAt: AT, created: 1, skipped: 2, failed: 1, lastError: 'login refused', lastErrorAt: AT }),
+        query({
+          lastRunAt: AT,
+          created: 1,
+          alreadyBooked: 2,
+          notTransactions: 3,
+          unreadable: 1,
+          bookingFailed: 0,
+          lastError: 'login refused',
+          lastErrorAt: AT,
+        }),
       );
       const unreadable = query([
         { _id: MAIL_ID, sender: 's@bank.example', subject: 'Alert', receivedAt: AT, attempts: 3, lastSeenAt: AT, dismissed: false },
@@ -175,7 +186,7 @@ describe('IngestionStatusService', () => {
         // (or null), never the raw env var passed through.
         startAt: '2026-09-24T14:58:59.000Z',
         running: true,
-        lastRun: { at: AT, created: 1, skipped: 2, failed: 1 },
+        lastRun: { at: AT, created: 1, alreadyBooked: 2, notTransactions: 3, unreadable: 1, bookingFailed: 0 },
         lastError: { at: AT, message: 'login refused' },
         unreadable: [{ id: MAIL_ID, sender: 's@bank.example', subject: 'Alert', receivedAt: AT, attempts: 3, lastSeenAt: AT }],
         recent: [
@@ -207,10 +218,28 @@ describe('IngestionStatusService', () => {
 
     it('shows no error once a later run succeeded', async () => {
       statusModel.findOne.mockReturnValue(
-        query({ lastRunAt: AT, created: 0, skipped: 0, failed: 0, lastError: null, lastErrorAt: AT }),
+        query({
+          lastRunAt: AT,
+          created: 0,
+          alreadyBooked: 0,
+          notTransactions: 0,
+          unreadable: 0,
+          bookingFailed: 0,
+          lastError: null,
+          lastErrorAt: AT,
+        }),
       );
       const v = await service.view(false);
       expect(v.lastError).toBeNull();
+    });
+
+    // A record written by the old two-count version keeps its old skipped/failed
+    // values, which are no longer read; the new counts read as 0 until the next
+    // poll overwrites the record.
+    it('reads an old-shaped record (skipped/failed) as all-zero new counts', async () => {
+      statusModel.findOne.mockReturnValue(query({ lastRunAt: AT, created: 1, skipped: 5, failed: 2 }));
+      const v = await service.view(false);
+      expect(v.lastRun).toEqual({ at: AT, created: 1, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0 });
     });
   });
 });

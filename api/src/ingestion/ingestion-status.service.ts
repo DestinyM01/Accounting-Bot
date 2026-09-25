@@ -7,10 +7,18 @@ import { Transaction } from '../shared/schemas/transaction.schema';
 import { NOT_DELETED } from '../shared/schemas/transfer-kind';
 import { parseConfiguredInstant } from '../shared/time-zone';
 
+/** What one ingestion run did with each mail it read. Every mail lands in exactly one count. */
 export interface RunCounts {
+  /** Booked this run. */
   created: number;
-  skipped: number;
-  failed: number;
+  /** Booked before (its message id is known), or a duplicate the database refused. */
+  alreadyBooked: number;
+  /** Dismissed on the Settings page, recognised as not a transaction, or from a sender no parser takes. */
+  notTransactions: number;
+  /** The parser couldn't use it; listed as unreadable on the Settings page. */
+  unreadable: number;
+  /** Read fine but the save failed; retried on the next poll. */
+  bookingFailed: number;
 }
 
 export interface IngestionStatusView {
@@ -42,7 +50,17 @@ export class IngestionStatusService {
     await this.quietly('record the run', () =>
       this.statusModel.updateOne(
         { userId: this.userId },
-        { $set: { lastRunAt: at, created: counts.created, skipped: counts.skipped, failed: counts.failed, lastError: null } },
+        {
+          $set: {
+            lastRunAt: at,
+            created: counts.created,
+            alreadyBooked: counts.alreadyBooked,
+            notTransactions: counts.notTransactions,
+            unreadable: counts.unreadable,
+            bookingFailed: counts.bookingFailed,
+            lastError: null,
+          },
+        },
         { upsert: true },
       ),
     );
@@ -126,7 +144,14 @@ export class IngestionStatusService {
       startAt,
       running,
       lastRun: status?.lastRunAt
-        ? { at: status.lastRunAt, created: status.created ?? 0, skipped: status.skipped ?? 0, failed: status.failed ?? 0 }
+        ? {
+            at: status.lastRunAt,
+            created: status.created ?? 0,
+            alreadyBooked: status.alreadyBooked ?? 0,
+            notTransactions: status.notTransactions ?? 0,
+            unreadable: status.unreadable ?? 0,
+            bookingFailed: status.bookingFailed ?? 0,
+          }
         : null,
       lastError: status?.lastError && status.lastErrorAt ? { at: status.lastErrorAt, message: status.lastError } : null,
       unreadable: unreadable.map((u) => ({

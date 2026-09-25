@@ -8,6 +8,16 @@ import { IngestionStatusView, RunCounts } from '../../../core/services/api.model
 import { CategoryService } from '../../../core/services/category.service';
 import { TransactionEventsService } from '../../../core/services/transaction-events.service';
 
+/** "1 new · 140 already booked · 12 not transactions": "new" always, the rest only when above zero. */
+function countsText(c: RunCounts): string {
+  const parts = [`${c.created} new`];
+  if (c.alreadyBooked > 0) parts.push(`${c.alreadyBooked} already booked`);
+  if (c.notTransactions > 0) parts.push(`${c.notTransactions} not ${c.notTransactions === 1 ? 'a transaction' : 'transactions'}`);
+  if (c.unreadable > 0) parts.push(`${c.unreadable} couldn't read`);
+  if (c.bookingFailed > 0) parts.push(`${c.bookingFailed} couldn't book`);
+  return parts.join(' · ');
+}
+
 /** Settings › Bank mail: how ingestion is doing, a check on demand, and the mails it couldn't read. */
 @Component({
   selector: 'app-mail-section',
@@ -17,6 +27,7 @@ import { TransactionEventsService } from '../../../core/services/transaction-eve
   styleUrls: ['../settings-section.scss'],
 })
 export class MailSectionComponent implements OnInit, OnDestroy {
+  readonly countsText = countsText;
   status: IngestionStatusView | null = null;
   loading = true;
   loadError = '';
@@ -64,7 +75,7 @@ export class MailSectionComponent implements OnInit, OnDestroy {
       this.api.runIngestion().subscribe({
         next: (c: RunCounts) => {
           this.checking = false;
-          this.checkResult = `Booked ${c.created}, skipped ${c.skipped}, couldn't read ${c.failed}.`;
+          this.checkResult = `Checked: ${countsText(c)}.`;
           if (c.created > 0) this.events.notify(); // new transactions: every list reloads
           this.load(() => this.focus('check-mail'));
         },

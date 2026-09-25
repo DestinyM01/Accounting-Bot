@@ -99,7 +99,7 @@ export class IngestionService {
     }
   }
 
-  async run(): Promise<{ created: number; skipped: number; failed: number }> {
+  async run(): Promise<RunCounts> {
     const since = this.watermark();
     const senders = this.parsers.flatMap((p) => p.senders);
     const mails = await this.mail.fetchSince(since, senders);
@@ -115,22 +115,23 @@ export class IngestionService {
     await this.status.clearUnreadableMany(mails.map((m) => m.messageId).filter((id) => known.has(id)));
     const ctx = await this.loadRunContext();
 
-    let created = 0, skipped = 0, failed = 0;
+    const counts: RunCounts = { created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0 };
     // Saved on the Settings page, else the server's config (see SettingsService).
     const { cash: ownCashAccounts, senders: ownIdentifiers } = await this.settings.accounts();
 
     for (const mail of mails) {
-      if (known.has(mail.messageId) || dismissed.has(mail.messageId)) { skipped++; continue; }
+      if (known.has(mail.messageId)) { counts.alreadyBooked++; continue; }
+      if (dismissed.has(mail.messageId)) { counts.notTransactions++; continue; }
 
       const parser = this.parsers.find((p) => p.senders.includes(mail.sender));
-      if (!parser) { skipped++; continue; }
+      if (!parser) { counts.notTransactions++; continue; }
 
       // Recognised and deliberately ignored — not a failure, so it must not
       // reach the "unusable mail" warning below. Payroll notices arrive monthly
       // and marketing more often; logging them as failures would bury the real
       // failures under routine noise.
       if (parser.isNonTransactional?.({ subject: mail.subject, body: mail.body })) {
-        skipped++;
+        counts.notTransactions++;
         await this.status.clearUnreadable(mail.messageId);
         continue;
       }
@@ -146,19 +147,22 @@ export class IngestionService {
         // Never silently drop: an allow-listed sender we could not use is worth seeing.
         this.logger.warn(`Unusable mail from ${mail.sender} (${mail.messageId}) subject="${mail.subject}"`);
         await this.status.recordUnreadable(mail);
-        failed++;
+        counts.unreadable++;
         continue;
       }
 
       const result = await this.persist(parsed, mail.messageId, ctx);
       if (result === 'created' || result === 'duplicate') await this.status.clearUnreadable(mail.messageId);
-      if (result === 'created') created++;
-      else if (result === 'duplicate') skipped++;
-      else failed++;
+      if (result === 'created') counts.created++;
+      else if (result === 'duplicate') counts.alreadyBooked++;
+      else counts.bookingFailed++;
     }
 
-    this.logger.log(`Ingestion run: created=${created} skipped=${skipped} failed=${failed}`);
-    return { created, skipped, failed };
+    this.logger.log(
+      `Ingestion run: created=${counts.created} alreadyBooked=${counts.alreadyBooked} ` +
+        `notTransactions=${counts.notTransactions} unreadable=${counts.unreadable} bookingFailed=${counts.bookingFailed}`,
+    );
+    return counts;
   }
 
   /** Forward-only: never ingest mail older than the configured start. */
