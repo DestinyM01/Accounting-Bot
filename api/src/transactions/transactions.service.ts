@@ -321,7 +321,12 @@ export class TransactionsService {
       }
     }
 
-    if (body.category !== undefined) await this.memory.learn(tx, body.category);
+    // Only a real choice teaches: the web edit form always sends `category`,
+    // so a name-only fix must not re-teach the category unchanged. A waiting
+    // row's guess confirmed through this same form is still a real choice.
+    if (body.category !== undefined && (body.category !== tx.category || tx.categoryNeedsReview)) {
+      await this.memory.learn(tx, body.category);
+    }
   }
 
   async softDelete(id: string): Promise<void> {

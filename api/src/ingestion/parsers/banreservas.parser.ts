@@ -1,4 +1,4 @@
-import { BankParser, ParseInput, ParsedTransaction, toAmount } from './types';
+import { BankParser, PLACEHOLDER_COUNTERPARTIES, ParseInput, ParsedTransaction, toAmount } from './types';
 import { parseSpanishLongDate } from './dates';
 import { matchesOwn } from './own-party';
 
@@ -58,8 +58,8 @@ export const banreservasParser: BankParser = {
     const destIsCash = matchesOwn(destino, ownCashAccounts);
     const origIsOwn = matchesOwn(origen, ownIdentifiers) || matchesOwn(origen, ownCashAccounts);
 
-    const origName = origen?.split(',')[0]?.trim() || 'Transferencia';
-    const destName = destino?.split(',')[0]?.trim() || 'Transferencia';
+    const origName = origen?.split(',')[0]?.trim() || PLACEHOLDER_COUNTERPARTIES[0]; // 'Transferencia': no origin named
+    const destName = destino?.split(',')[0]?.trim() || PLACEHOLDER_COUNTERPARTIES[0]; // 'Transferencia': no destination named
 
     let direction: 'income' | 'expense';
     let transferKind: 'external' | 'internal';

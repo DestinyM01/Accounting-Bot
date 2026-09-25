@@ -70,3 +70,6 @@ export interface BankParser {
 export function toAmount(raw: string): number {
   return parseFloat(raw.replace(/,/g, ''));
 }
+
+/** Counterparties the parsers use when the bank names nobody. They identify no merchant. */
+export const PLACEHOLDER_COUNTERPARTIES = ['Transferencia', 'Transferencia enviada', 'Desconocido'] as const;

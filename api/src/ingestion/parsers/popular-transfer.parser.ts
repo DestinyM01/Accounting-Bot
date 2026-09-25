@@ -1,4 +1,4 @@
-import { ParseInput, ParsedTransaction, toAmount } from './types';
+import { PLACEHOLDER_COUNTERPARTIES, ParseInput, ParsedTransaction, toAmount } from './types';
 import { parseDdMmYyyy } from './dates';
 import { matchesOwn } from './own-party';
 import { TransferKind } from '../../shared/schemas/transfer-kind';
@@ -44,7 +44,7 @@ function parseSent(input: ParseInput): ParsedTransaction | null {
     amount,
     currency: /US\$/.test(montoRaw) ? 'USD' : 'DOP',
     occurredAt,
-    counterparty: beneficiario || 'Transferencia enviada',
+    counterparty: beneficiario || PLACEHOLDER_COUNTERPARTIES[1], // 'Transferencia enviada': no beneficiary named
     isWithdrawal: false,
     // "fue enviada satisfactoriamente" is the success signal; there is no Aprobada.
     approved: true,

@@ -57,12 +57,13 @@ describe('MerchantMemoryService', () => {
       categoryNeedsReview: true,
       amount: { $lt: 0 },
       isWithdrawal: { $ne: true },
+      transferKind: { $nin: ['internal', 'unresolved'] },
       deletedAt: null,
       _id: { $ne: 't1' },
     });
     expect(pending.select).toHaveBeenCalledWith('merchant transactionName');
     expect(txModel.updateMany).toHaveBeenCalledWith(
-      { _id: { $in: ['t2', 't4'] }, categoryNeedsReview: true },
+      { _id: { $in: ['t2', 't4'] }, categoryNeedsReview: true, deletedAt: null },
       { $set: { category: 'entertainment', categoryNeedsReview: false } },
     );
   });
@@ -78,6 +79,21 @@ describe('MerchantMemoryService', () => {
     await expect(service.learn(row(over), 'food')).resolves.toBe(0);
     expect(memoryModel.updateOne).not.toHaveBeenCalled();
     expect(txModel.updateMany).not.toHaveBeenCalled();
+  });
+
+  it.each([['cash'], ['other']])('does not remember %s', async (category) => {
+    await expect(service.learn(row(), category)).resolves.toBe(0);
+    expect(memoryModel.updateOne).not.toHaveBeenCalled();
+    expect(txModel.find).not.toHaveBeenCalled();
+  });
+
+  it('keys off merchant before transactionName', async () => {
+    await service.learn(row({ merchant: 'SOME STORE', transactionName: 'prime video' }), 'food');
+    expect(memoryModel.updateOne).toHaveBeenCalledWith(
+      { userId: 1, key: 'some store' },
+      { $set: { category: 'food', updatedAt: expect.any(Date) } },
+      { upsert: true },
+    );
   });
 
   it("never fails the user's change: a failure is logged and counts 0", async () => {

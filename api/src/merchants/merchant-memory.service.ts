@@ -3,7 +3,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { MerchantCategory } from '../shared/schemas/merchant-category.schema';
 import { Transaction } from '../shared/schemas/transaction.schema';
-import { NOT_DELETED, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
+import { NOT_DELETED, NON_SPENDING_KINDS, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
+import { Category } from '../shared/schemas/category.enum';
 import { merchantKey } from './merchant-key';
 
 /** The fields of a transaction that decide whether, and what, a category choice teaches. */
@@ -45,6 +46,9 @@ export class MerchantMemoryService {
    * is already saved, so a failure here is only logged.
    */
   async learn(row: TeachableRow, category: string): Promise<number> {
+    // cash is only for ATM cash, and other is the "don't know" bucket:
+    // remembering either would skip the AI for that merchant forever.
+    if (category === Category.CASH || category === Category.OTHER) return 0;
     const key = merchantKey(row.merchant || row.transactionName);
     const teaches =
       row.source === 'email' && row.amount < 0 && !row.isWithdrawal && !isNonSpendingTransfer(row.transferKind) && key !== '';
@@ -62,6 +66,7 @@ export class MerchantMemoryService {
           categoryNeedsReview: true,
           amount: { $lt: 0 },
           isWithdrawal: { $ne: true },
+          transferKind: { $nin: [...NON_SPENDING_KINDS] },
           ...NOT_DELETED,
           _id: { $ne: row._id },
         })
@@ -70,7 +75,7 @@ export class MerchantMemoryService {
       const ids = waiting.filter((t) => merchantKey(t.merchant || t.transactionName) === key).map((t) => t._id);
       if (ids.length === 0) return 0;
       const res = await this.txModel.updateMany(
-        { _id: { $in: ids }, categoryNeedsReview: true },
+        { _id: { $in: ids }, categoryNeedsReview: true, ...NOT_DELETED },
         { $set: { category, categoryNeedsReview: false } },
       );
       return res.modifiedCount;

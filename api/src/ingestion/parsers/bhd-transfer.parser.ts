@@ -1,4 +1,4 @@
-import { ParseInput, ParsedTransaction, toAmount } from './types';
+import { PLACEHOLDER_COUNTERPARTIES, ParseInput, ParsedTransaction, toAmount } from './types';
 import { parseDdMmYyyyDash12h } from './dates';
 import { matchesOwn } from './own-party';
 import { TransferKind } from '../../shared/schemas/transfer-kind';
@@ -61,7 +61,7 @@ export function parseBhdTransfer(input: ParseInput): ParsedTransaction | null {
     amount,
     currency: /US\$/.test(montoRaw) ? 'USD' : 'DOP',
     occurredAt,
-    counterparty: beneficiario || 'Transferencia',
+    counterparty: beneficiario || PLACEHOLDER_COUNTERPARTIES[0], // 'Transferencia': no beneficiary named
     isWithdrawal: false,
     // These emails are receipts of completed transfers; there is no Estado field.
     approved: true,

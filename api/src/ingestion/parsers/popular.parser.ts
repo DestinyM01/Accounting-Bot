@@ -1,4 +1,4 @@
-import { BankParser, ParseInput, ParsedTransaction, toAmount } from './types';
+import { BankParser, PLACEHOLDER_COUNTERPARTIES, ParseInput, ParsedTransaction, toAmount } from './types';
 import { parseDdMmYyyy } from './dates';
 import { parsePopularTransfer } from './popular-transfer.parser';
 
@@ -54,7 +54,7 @@ export const popularParser: BankParser = {
     const end   = statusM.index ?? body.length;
     const counterparty =
       body.slice(start, end).replace(/[|\t\r\n]+/g, ' ').trim() ||
-      (isWithdrawal ? 'Cajero Automatico' : 'Desconocido');
+      (isWithdrawal ? 'Cajero Automatico' : PLACEHOLDER_COUNTERPARTIES[2]); // 'Desconocido': merchant text not found
 
     const cardM = body.match(/terminada en\s*(\d{4})/i);
 

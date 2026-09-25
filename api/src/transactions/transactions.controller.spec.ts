@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { GUARDS_METADATA, HTTP_CODE_METADATA } from '@nestjs/common/constants';
 
 // IngestionController pulls in IngestionService, which carries a @Cron;
 // @nestjs/schedule is ESM-only under this Jest setup (same shim as
@@ -38,4 +38,20 @@ describe.each([
   // ADDITIVELY onto the class-level ones — a method decorator can only add
   // guards, never remove the class guard. There is no opt-out for a test to
   // detect, so a test asserting one can never fail and proves nothing.
+});
+
+// PATCH .../category's @HttpCode(200) is deliberate: Nest defaults PATCH to
+// 200 already, but this pins it so the response body ({ alsoFiled }) the web
+// page reads is never silently dropped by a future 204 accident.
+describe('TransactionsController#setCategory', () => {
+  it('is pinned to 200', () => {
+    expect(Reflect.getMetadata(HTTP_CODE_METADATA, TransactionsController.prototype.setCategory)).toBe(200);
+  });
+
+  it("returns the service's { alsoFiled }", async () => {
+    const service = { setCategory: jest.fn().mockResolvedValue({ alsoFiled: 2 }) };
+    const controller = new TransactionsController(service as any);
+    await expect(controller.setCategory('t1', { category: 'food' })).resolves.toEqual({ alsoFiled: 2 });
+    expect(service.setCategory).toHaveBeenCalledWith('t1', 'food');
+  });
 });

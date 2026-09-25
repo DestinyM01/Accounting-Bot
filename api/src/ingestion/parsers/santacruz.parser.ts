@@ -1,4 +1,4 @@
-import { BankParser, ParseInput, ParsedTransaction, toAmount } from './types';
+import { BankParser, PLACEHOLDER_COUNTERPARTIES, ParseInput, ParsedTransaction, toAmount } from './types';
 import { parseDMyHms } from './dates';
 
 export const santaCruzParser: BankParser = {
@@ -25,7 +25,7 @@ export const santaCruzParser: BankParser = {
       amount: toAmount(amountM[2]),
       currency: amountM[1] === 'US$' ? 'USD' : 'DOP',
       occurredAt,
-      counterparty: placeM?.[1].trim() ?? 'Desconocido',
+      counterparty: placeM?.[1].trim() ?? PLACEHOLDER_COUNTERPARTIES[2], // 'Desconocido': no place named
       cardLast4: cardM?.[1],
       isWithdrawal: /cajero/i.test(placeM?.[1] ?? ''),
       approved: true,

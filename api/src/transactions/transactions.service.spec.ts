@@ -405,6 +405,31 @@ describe('TransactionsService', () => {
       expect(memory.learn).not.toHaveBeenCalled();
     });
 
+    // The web edit form always sends `category`, even when only the name
+    // changed — re-sending the SAME category must not re-teach it.
+    it('teaches nothing when the edit sends the unchanged category', async () => {
+      mockModel.findOne.mockResolvedValue(live({ source: 'email', category: 'food' }));
+      await service.update('t1', { name: 'renamed', category: 'food' });
+      expect(memory.learn).not.toHaveBeenCalled();
+    });
+
+    it("teaches when confirming a waiting row's guess through the edit form", async () => {
+      mockModel.findOne.mockResolvedValue(live({ source: 'email', category: 'food', categoryNeedsReview: true }));
+      await service.update('t1', { category: 'food' });
+      expect(memory.learn).toHaveBeenCalled();
+    });
+
+    // Pins the compensate path: if the ledger rejects, update() rethrows before
+    // ever reaching the memory.learn() call at the end of the method.
+    it('teaches nothing when the ledger fails and the edit is rolled back', async () => {
+      mockModel.findOne.mockResolvedValue(live({ source: 'email', merchant: 'SOME STORE', category: 'food' }));
+      mockModel.findOneAndUpdate.mockResolvedValue({});
+      mockModel.updateOne = jest.fn().mockResolvedValue({});
+      ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
+      await expect(service.update('t1', { amount: 130, category: 'other' })).rejects.toThrow('ledger down');
+      expect(memory.learn).not.toHaveBeenCalled();
+    });
+
     it('looks up only live rows and 404s otherwise', async () => {
       mockModel.findOne.mockResolvedValue(null);
       await expect(service.update('gone', { name: 'x' })).rejects.toThrow(NotFoundException);
