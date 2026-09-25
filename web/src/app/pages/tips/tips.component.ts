@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/services/api.service';
 import { Tip } from '../../core/services/api.models';
@@ -28,7 +29,10 @@ export class TipsComponent implements OnInit {
     this.error = '';
     this.api.getTips().subscribe({
       next: (tips) => { this.tips = tips; this.loading = false; },
-      error: () => { this.error = 'Failed to load tips. Please try again.'; this.loading = false; },
+      error: (e: HttpErrorResponse) => {
+        this.error = typeof e?.error?.message === 'string' ? e.error.message : 'Failed to load tips. Please try again.';
+        this.loading = false;
+      },
     });
   }
 
@@ -37,7 +41,10 @@ export class TipsComponent implements OnInit {
     this.error = '';
     this.api.refreshTips().subscribe({
       next: (tips) => { this.tips = tips; this.refreshing = false; },
-      error: () => { this.error = 'Refresh failed. Please try again.'; this.refreshing = false; },
+      error: (e: HttpErrorResponse) => {
+        this.error = typeof e?.error?.message === 'string' ? e.error.message : 'Refresh failed. Please try again.';
+        this.refreshing = false;
+      },
     });
   }
 

@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Mistral } from '@mistralai/mistralai';
@@ -125,6 +125,10 @@ export class TipsService {
     } catch (err) {
       if (err instanceof InternalServerErrorException) throw err;
       this.logger.error('callMistral failed', err instanceof Error ? err.stack : String(err));
+      // Mistral refusing for rate or quota is an account problem, not ours: say so.
+      if ((err as { statusCode?: number })?.statusCode === 429) {
+        throw new ServiceUnavailableException('AI tips are unavailable right now: the Mistral account is rate-limited. Check its plan and limits in the Mistral console.');
+      }
       throw new InternalServerErrorException('Failed to generate financial tips');
     }
   }

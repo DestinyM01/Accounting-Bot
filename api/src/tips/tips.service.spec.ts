@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
+import { InternalServerErrorException, ServiceUnavailableException } from '@nestjs/common';
 import { TipsService } from './tips.service';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { SPENDING_ONLY } from '../shared/schemas/transfer-kind';
@@ -65,6 +66,24 @@ describe('TipsService', () => {
       await service.getTips();
       const complete = (service as any).client.chat.complete as jest.Mock;
       expect(complete.mock.calls[0][0].messages[1].content).toContain('  food: $3200.00');
+    });
+
+    // Mistral answers 429 when the account's plan allows 0 requests/minute.
+    // That is an account problem, not ours, so it must not surface as a bare 500.
+    it('reports a rate-limited Mistral account as 503, not 500', async () => {
+      (service as any).client.chat.complete = jest.fn().mockRejectedValue({
+        statusCode: 429,
+        message: 'API error occurred: Status 429',
+      });
+
+      await expect(service.getTips()).rejects.toThrow(ServiceUnavailableException);
+      await expect(service.getTips()).rejects.toThrow(/rate-limited/);
+    });
+
+    it('still reports any other Mistral failure as a generic 500', async () => {
+      (service as any).client.chat.complete = jest.fn().mockRejectedValue(new Error('boom'));
+
+      await expect(service.getTips()).rejects.toThrow(InternalServerErrorException);
     });
   });
 });
