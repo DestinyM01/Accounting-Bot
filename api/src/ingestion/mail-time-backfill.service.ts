@@ -4,11 +4,12 @@ import { Model, Types } from 'mongoose';
 import { Migration } from '../shared/schemas/migration.schema';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { serverTimeZone } from '../shared/time-zone';
+import { SANTO_DOMINGO_OFFSET_HOURS } from '../shared/santo-domingo';
 
 export const BACKFILL_NAME = 'mail-times-to-santo-domingo';
 const USER_ZONE = 'America/Santo_Domingo';
 /** Santo Domingo is UTC−4 all year; the Dominican Republic has no DST. */
-const SHIFT_MS = 4 * 3_600_000;
+const SHIFT_MS = SANTO_DOMINGO_OFFSET_HOURS * 3_600_000;
 
 /**
  * Bank-mail times were read as if they were UTC until the api ran in the user's
