@@ -1,0 +1,157 @@
+<div class="page-wrap">
+  <div class="mer-header">
+    <div>
+      <h1>Merchants</h1>
+      <p class="mer-muted">Bank merchants the app files on its own. Change one and its rows in the old category follow.</p>
+    </div>
+    <button
+      id="add-merchant"
+      type="button"
+      class="fc-btn fc-btn--primary"
+      [disabled]="loading || !!loadError || busy || mode.kind !== 'none'"
+      (click)="openAdd()"
+    >
+      <mat-icon>add</mat-icon> Add merchant
+    </button>
+  </div>
+
+  <p class="mer-status" aria-live="polite">{{ status }}</p>
+
+  @if (loading) {
+    <p class="mer-muted">Loading…</p>
+  } @else if (loadError) {
+    <p class="fc-error" role="alert">{{ loadError }}</p>
+  } @else {
+    @if (mode.kind === 'add') {
+      <section class="card mer-section" aria-labelledby="mer-add-title">
+        <h2 id="mer-add-title">Add merchant</h2>
+        <form class="mer-form" (ngSubmit)="add()">
+          <label class="fc-field">
+            <span>Name as the bank writes it</span>
+            <input
+              id="merchant-name"
+              class="fc-input"
+              type="text"
+              maxlength="200"
+              autocomplete="off"
+              [ngModel]="name"
+              (ngModelChange)="onName($event)"
+              name="name"
+            />
+          </label>
+          <p class="mer-hint" aria-live="polite">{{ previewText }}</p>
+          <label class="fc-field">
+            <span>Category</span>
+            <select class="fc-input" [(ngModel)]="category" name="category">
+              <option value="" disabled>Choose a category</option>
+              @for (c of categories; track c) {
+                <option [value]="c">{{ c | titlecase }}</option>
+              }
+            </select>
+          </label>
+          @if (actionError) {
+            <p class="fc-error" role="alert">{{ actionError }}</p>
+          }
+          <div class="mer-actions">
+            <button type="button" class="fc-btn fc-btn--ghost" [disabled]="busy" (click)="close()">Cancel</button>
+            <button type="submit" class="fc-btn fc-btn--primary" [disabled]="!canAdd">{{ busy ? 'Saving…' : 'Add' }}</button>
+          </div>
+        </form>
+      </section>
+    }
+
+    <section class="card mer-section" aria-labelledby="mer-list-title">
+      <h2 id="mer-list-title">Remembered</h2>
+      @if (merchants.length === 0) {
+        <p class="mer-muted">Nothing remembered yet. Confirm a category on the Transactions page and the merchant shows up here.</p>
+      } @else {
+        <label class="fc-field mer-filter">
+          <span>Filter</span>
+          <input class="fc-input" type="search" autocomplete="off" [(ngModel)]="filter" name="filter" />
+        </label>
+        @if (shown.length === 0) {
+          <p class="mer-muted">No merchants match "{{ filter.trim() }}".</p>
+        }
+        <ul class="mer-list">
+          @for (m of shown; track m.id) {
+            <li class="mer-row">
+              <div class="mer-main">
+                <span class="mer-key">{{ m.key }}</span>
+                @if (m.usable) {
+                  <span class="cat-pill"
+                        [style.background]="catColor(m.category) + '22'"
+                        [style.color]="catColor(m.category)">
+                    <span class="dot" [style.background]="catColor(m.category)"></span>
+                    {{ m.category | titlecase }}
+                  </span>
+                } @else {
+                  <span class="mer-warning">{{ notUsedText(m) }}</span>
+                }
+              </div>
+              <span class="mer-usage">{{ usageText(m) }}</span>
+
+              @if (mode.kind === 'change' && mode.id === m.id) {
+                <form class="mer-inline" (ngSubmit)="saveChange(m)">
+                  <label class="fc-field">
+                    <span>New category for {{ m.key }}</span>
+                    <select [id]="'pick-' + m.id" class="fc-input" [(ngModel)]="category" name="category">
+                      <option value="" disabled>Choose a category</option>
+                      @for (c of categories; track c) {
+                        <option [value]="c">{{ c | titlecase }}</option>
+                      }
+                    </select>
+                  </label>
+                  @if (actionError) {
+                    <p class="fc-error" role="alert">{{ actionError }}</p>
+                  }
+                  <div class="mer-actions">
+                    <button type="button" class="fc-btn fc-btn--ghost" [disabled]="busy" (click)="close()">Cancel</button>
+                    <button type="submit" class="fc-btn fc-btn--primary" [disabled]="busy || !category || category === m.category">
+                      {{ busy ? 'Saving…' : 'Save' }}
+                    </button>
+                  </div>
+                </form>
+              } @else if (mode.kind === 'forget' && mode.id === m.id) {
+                <div class="mer-inline">
+                  <p>Forget {{ m.key }}? New mail from it goes back to review.</p>
+                  @if (actionError) {
+                    <p class="fc-error" role="alert">{{ actionError }}</p>
+                  }
+                  <div class="mer-actions">
+                    <button type="button" class="fc-btn fc-btn--ghost" [disabled]="busy" (click)="close()">Cancel</button>
+                    <button [id]="'confirm-forget-' + m.id" type="button" class="fc-btn mer-danger" [disabled]="busy" (click)="forget(m)">
+                      {{ busy ? 'Forgetting…' : 'Forget' }}
+                    </button>
+                  </div>
+                </div>
+              } @else {
+                <div class="mer-row-actions">
+                  <button
+                    [id]="'change-' + m.id"
+                    type="button"
+                    class="fc-btn fc-btn--ghost"
+                    [disabled]="busy || mode.kind !== 'none'"
+                    [attr.aria-label]="'Change category for ' + m.key"
+                    (click)="openChange(m)"
+                  >
+                    Change
+                  </button>
+                  <button
+                    [id]="'forget-' + m.id"
+                    type="button"
+                    class="fc-btn fc-btn--ghost"
+                    [disabled]="busy || mode.kind !== 'none'"
+                    [attr.aria-label]="'Forget ' + m.key"
+                    (click)="openForget(m)"
+                  >
+                    Forget
+                  </button>
+                </div>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+</div>

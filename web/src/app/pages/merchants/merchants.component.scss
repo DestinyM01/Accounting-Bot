@@ -1,0 +1,135 @@
+.mer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+
+  h1 {
+    margin: 0;
+    font-size: var(--text-page-title);
+  }
+}
+
+.mer-muted,
+.mer-hint {
+  margin: var(--space-2xs) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.mer-hint:empty {
+  display: none;
+}
+
+.mer-status {
+  margin: 0 0 var(--space-sm);
+  min-height: 1em;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.mer-section {
+  margin-bottom: var(--space-lg);
+
+  h2 {
+    margin: 0 0 var(--space-sm);
+    font-size: var(--text-lg);
+  }
+}
+
+.mer-form .fc-field + .fc-field,
+.mer-hint + .fc-field {
+  margin-top: var(--space-sm);
+}
+
+.mer-filter {
+  max-width: 20rem;
+  margin-bottom: var(--space-sm);
+}
+
+.mer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mer-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
+  padding: var(--space-xs) 0;
+  border-top: 1px solid var(--border);
+
+  &:first-child {
+    border-top: none;
+  }
+
+  // A phone stacks each merchant: its name and pill, then its counts, then its actions.
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.mer-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  flex: 1 1 16rem;
+  min-width: 0;
+
+  @media (max-width: 640px) {
+    flex-basis: auto;
+  }
+}
+
+.mer-key {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.mer-usage {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.mer-warning {
+  font-size: var(--text-sm);
+  color: var(--color-warning);
+}
+
+.mer-row-actions,
+.mer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.mer-actions {
+  justify-content: flex-end;
+  margin-top: var(--space-sm);
+}
+
+.mer-inline {
+  flex: 1 1 100%;
+  align-self: stretch;
+
+  p:not(.fc-error) {
+    margin: 0 0 var(--space-xs);
+    color: var(--text);
+  }
+}
+
+.mer-danger {
+  background: var(--expense);
+  border-color: var(--expense);
+  color: var(--color-accent-ink);
+
+  &:hover:not(:disabled) {
+    opacity: 0.85;
+  }
+}
