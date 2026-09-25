@@ -9,6 +9,7 @@ import { CategoriesModule } from '../categories/categories.module';
 import { SettingsModule } from '../settings/settings.module';
 import { IngestionService } from './ingestion.service';
 import { IngestionStatusService } from './ingestion-status.service';
+import { IngestionController } from './ingestion.controller';
 import { MailClient } from './mail.client';
 import { CategorizerService } from './categorizer.service';
 import { FxService } from './fx.service';
@@ -25,6 +26,7 @@ import { FxService } from './fx.service';
     CategoriesModule,
     SettingsModule,
   ],
+  controllers: [IngestionController],
   providers: [IngestionService, MailClient, CategorizerService, FxService, IngestionStatusService],
 })
 export class IngestionModule {}
