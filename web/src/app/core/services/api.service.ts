@@ -18,9 +18,12 @@ import {
   CreateRecurringRequest,
   CreateTransactionRequest,
   DailyBalance,
+  GrowthInput,
+  GrowthResult,
   IngestionStatusView,
   MonthlyPoint,
   MonthlySummary,
+  MyNumbers,
   RecurringEntry,
   ReportsSettingsInput,
   RunCounts,
@@ -247,5 +250,18 @@ export class ApiService {
 
   createRecurring(body: CreateRecurringRequest): Observable<{ id: string }> {
     return this.http.post<{ id: string }>(`${this.base}/recurring`, body);
+  }
+
+  compoundGrowth(input: GrowthInput): Observable<GrowthResult> {
+    const params = new HttpParams()
+      .set('start', input.start)
+      .set('monthly', input.monthly)
+      .set('rate', input.rate)
+      .set('years', input.years);
+    return this.http.get<GrowthResult>(`${this.base}/calculator/compound`, { params });
+  }
+
+  getMyNumbers(): Observable<MyNumbers> {
+    return this.http.get<MyNumbers>(`${this.base}/calculator/my-numbers`);
   }
 }

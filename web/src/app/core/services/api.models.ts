@@ -289,3 +289,32 @@ export interface IngestionStatusView {
   unreadable: UnreadableMailItem[];
   recent: MailBookedItem[];
 }
+
+// ── Growth calculator ──────────────────────────────────────────────────
+export interface GrowthInput {
+  start: number;
+  monthly: number;
+  rate: number;
+  years: number;
+}
+
+export interface GrowthYear {
+  year: number;
+  balance: number;
+  putIn: number;
+  interest: number;
+}
+
+export interface GrowthResult {
+  finalBalance: number;
+  putIn: number;
+  interest: number;
+  years: GrowthYear[];
+}
+
+export interface MyNumbers {
+  startingAmount: number;
+  monthlySavings: number;
+  spentMore: boolean;
+  months: { month: number; year: number; income: number; expense: number; net: number }[];
+}
