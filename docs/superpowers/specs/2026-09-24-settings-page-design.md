@@ -110,7 +110,10 @@ Both return the new `GET /settings` body. Every failure is a 400 with a message.
 - **Account lists come from `SettingsService`.** `run()` reads `accounts.cash` and `accounts.senders` from it instead of `process.env`, once per run.
 - **Dismissed mails are skipped first.** Before parsing, `run()` loads the dismissed message ids among the fetched mails and skips them (counted as `skipped`).
 - **Unreadable mails are recorded.** When a mail is "Unusable", or its parser throws, it is upserted into `UnreadableMail`: `$set` sender, subject, `receivedAt` and `lastSeenAt`; `$setOnInsert` `firstSeenAt` and `dismissed: false`; `$inc attempts`. The existing warning log stays.
-- **A readable mail leaves the list.** When a mail's `persist` returns `created` or `duplicate`, its `UnreadableMail` record (if any) is deleted.
+- **A readable mail leaves the list, on every path.** It is deleted when:
+  - the mail's `persist` returns `created` or `duplicate`;
+  - a parser recognises it as not a transaction;
+  - at the start of each run, it is already booked (in case an earlier clear failed).
 - **The status is recorded.**
   - At the end of every run: `lastRunAt`, the counts, and `lastError: null`.
   - When the whole run fails (the existing `poll()` catch): `lastError` (the message, ≤ 500 characters) and `lastErrorAt`.
@@ -129,13 +132,15 @@ Both return the new `GET /settings` body. Every failure is a 400 with a message.
 }
 ```
 
-**`POST /ingestion/run`** returns `200 { created, skipped, failed }`, or `409 "A check is already running"`.
+**`POST /ingestion/run`** returns `200 { created, skipped, failed }`, `409 "A check is already running"`, or `502 "The check failed: …"`.
+
+`startAt` is the start date the ingester actually uses: a valid `INGEST_START_AT` as ISO, else `null`. `recent` items also carry `transferKind`, so transfers aren't shown as spending.
 
 **`POST /ingestion/unreadable/:id/dismiss`** is a `findOneAndUpdate` on `_id` and `userId`, setting `dismissed: true`. It returns 204, or 404.
 
 ### Reports (`api/src/reports/`)
 
-- **A turned-off report is skipped.** Before claiming a period, the scheduler reads `reports.weekly` / `reports.monthly`. A turned-off report creates its `ReportSend` as `skipped` (duplicate-key tolerant, like the expiry path) and logs "Not sending weekly report 2026-W40: turned off in Settings".
+- **A turned-off report is skipped, on every path.** A stale-claim takeover of a turned-off report closes it as `skipped` instead of sending it. When email isn't configured, the run still records turned-off periods (it continues rather than stopping) and warns once. Before claiming a period, the scheduler reads `reports.weekly` / `reports.monthly`. A turned-off report creates its `ReportSend` as `skipped` (duplicate-key tolerant, like the expiry path) and logs "Not sending weekly report 2026-W40: turned off in Settings".
 - **The recipient comes from Settings.** The scheduler and `POST /reports/test` pass the resolved recipient to `MailerService.send`, which uses the `to` it's given instead of reading `REPORT_TO`. With no resolved recipient the send fails as "not configured".
 
 ---
@@ -149,7 +154,7 @@ Both return the new `GET /settings` body. Every failure is a 400 with a message.
 - **Status line:** "Last checked {time} · booked N · skipped N · couldn't read N", or "Not checked yet".
 - **Error line:** if `lastError` is newer than `lastRun`, a `role="alert"` line: "The last check failed at {time}: {message}".
 - **Reading mail since** {startAt}, read-only.
-- **Check mail now** (`.fc-btn--primary`):
+- **Check mail now** (`.fc-btn--primary`). While `running` is true, the section re-reads the status every 4 seconds, so the button never stays stuck:
   - disabled while running, or when `running` is true;
   - afterwards shows "Booked N, skipped N, couldn't read N" in a `aria-live="polite"` line;
   - a 409 shows "A check is already running";

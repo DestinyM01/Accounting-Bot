@@ -2747,3 +2747,51 @@ Expected: `13`, and a clean tree. The controller runs the private-identifier che
    - Restart `accounting-api` and `accounting-web` once CI is green.
    - Open **Settings**, check mail now, review the account lists, and save each section once.
    - After saving, `REPORT_TO`, `OWN_CASH_ACCOUNTS` and `OWN_ACCOUNT_IDENTIFIERS` can be removed from the Secret.
+
+## As built (2026-09-25)
+
+Tasks 1–13 landed as written in `7fb1188`, `ced259e`, `a99e19c`, `edfb561`, `f2eb9ce`, `df40776`, `b4cbddd`, `f675b8d`, `8840ed7`, `e325fac`, `2a1fa6c`, `ca70819` and `e0ee3cb`. The test counts matched the plan at every step (500 → 555). Suite counts ran one higher, because the plan's baseline predated the `html-to-text` suite.
+
+Deviations:
+- The guard-table spec needed the `@nestjs/schedule` ESM shim, because `IngestionController` reaches a `@Cron`.
+- A dead `REPORT_TO` line was removed from the mailer spec.
+- The README's Email reports row now points at the Settings page.
+
+**Preview:** a scratch harness rendered the real page against fake data, at 1280 px and 375 px. Checked:
+- dismiss asks for a yes, then focus moves to the next row;
+- "Check mail now" shows its counts;
+- a bad cash account is refused inline;
+- removing the last chip focuses the input;
+- an empty cash list asks "Save anyway?" with focus on it;
+- no horizontal scroll at phone width.
+
+**Spec review:** the code did what the spec says, but 13 of 44 mutants survived. Fixed in `dbb843d`:
+- **The unreadable list's lifecycle is closed on every path.** Booked mails are cleared once per run even after a failed clear, and a recognised not-a-transaction mail is cleared too.
+- **A report turned off in Settings is never sent** by a stale-claim takeover (closed as `skipped` in the same atomic write).
+- **A turned-off report is still recorded** when email isn't configured (`continue` instead of `break`, one warning per run).
+- **Unreadable mails list by arrival.**
+- **Tests now pin** the duplicate path, the validation boundaries, once-per-run reads, the takeover recipient and the module wiring.
+
+**Code-quality review:** no critical issues. Two Important issues and several minor ones, fixed in `30ac051`, `e401337`, `fbf1722` and `5b07e8d`:
+- **"Check mail now" could stay stuck on "Checking…"** after a 409, a page opened mid-run, or a proxy timeout. While a run is in flight, the section now re-reads the status every 4 seconds.
+- **Two behaviours weren't pinned by tests:** the `known` filter on the per-run clear (without it every poll would delete dismissals) and releasing the run flag after a failure. Both have tests now.
+- **The status reports the start date the ingester actually uses** (ISO, or null). A malformed `INGEST_START_AT` used to break the section.
+- **Transfers are no longer shown as spending** in "Recently booked from mail".
+- **Clearer errors and focus:** a failed reload keeps the last status with an inline error, focus returns after errors, and the dismiss error shows even when the list empties.
+- **Reports section:** the test digest waits for unsaved address changes, and the placeholder says when no address is configured.
+- **Accounts section:**
+  - any edit cancels a pending empty-list confirmation;
+  - add errors are linked to their inputs;
+  - each dismiss button names its mail.
+- **Docs:** the README and the deployment comments say the Settings page overrides the Secret's starting values.
+
+Final: api 54 suites / 577 tests, web build clean with zero warnings.
+
+## Follow-ups
+
+- **Cheaper per-poll bookkeeping.** Each poll runs a `deleteMany` over every booked id and a `deleteOne` per not-a-transaction mail since the start date. That's negligible next to the full IMAP re-fetch, but one read of `{messageId, dismissed}` for listed mails would avoid it.
+- **Noisy status counts.** "skipped N" counts every mail since the start date on every run, and "couldn't read N" also counts booking failures. Split them into "new", "already booked" and "unreadable".
+- **Records can linger.** An unreadable mail that leaves the fetch window (start date moved, label removed) stays listed until dismissed.
+- **Saving freezes a section.** Once saved, a section no longer follows the Secret; a "reset to server config" action would undo that.
+- **Short name fragments match anywhere.** A three-character fragment matches inside any name, via the pre-existing `matchesOwn`; now that the user can edit the list, a word-boundary match would be safer.
+- **More than one api pod.** The in-flight guard is per pod, so a manual check can overlap another pod's cron (two crons could already overlap).
