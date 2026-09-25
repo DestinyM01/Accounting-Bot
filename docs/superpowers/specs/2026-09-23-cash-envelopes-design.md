@@ -107,7 +107,7 @@ It is added to the api's `Category` enum and so becomes reserved through `BUILT_
 
 ## Rules
 
-1. **Only a live spending withdrawal takes items.** A missing or deleted row is a 404. That means `isWithdrawal: true`, `amount < 0`, not deleted, and not an `internal`/`unresolved` transfer. Anything else gets a 400: "Only a cash withdrawal can be itemized". A missing row gets a 404.
+1. **Only a live spending withdrawal takes items.** A missing or deleted row is a 404. That means `isWithdrawal: true`, `amount < 0`, not deleted, and not an `internal`/`unresolved` transfer. Anything else gets a 400: "Only a cash withdrawal can be itemized".
 2. **`amount`:** a finite number > 0, rounded to cents, ≤ 1e12.
 3. **`category`:** must pass `CategoriesService.assertValid`, and is not `cash`. The message for `cash`: "Cash is what's left unitemized — pick where it went".
 4. **`description`:** optional. It must be a string; it is trimmed and must be ≤ 60 characters after trimming. Empty means absent.
@@ -132,7 +132,7 @@ It is added to the api's `Category` enum and so becomes reserved through `BUILT_
    ```
    The half-cent tolerance absorbs floating-point drift from `$inc`.
 2. On a miss, one read tells apart 404, "not a withdrawal" and "only $X left".
-3. Create the `CashAllocation` with an id chosen beforehand. If the create throws, release the reservation (`$inc: -amount`) **only once a read confirms the item was not written**. A standalone mongod has no retryable writes, so a lost acknowledgement can hide a successful insert. If the item exists, or the read fails, the reservation stays. Then rethrow; a failed release is logged.
+3. Create the `CashAllocation` with an id chosen beforehand. If the create throws, release the reservation (`$inc: -amount`) **only when the database definitely refused the item**: a validation or cast error, or a server-side rejection other than a write-concern error. A standalone mongod has no retryable writes, so a lost acknowledgement or a timeout can hide an insert that landed, and a read afterwards can race it. On those errors the reservation stays. Then rethrow; a failed release is logged.
 4. A crash between steps 1 and 3 leaves the counter too high. That blocks some itemizing but never allows over-itemizing.
 
 **Delete an item:**
@@ -205,8 +205,8 @@ Each one calls `CategorySpendService.byCategory` instead of grouping `Transactio
     - a description field (`maxlength="60"`, placeholder "What was it? (optional)").
 
     **Add** is disabled until a category is chosen and the amount is > 0 and ≤ remaining, and while saving.
-- **After an add or remove:** reload the panel, set the row's `allocatedCash` from the reply, and call `TransactionEventsService.notify()` so the Dashboard, Budget and Statistics refresh. Focus returns to the category select after an add, and to the next item's remove button (else the select) after a remove.
-- **Errors** appear inline under the form with `role="alert"`. A generation counter per panel drops stale replies.
+- **After an add or remove:** reload the panel, and set the row's `allocatedCash` from the reply. The page deliberately does **not** call `TransactionEventsService.notify()`: the list would reload and, under the "Unitemized cash" filter, drop the row whose panel is open. Nothing that listens for changes is on screen alongside Transactions, and Budget, Statistics and the Dashboard load fresh on every visit. Focus returns to the category select after an add, and to the next item's remove button (else the select) after a remove.
+- **Errors** appear inline under the form with `role="alert"`. Each panel is its own component (`CashPanelComponent`): it owns its state, a generation counter drops its stale replies, and closing it drops any reply still in flight.
 - **Styling** uses the shared `_form-controls.scss` classes and theme tokens only. At phone width the form fields stack and nothing scrolls horizontally.
 
 ---
@@ -235,7 +235,7 @@ Written first; each must fail before its implementation exists.
   - a non-withdrawal, a deleted row, an `internal` or `unresolved` transfer, and a missing row (404);
   - an unknown category and `cash`;
   - bad amounts and descriptions.
-- A failed create releases the reservation.
+- A create the database refused releases the reservation; a create whose fate is unknown keeps it.
 - Delete removes the item, then decrements; a missing item is a 404.
 - Breakdown: `allocated` and `remaining` are computed from the items; a non-withdrawal is a 404.
 - `CashModule` does not import `LedgerModule`, and `CashController` has `JwtAuthGuard` at class level.

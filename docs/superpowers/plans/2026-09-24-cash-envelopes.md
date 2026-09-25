@@ -2125,3 +2125,59 @@ Expected: `11`, and a clean tree. The controller runs the private-identifier che
 
 1. Spec review, then code-quality review, then fixes. Then a preview-harness screenshot of the Transactions page with an open panel (desktop and phone), the private-identifier gate, and the push.
 2. Hand the user: restart `accounting-api` and `accounting-web` once CI is green. Then, on **Transactions**, pick a withdrawal (new ones land in `cash`), **Itemize** it into two categories, and watch Budget and Statistics count them.
+
+## As built (2026-09-24)
+
+Tasks 1–11 landed as written in `02f0f21`, `fbb1228`, `0571e4b`, `ba64cd2`, `136b9cf`, `8f24022`, `ed3e0f1`, `7bd2b25`, `a91da17`, `35db338` and `c0a0a02`. Counts matched the plan at every step (api 432 → 481 tests). Two deviations:
+- `buildFilter`'s parameter type had to accept `unitemized`.
+- One Task 1 test compares `list()` with the `Category` enum, so it passed before `cash` existed. The reserved-name test and the overview test did fail first.
+
+**Preview:** a scratch harness rendered the real Transactions page against fake data, at 1280 px and 375 px. It showed:
+- rows reading "$2,000.00 not itemized";
+- the Itemize panel reading "Remaining $2,000.00 of $5,000.00", with `cash` absent from the item categories;
+- Add disabled for more than what's left;
+- after an add, the row line and the remaining figure updated, the form reset, and focus went back to the category select;
+- after a remove, focus moved to the next item's remove button;
+- the "Unitemized cash" filter listing only withdrawals with cash left, with `aria-pressed`;
+- no horizontal scroll at phone width.
+
+It also caught two layout bugs, both fixed below: a pre-existing phone overflow of the amount column on long names, and the add form's fields stretching tall at phone width.
+
+**Spec review:** core behaviour compliant, but three Important issues. The reviewer proved them with mutants run on scratch copies. Fixed in `354bc10` and `c361da3`, with the spec updated in `4205b7a`:
+- **Tests that couldn't fail.** Computing the breakdown from the counter, dropping `isWithdrawal` from the rollup's select (which switches itemization off entirely), and Tips ignoring the breakdown all passed every test. The tests are now strengthened.
+- **A release could leave the counter low.** A failed item insert released its reservation even when the insert may have landed. It first gained an `exists` check; see the code-quality review for the final rule.
+- **An unguarded rollback.** An amount edit's rollback could shrink a withdrawal below items added since. The rollback now carries the same guard and is otherwise logged for manual repair.
+- **Minor fixes:**
+  - `unitemized` combines with `type` instead of overriding it;
+  - a category's cash items can't be moved into `cash`;
+  - a mail confirming a recurring prediction copies `isWithdrawal`;
+  - the rollup skips non-spending rows;
+  - the phone overflow of the amount column (`minmax(0, 1fr)`).
+
+**Code-quality review:** the api side is sound, and all 8 mutants of the fixes were caught. Two Important web issues were fixed in `eefaab8` and `1b50f06`:
+- **I1: replies landing on the wrong panel.** A reply from one withdrawal's panel could land on another's, leaving it stuck on "Loading…" or showing the wrong error; a simulation of the component reproduced it. Each panel is now its own `CashPanelComponent`, whose pending replies die when it closes. That also took 150 lines out of the page component.
+- **I2: the phone form.** The add form's fields stretched to 160–224 px at phone width (`flex-basis` turning into height).
+- **Also fixed:**
+  - a reservation is released only when the database definitely refused the item (validation, cast or server rejection). The `exists` check could race a landing insert;
+  - the add form accepts only whole cents within what's left;
+  - focus returns after errors;
+  - the panel follows an edited amount;
+  - remove buttons name their description;
+  - the panel no longer shares its background with its inputs;
+  - the rollup ignores items of a non-spending withdrawal row;
+  - the README's Categories row mentions cash items.
+
+**Deliberate deviation, confirmed by the review:** the page doesn't call `TransactionEventsService.notify()` after an item change. The list would reload and, under the "Unitemized cash" filter, drop the row whose panel is open. Nothing that listens for changes is on screen alongside Transactions, and Budget, Statistics and the Dashboard load fresh on every visit.
+
+Final: api 46 suites / 490 tests, web build clean with zero warnings.
+
+## Follow-ups
+
+- **Usage counts items of deleted withdrawals.** Such a category shows "1 cash item" you can't see anywhere, and a delete then asks for a move. Fix: count only items whose withdrawal is live (a `$lookup` on the transaction with `deletedAt: null`), and keep moving all of them.
+- **Reconciling a counter left high.** A crash between the reservation and the insert, or an ambiguous insert error, leaves `allocatedCash` above the items. That blocks some itemizing but never allows too much. A repair would recompute the sum from the items with a guarded `$set`.
+- **"Load more" under the Unitemized filter** can skip rows that were fully itemized without a reload, because offset paging runs on a shrinking set. The Needs Review filter has the same problem, pre-existing.
+- **Where a rule-matched withdrawal lands depends on arrival order.** Mail first means `cash`; the recurring booking first means the rule's category. The prediction keeps `isWithdrawal` either way, so it can still be itemized.
+- **Month boundaries (pre-existing):** Budget, Statistics, Compare, Tips and the monthly email use the server's local months (UTC in the pod), while the weekly email uses Santo Domingo midnight. All five views agree with each other for the same period.
+- **A custom category named `cash`** made before this change now shares the built-in's name. The pickers list "Cash" twice until it is deleted on the Categories page, which hides it without moving the built-in's data.
+- **A panel closed mid-add leaves its row line stale.** The add lands on the server, but the closed panel drops the reply, so the row keeps its old "not itemized" figure until the list reloads or the panel reopens.
+- **A racing amount edit answers 409.** When a concurrent add makes an amount edit's guard miss, the answer is 409 "changed concurrently" rather than rule 7's 400; a retry gets the 400.
