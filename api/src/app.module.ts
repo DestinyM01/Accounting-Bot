@@ -17,6 +17,7 @@ import { IngestionModule } from './ingestion/ingestion.module';
 import { ReportsModule } from './reports/reports.module';
 import { HealthController } from './health/health.controller';
 import { SettingsModule } from './settings/settings.module';
+import { CalculatorModule } from './calculator/calculator.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { SettingsModule } from './settings/settings.module';
     IngestionModule,
     ReportsModule,
     SettingsModule,
+    CalculatorModule,
   ],
   controllers: [HealthController],
 })
