@@ -59,9 +59,9 @@ export class TransactionsController {
   }
 
   @Patch(':id/category')
-  @HttpCode(204)
-  async setCategory(@Param('id') id: string, @Body() body: SetCategoryBody) {
-    await this.transactionsService.setCategory(id, body.category);
+  @HttpCode(200)
+  setCategory(@Param('id') id: string, @Body() body: SetCategoryBody) {
+    return this.transactionsService.setCategory(id, body.category);
   }
 
   @Patch(':id/transfer-kind')

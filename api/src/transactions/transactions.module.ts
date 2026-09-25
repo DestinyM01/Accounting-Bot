@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Transaction, TransactionSchema } from '../shared/schemas/transaction.schema';
 import { LedgerModule } from '../shared/ledger/ledger.module';
 import { CategoriesModule } from '../categories/categories.module';
+import { MerchantsModule } from '../merchants/merchants.module';
 import { TransactionsController } from './transactions.controller';
 import { TransactionsService } from './transactions.service';
 
@@ -11,6 +12,7 @@ import { TransactionsService } from './transactions.service';
     MongooseModule.forFeature([{ name: Transaction.name, schema: TransactionSchema }]),
     LedgerModule,
     CategoriesModule,
+    MerchantsModule,
   ],
   controllers: [TransactionsController],
   providers: [TransactionsService],

@@ -5,6 +5,7 @@ import { Transaction } from '../shared/schemas/transaction.schema';
 import { NOT_DELETED, SPENDING_ONLY } from '../shared/schemas/transfer-kind';
 import { LedgerService } from '../shared/ledger/ledger.service';
 import { CategoriesService } from '../categories/categories.service';
+import { MerchantMemoryService } from '../merchants/merchant-memory.service';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 
@@ -55,6 +56,8 @@ const categoriesService = {
   }),
 };
 
+const memory = { learn: jest.fn().mockResolvedValue(0) };
+
 describe('TransactionsService', () => {
   let service: TransactionsService;
 
@@ -70,6 +73,7 @@ describe('TransactionsService', () => {
     mockModel.findOneAndUpdate.mockResolvedValue(null);
     ledger.apply.mockResolvedValue({ previousBalance: 0, newBalance: 0 });
     ledger.reverse.mockResolvedValue({ previousBalance: 0, newBalance: 0 });
+    memory.learn.mockResolvedValue(0);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -77,6 +81,7 @@ describe('TransactionsService', () => {
         { provide: getModelToken(Transaction.name), useValue: mockModel },
         { provide: LedgerService, useValue: ledger },
         { provide: CategoriesService, useValue: categoriesService },
+        { provide: MerchantMemoryService, useValue: memory },
       ],
     }).compile();
     service = module.get<TransactionsService>(TransactionsService);
@@ -164,6 +169,20 @@ describe('TransactionsService', () => {
     it('setCategory rejects an unknown category', async () => {
       await expect(service.setCategory('t1', 'nope')).rejects.toThrow(/category/);
       expect(mockModel.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('teaches the memory from the row as it was, and reports what else it filed', async () => {
+      const before = { _id: 'tx1', source: 'email', amount: -10, merchant: 'PRIME VIDEO*2K3JD', categoryNeedsReview: true };
+      mockModel.findOneAndUpdate.mockResolvedValueOnce(before);
+      memory.learn.mockResolvedValueOnce(1);
+      await expect(service.setCategory('tx1', 'food')).resolves.toEqual({ alsoFiled: 1 });
+      expect(memory.learn).toHaveBeenCalledWith(before, 'food');
+    });
+
+    it('files nothing for a row that no longer exists', async () => {
+      mockModel.findOneAndUpdate.mockResolvedValueOnce(null);
+      await expect(service.setCategory('tx1', 'food')).resolves.toEqual({ alsoFiled: 0 });
+      expect(memory.learn).not.toHaveBeenCalled();
     });
   });
 
@@ -371,6 +390,19 @@ describe('TransactionsService', () => {
         { $set: { transactionName: 'super', category: 'other', categoryNeedsReview: false } },
       );
       expect(ledger.apply).not.toHaveBeenCalled();
+    });
+
+    it('teaches the memory when the edit changes the category', async () => {
+      const before = live({ source: 'email', merchant: 'SOME STORE' });
+      mockModel.findOne.mockResolvedValue(before);
+      await service.update('t1', { category: 'other' });
+      expect(memory.learn).toHaveBeenCalledWith(before, 'other');
+    });
+
+    it('teaches nothing when the edit leaves the category alone', async () => {
+      mockModel.findOne.mockResolvedValue(live());
+      await service.update('t1', { name: 'renamed' });
+      expect(memory.learn).not.toHaveBeenCalled();
     });
 
     it('looks up only live rows and 404s otherwise', async () => {

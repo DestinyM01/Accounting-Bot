@@ -7,6 +7,7 @@ import { NOT_DELETED, NON_SPENDING_KINDS, isNonSpendingTransfer } from '../share
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { LedgerService } from '../shared/ledger/ledger.service';
 import { CategoriesService } from '../categories/categories.service';
+import { MerchantMemoryService } from '../merchants/merchant-memory.service';
 import { HALF_CENT, money } from '../cash/cash-rules';
 
 export interface CreateTransactionBody {
@@ -83,6 +84,7 @@ export class TransactionsService {
     @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
     private readonly ledger: LedgerService,
     private readonly categories: CategoriesService,
+    private readonly memory: MerchantMemoryService,
   ) {}
 
   /**
@@ -189,12 +191,15 @@ export class TransactionsService {
     return header + rows;
   }
 
-  async setCategory(id: string, category: string): Promise<void> {
+  /** Sets a row's category and clears its review flag; a bank-mail expense also teaches the merchant memory. */
+  async setCategory(id: string, category: string): Promise<{ alsoFiled: number }> {
     await this.categories.assertValid(category);
-    await this.transactionModel.findOneAndUpdate(
+    const before = await this.transactionModel.findOneAndUpdate(
       { _id: id, userId: this.userId, ...NOT_DELETED },
       { category, categoryNeedsReview: false },
     );
+    if (!before) return { alsoFiled: 0 };
+    return { alsoFiled: await this.memory.learn(before, category) };
   }
 
   private assertPositive(amount: number): void {
@@ -315,6 +320,8 @@ export class TransactionsService {
         }, err);
       }
     }
+
+    if (body.category !== undefined) await this.memory.learn(tx, body.category);
   }
 
   async softDelete(id: string): Promise<void> {
