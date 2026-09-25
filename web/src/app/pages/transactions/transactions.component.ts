@@ -170,6 +170,11 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     }, 0);
   }
 
+  /** A guess naming a category deleted since: it can't be confirmed, only replaced. Unknown until the list has loaded. */
+  isDeletedGuess(category: string): boolean {
+    return this.catSvc.loaded && !this.categories.includes(category);
+  }
+
   /**
    * Sets one row's category. `select` is passed only by the review dropdown,
    * so a failed guess can be reset to what the row actually holds. Tracked in
@@ -194,7 +199,9 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         // one guess after another needs no re-aiming at the list.
         const rows = this.filtered;
         const next = rows.slice(rows.indexOf(tx) + 1).find((t) => t.categoryNeedsReview);
-        if (next) setTimeout(() => document.getElementById(`confirm-${next._id}`)?.focus(), 0);
+        if (next) {
+          setTimeout(() => (document.getElementById(`confirm-${next._id}`) ?? document.getElementById(`pick-${next._id}`))?.focus(), 0);
+        }
       },
       error: () => {
         this.reviewing.delete(tx._id);

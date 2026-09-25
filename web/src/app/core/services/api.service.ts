@@ -21,10 +21,12 @@ import {
   GrowthInput,
   GrowthResult,
   IngestionStatusView,
+  MerchantMatch,
   MonthlyPoint,
   MonthlySummary,
   MyNumbers,
   RecurringEntry,
+  RememberedMerchant,
   ReportsSettingsInput,
   RunCounts,
   SetBalanceResult,
@@ -264,5 +266,25 @@ export class ApiService {
 
   getMyNumbers(): Observable<MyNumbers> {
     return this.http.get<MyNumbers>(`${this.base}/calculator/my-numbers`);
+  }
+
+  getMerchants(): Observable<RememberedMerchant[]> {
+    return this.http.get<RememberedMerchant[]>(`${this.base}/merchants`);
+  }
+
+  matchMerchant(name: string): Observable<MerchantMatch> {
+    return this.http.get<MerchantMatch>(`${this.base}/merchants/match`, { params: new HttpParams().set('name', name) });
+  }
+
+  addMerchant(name: string, category: string): Observable<{ id: string; key: string; alsoFiled: number }> {
+    return this.http.post<{ id: string; key: string; alsoFiled: number }>(`${this.base}/merchants`, { name, category });
+  }
+
+  changeMerchant(id: string, category: string): Observable<{ moved: number }> {
+    return this.http.patch<{ moved: number }>(`${this.base}/merchants/${id}`, { category });
+  }
+
+  forgetMerchant(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/merchants/${id}`);
   }
 }

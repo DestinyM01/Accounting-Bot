@@ -318,3 +318,23 @@ export interface MyNumbers {
   spentMore: boolean;
   months: { month: number; year: number; income: number; expense: number; net: number }[];
 }
+
+// ── Merchants ──────────────────────────────────────────────────────────
+export interface RememberedMerchant {
+  id: string;
+  key: string;
+  category: string;
+  /** ISO date of the last choice, or null for an entry saved before dates were kept. */
+  updatedAt: string | null;
+  /** Booked bank-mail rows from this merchant. */
+  rows: number;
+  /** False when its category was deleted, or is cash or other; ingestion then ignores it. */
+  usable: boolean;
+}
+
+export interface MerchantMatch {
+  /** Empty when the name can't identify a merchant. */
+  key: string;
+  rows: number;
+  remembered: string | null;
+}

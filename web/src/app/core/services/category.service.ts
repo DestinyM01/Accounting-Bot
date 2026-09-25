@@ -19,6 +19,8 @@ export class CategoryService {
   };
 
   private customMap: Record<string, CategoryDef> = {};
+  /** True once the category list has arrived; before that, custom categories are missing from `all`. */
+  loaded = false;
   private _all: { name: string; color: string; icon: string; isBuiltIn: boolean }[] =
     Object.entries(this.BUILT_IN).map(([name, d]) => ({ name, ...d, isBuiltIn: true }));
 
@@ -40,6 +42,7 @@ export class CategoryService {
           ...Object.entries(this.BUILT_IN).map(([name, d]) => ({ name, ...d, isBuiltIn: true })),
           ...custom.map((c) => ({ name: c.name, color: c.color, icon: 'label', isBuiltIn: false })),
         ];
+        this.loaded = true;
       },
     });
   }

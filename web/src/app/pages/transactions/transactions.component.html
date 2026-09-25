@@ -106,18 +106,23 @@
                       [style.background]="catColor(tx.category) + '22'"
                       [style.color]="catColor(tx.category)">
                   <span class="dot" [style.background]="catColor(tx.category)"></span>
-                  {{ tx.category | titlecase }}?
+                  {{ tx.category | titlecase }}?{{ isDeletedGuess(tx.category) ? ' (deleted)' : '' }}
                 </span>
-                <button [id]="'confirm-' + tx._id" type="button" class="icon-act confirm-guess"
-                        [disabled]="reviewing.has(tx._id)"
-                        [attr.aria-label]="'Confirm ' + (tx.category | titlecase) + ' for ' + tx.transactionName"
-                        (click)="assignCategory(tx, tx.category)">
-                  <mat-icon>check</mat-icon>
-                </button>
-                <select class="review-select"
+                @if (!isDeletedGuess(tx.category)) {
+                  <button [id]="'confirm-' + tx._id" type="button" class="icon-act confirm-guess"
+                          [disabled]="reviewing.has(tx._id)"
+                          [attr.aria-label]="'Confirm ' + (tx.category | titlecase) + ' for ' + tx.transactionName"
+                          (click)="assignCategory(tx, tx.category)">
+                    <mat-icon>check</mat-icon>
+                  </button>
+                }
+                <select [id]="'pick-' + tx._id" class="review-select"
                         [attr.aria-label]="'Category for ' + tx.transactionName"
                         [disabled]="reviewing.has(tx._id)"
                         (change)="assignCategory(tx, $any($event.target).value, $any($event.target))">
+                  @if (isDeletedGuess(tx.category)) {
+                    <option value="" disabled selected>Choose a category</option>
+                  }
                   @for (cat of categories; track cat) {
                     <option [value]="cat" [selected]="cat === tx.category">{{ cat | titlecase }}</option>
                   }
