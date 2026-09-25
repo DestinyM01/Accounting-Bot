@@ -6,6 +6,7 @@ import { ReportSend, ReportSendSchema } from '../shared/schemas/report-send.sche
 import { StatisticsModule } from '../statistics/statistics.module';
 import { BudgetModule } from '../budget/budget.module';
 import { CashModule } from '../cash/cash.module';
+import { SettingsModule } from '../settings/settings.module';
 import { MailerService } from './mailer.service';
 import { ReportDataService } from './report-data.service';
 import { ReportSchedulerService } from './report-scheduler.service';
@@ -21,6 +22,7 @@ import { ReportsController } from './reports.controller';
     StatisticsModule,
     BudgetModule,
     CashModule,
+    SettingsModule,
   ],
   controllers: [ReportsController],
   providers: [MailerService, ReportDataService, ReportSchedulerService],

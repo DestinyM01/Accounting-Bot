@@ -13,7 +13,6 @@ describe('MailerService', () => {
   beforeEach(() => {
     process.env.GMAIL_USER = 'me@example.com';
     process.env.GMAIL_APP_PASSWORD = 'app-password';
-    delete process.env.REPORT_TO;
     sendMail = jest.fn().mockResolvedValue({});
     createTransport.mockReset().mockReturnValue({ sendMail });
   });
@@ -32,8 +31,8 @@ describe('MailerService', () => {
     expect(mailer.isConfigured()).toBe(false);
   });
 
-  it('sends through Gmail SMTP to GMAIL_USER by default', async () => {
-    await new MailerService().send(email);
+  it('sends through Gmail SMTP to the recipient it is given', async () => {
+    await new MailerService().send(email, 'other@example.com');
     expect(createTransport).toHaveBeenCalledWith({
       host: 'smtp.gmail.com',
       port: 465,
@@ -44,22 +43,16 @@ describe('MailerService', () => {
     });
     expect(sendMail).toHaveBeenCalledWith({
       from: '"AccBot" <me@example.com>',
-      to: 'me@example.com',
+      to: 'other@example.com',
       subject: 'Weekly digest',
       html: '<p>hi</p>',
       text: 'hi',
     });
   });
 
-  it('sends to REPORT_TO when it is set', async () => {
-    process.env.REPORT_TO = 'other@example.com';
-    await new MailerService().send(email);
-    expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ to: 'other@example.com' }));
-  });
-
   it('refuses to send when not configured', async () => {
     delete process.env.GMAIL_APP_PASSWORD;
-    await expect(new MailerService().send(email)).rejects.toThrow(/not configured/);
+    await expect(new MailerService().send(email, 'me@example.com')).rejects.toThrow(/not configured/);
     expect(createTransport).not.toHaveBeenCalled();
   });
 });

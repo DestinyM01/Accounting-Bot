@@ -10,8 +10,8 @@ export interface OutgoingEmail {
 
 /**
  * Sends the user's reports through Gmail SMTP with the same app password the
- * ingester uses for IMAP. The recipient defaults to that same account; the
- * address lives only in the Secret, never in this public repository.
+ * ingester uses for IMAP. The recipient is resolved by the caller from
+ * Settings (saved on the web, else `REPORT_TO`, else `GMAIL_USER`).
  */
 @Injectable()
 export class MailerService {
@@ -21,7 +21,7 @@ export class MailerService {
     return !!process.env.GMAIL_USER && !!process.env.GMAIL_APP_PASSWORD;
   }
 
-  async send(email: OutgoingEmail): Promise<void> {
+  async send(email: OutgoingEmail, to: string): Promise<void> {
     const user = process.env.GMAIL_USER;
     const pass = process.env.GMAIL_APP_PASSWORD;
     if (!user || !pass) throw new Error('Email is not configured: GMAIL_USER / GMAIL_APP_PASSWORD missing');
@@ -40,7 +40,7 @@ export class MailerService {
     }
     await this.transporter.sendMail({
       from: `"AccBot" <${user}>`,
-      to: process.env.REPORT_TO || user,
+      to,
       subject: email.subject,
       html: email.html,
       text: email.text,

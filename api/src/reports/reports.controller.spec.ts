@@ -40,7 +40,16 @@ describe('ReportsController', () => {
 
   it('answers 503 and sends nothing when email is not configured', async () => {
     const mailer = { isConfigured: jest.fn().mockReturnValue(false), send: jest.fn() };
-    const controller = new ReportsController({ weekly: jest.fn() } as any, mailer as any);
+    const settings = { reports: jest.fn().mockResolvedValue({ weekly: true, monthly: true, recipient: 'me@example.com' }) };
+    const controller = new ReportsController({ weekly: jest.fn() } as any, mailer as any, settings as any);
+    await expect(controller.sendTest()).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(mailer.send).not.toHaveBeenCalled();
+  });
+
+  it('answers 503 and sends nothing when there is no recipient', async () => {
+    const mailer = { isConfigured: jest.fn().mockReturnValue(true), send: jest.fn() };
+    const noRecipient = { reports: jest.fn().mockResolvedValue({ weekly: true, monthly: true, recipient: null }) };
+    const controller = new ReportsController({ weekly: jest.fn() } as any, mailer as any, noRecipient as any);
     await expect(controller.sendTest()).rejects.toBeInstanceOf(ServiceUnavailableException);
     expect(mailer.send).not.toHaveBeenCalled();
   });
@@ -48,11 +57,13 @@ describe('ReportsController', () => {
   it('emails the latest weekly digest now, marked [Test]', async () => {
     const data = { weekly: jest.fn().mockResolvedValue(WEEKLY_DATA) };
     const mailer = { isConfigured: jest.fn().mockReturnValue(true), send: jest.fn().mockResolvedValue(undefined) };
-    const controller = new ReportsController(data as any, mailer as any);
+    const settings = { reports: jest.fn().mockResolvedValue({ weekly: true, monthly: true, recipient: 'me@example.com' }) };
+    const controller = new ReportsController(data as any, mailer as any, settings as any);
     await expect(controller.sendTest()).resolves.toEqual({ ok: true });
     expect(data.weekly).toHaveBeenCalledWith(expect.objectContaining({ kind: 'weekly' }), expect.any(Date));
     expect(mailer.send).toHaveBeenCalledWith(
       expect.objectContaining({ subject: expect.stringMatching(/^\[Test\] Weekly digest · /) }),
+      'me@example.com',
     );
   });
 

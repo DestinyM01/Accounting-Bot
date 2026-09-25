@@ -26,6 +26,7 @@ import { ReportSchedulerService } from './report-scheduler.service';
 import { ReportSend } from '../shared/schemas/report-send.schema';
 import { ReportDataService } from './report-data.service';
 import { MailerService } from './mailer.service';
+import { SettingsService } from '../settings/settings.service';
 import { latestPeriods, ReportPeriod } from './report-periods';
 import { renderMonthly, renderWeekly } from './report-render';
 
@@ -55,6 +56,7 @@ describe('ReportSchedulerService', () => {
   let sendModel: { findOne: jest.Mock; findOneAndUpdate: jest.Mock; create: jest.Mock; updateOne: jest.Mock; deleteOne: jest.Mock };
   let data: { weekly: jest.Mock; monthly: jest.Mock };
   let mailer: { isConfigured: jest.Mock; send: jest.Mock };
+  let settings: { reports: jest.Mock };
   let logSpy: jest.SpyInstance;
   let warnSpy: jest.SpyInstance;
   let errorSpy: jest.SpyInstance;
@@ -72,6 +74,7 @@ describe('ReportSchedulerService', () => {
     };
     data = { weekly: jest.fn().mockResolvedValue({ kind: 'weekly-data' }), monthly: jest.fn().mockResolvedValue({ kind: 'monthly-data' }) };
     mailer = { isConfigured: jest.fn().mockReturnValue(true), send: jest.fn().mockResolvedValue(undefined) };
+    settings = { reports: jest.fn().mockResolvedValue({ weekly: true, monthly: true, recipient: 'me@example.com' }) };
     logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
     warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
@@ -82,6 +85,7 @@ describe('ReportSchedulerService', () => {
         { provide: getModelToken(ReportSend.name), useValue: sendModel },
         { provide: ReportDataService, useValue: data },
         { provide: MailerService, useValue: mailer },
+        { provide: SettingsService, useValue: settings },
       ],
     }).compile();
     service = module.get(ReportSchedulerService);
@@ -106,7 +110,7 @@ describe('ReportSchedulerService', () => {
     expect(data.weekly).toHaveBeenCalledWith(WEEKLY, NOW);
     expect(renderWeekly).toHaveBeenCalledWith({ kind: 'weekly-data' }, { webUrl: expect.any(String) });
     expect(mailer.send).toHaveBeenCalledTimes(1);
-    expect(mailer.send).toHaveBeenCalledWith({ subject: 'weekly', html: '<p>w</p>', text: 'w' });
+    expect(mailer.send).toHaveBeenCalledWith({ subject: 'weekly', html: '<p>w</p>', text: 'w' }, 'me@example.com');
     expect(sendModel.updateOne).toHaveBeenCalledWith(key, { $set: { status: 'sent', at: NOW } });
     expect(logSpy).toHaveBeenCalledWith('Report run: sent 1, skipped 0, failed 0');
   });
@@ -116,7 +120,7 @@ describe('ReportSchedulerService', () => {
     await service.run(NOW);
     expect(data.monthly).toHaveBeenCalledWith(MONTHLY);
     expect(renderMonthly).toHaveBeenCalled();
-    expect(mailer.send).toHaveBeenCalledWith({ subject: 'monthly', html: '<p>m</p>', text: 'm' });
+    expect(mailer.send).toHaveBeenCalledWith({ subject: 'monthly', html: '<p>m</p>', text: 'm' }, 'me@example.com');
   });
 
   it('releases the claim when sending fails, so the next hour retries', async () => {
@@ -135,7 +139,7 @@ describe('ReportSchedulerService', () => {
       .mockReturnValue(found(null));
     await service.run(NOW);
     expect(errorSpy).toHaveBeenCalledWith('weekly report 2026-W39 failed', expect.any(String));
-    expect(mailer.send).toHaveBeenCalledWith({ subject: 'monthly', html: '<p>m</p>', text: 'm' });
+    expect(mailer.send).toHaveBeenCalledWith({ subject: 'monthly', html: '<p>m</p>', text: 'm' }, 'me@example.com');
     expect(logSpy).toHaveBeenCalledWith('Report run: sent 1, skipped 0, failed 1');
   });
 
@@ -196,6 +200,14 @@ describe('ReportSchedulerService', () => {
     await service.run(NOW);
     expect(sendModel.findOneAndUpdate).toHaveBeenCalledWith(expect.anything(), { $set: { status: 'skipped', at: NOW } });
     expect(mailer.send).not.toHaveBeenCalled();
+  });
+
+  it('records a report turned off in Settings as skipped, and sends nothing', async () => {
+    settings.reports.mockResolvedValue({ weekly: false, monthly: true, recipient: 'me@example.com' });
+    await service.run(NOW);
+    expect(sendModel.create).toHaveBeenCalledWith({ ...key, status: 'skipped', at: NOW });
+    expect(mailer.send).not.toHaveBeenCalled();
+    expect(logSpy).toHaveBeenCalledWith('Not sending weekly report 2026-W39: turned off in Settings');
   });
 
   it('with no Gmail credentials records nothing and stops', async () => {

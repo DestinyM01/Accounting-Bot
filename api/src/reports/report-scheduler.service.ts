@@ -5,6 +5,7 @@ import { Model } from 'mongoose';
 import { ReportSend } from '../shared/schemas/report-send.schema';
 import { MailerService } from './mailer.service';
 import { ReportDataService } from './report-data.service';
+import { SettingsService } from '../settings/settings.service';
 import { latestPeriods, MONTHLY_WINDOW_DAYS, ReportPeriod, WEEKLY_WINDOW_DAYS } from './report-periods';
 import { renderMonthly, renderWeekly } from './report-render';
 import { dashboardUrl } from './dashboard-url';
@@ -30,6 +31,7 @@ export class ReportSchedulerService {
     @InjectModel(ReportSend.name) private readonly sendModel: Model<ReportSend>,
     private readonly data: ReportDataService,
     private readonly mailer: MailerService,
+    private readonly settings: SettingsService,
   ) {}
 
   // Hourly at minute 20, after the recurring sweep at :05, so Monday's digest
@@ -49,10 +51,11 @@ export class ReportSchedulerService {
     this.running = true;
     const tally: Record<Outcome, number> = { sent: 0, skipped: 0, failed: 0 };
     try {
+      const prefs = await this.settings.reports();
       for (const period of latestPeriods(now)) {
         let outcome: Outcome | 'not-configured' | 'idle';
         try {
-          outcome = await this.handle(period, now);
+          outcome = await this.handle(period, now, prefs);
         } catch (err) {
           // A database error on one report must say which report it was, and
           // must not stop the other from going out this hour.
@@ -72,7 +75,11 @@ export class ReportSchedulerService {
     }
   }
 
-  private async handle(period: ReportPeriod, now: Date): Promise<Outcome | 'not-configured' | 'idle'> {
+  private async handle(
+    period: ReportPeriod,
+    now: Date,
+    prefs: { weekly: boolean; monthly: boolean; recipient: string | null },
+  ): Promise<Outcome | 'not-configured' | 'idle'> {
     const key = { kind: period.kind, period: period.key };
     const existing = await this.sendModel.findOne(key).lean();
 
@@ -86,7 +93,20 @@ export class ReportSchedulerService {
         { $set: period.expired ? { status: 'skipped', at: now } : { at: now } },
       );
       if (!takenOver) return 'idle'; // another pod is sending it right now
-      return period.expired ? this.logSkipped(period) : this.send(period, now);
+      return period.expired ? this.logSkipped(period) : this.send(period, now, prefs.recipient);
+    }
+
+    if (!prefs[period.kind]) {
+      // Turned off in Settings: recorded like an expired report, so turning it
+      // back on later never sends an old one.
+      try {
+        await this.sendModel.create({ ...key, status: 'skipped', at: now });
+      } catch (err: any) {
+        if (err?.code === 11000) return 'idle';
+        throw err;
+      }
+      this.logger.log(`Not sending ${period.kind} report ${period.key}: turned off in Settings`);
+      return 'skipped';
     }
 
     if (period.expired) {
@@ -99,7 +119,7 @@ export class ReportSchedulerService {
       return this.logSkipped(period);
     }
 
-    if (!this.mailer.isConfigured()) {
+    if (!this.mailer.isConfigured() || !prefs.recipient) {
       this.logger.warn('Reports not sent: GMAIL_USER / GMAIL_APP_PASSWORD are not set');
       return 'not-configured';
     }
@@ -110,7 +130,7 @@ export class ReportSchedulerService {
       if (err?.code === 11000) return 'idle'; // another pod claimed it first
       throw err;
     }
-    return this.send(period, now);
+    return this.send(period, now, prefs.recipient);
   }
 
   private logSkipped(period: ReportPeriod): Outcome {
@@ -119,7 +139,7 @@ export class ReportSchedulerService {
     return 'skipped';
   }
 
-  private async send(period: ReportPeriod, now: Date): Promise<Outcome> {
+  private async send(period: ReportPeriod, now: Date, recipient: string | null): Promise<Outcome> {
     const key = { kind: period.kind, period: period.key };
     try {
       const options = { webUrl: dashboardUrl() };
@@ -127,7 +147,7 @@ export class ReportSchedulerService {
         period.kind === 'weekly'
           ? renderWeekly(await this.data.weekly(period, now), options)
           : renderMonthly(await this.data.monthly(period), options);
-      await this.mailer.send(email);
+      await this.mailer.send(email, recipient as string);
     } catch (err) {
       this.logger.error(
         `Sending ${period.kind} report ${period.key} failed; retrying next hour`,
