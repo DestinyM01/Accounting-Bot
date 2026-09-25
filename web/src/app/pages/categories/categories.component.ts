@@ -112,6 +112,11 @@ export class CategoriesComponent implements OnInit, OnDestroy {
     return (this.overview?.categories ?? []).filter((x) => x.active && !x.pending && x.name !== c.name);
   }
 
+  /** A category an unfinished move is still moving data into can't be changed until that move finishes. */
+  receivingMove(c: CategoryOverviewItem): boolean {
+    return this.custom.some((x) => x.pending?.to === c.name);
+  }
+
   usageText(u: CategoryUsage): string {
     const parts = this.usageParts(u);
     return parts.length > 0 ? parts.join(' · ') : 'Not used yet';
@@ -229,6 +234,10 @@ export class CategoriesComponent implements OnInit, OnDestroy {
         error: (e: HttpErrorResponse) => {
           this.busy = false;
           this.actionError = this.message(e);
+          // A 500 may mean a move stopped halfway: reload so its Finish move shows,
+          // and refresh the app's pickers in case a rename already took effect.
+          this.load();
+          this.categorySvc.load();
         },
       }),
     );
@@ -266,6 +275,14 @@ export class CategoriesComponent implements OnInit, OnDestroy {
         next: (o) => {
           if (gen !== this.gen) return; // a newer request owns the page
           this.overview = o;
+          // If the category being edited or deleted is now mid-move, close its form and
+          // show the error beside its Finish move button instead.
+          const m = this.mode;
+          if ((m.kind === 'edit' || m.kind === 'delete') && o.categories.some((c) => c.id === m.id && c.pending)) {
+            this.finishError = { id: m.id, message: this.actionError || "The move didn't finish." };
+            this.mode = { kind: 'none' };
+            this.actionError = '';
+          }
           this.loadError = '';
           this.loading = false;
         },

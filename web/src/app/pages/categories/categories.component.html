@@ -50,7 +50,7 @@
               @if (c.pending) {
                 <div class="cat-pending">
                   <p>Moving {{ c.pending.from }} to {{ c.pending.to }} didn't finish.</p>
-                  <button type="button" class="fc-btn fc-btn--primary" [disabled]="busy" (click)="finish(c)">
+                  <button type="button" class="fc-btn fc-btn--primary" [disabled]="busy || mode.kind !== 'none'" (click)="finish(c)">
                     Finish move
                   </button>
                   @if (finishError?.id === c.id) {
@@ -99,8 +99,9 @@
                     [id]="'edit-' + c.id"
                     type="button"
                     class="fc-btn fc-btn--ghost"
-                    [disabled]="busy || mode.kind !== 'none'"
+                    [disabled]="busy || mode.kind !== 'none' || receivingMove(c)"
                     [attr.aria-label]="'Edit ' + c.name"
+                    [attr.title]="receivingMove(c) ? 'A move into ' + c.name + ' has not finished' : null"
                     (click)="openEdit(c)"
                   >
                     <mat-icon>edit</mat-icon>
@@ -109,8 +110,9 @@
                     [id]="'delete-' + c.id"
                     type="button"
                     class="fc-btn fc-btn--ghost"
-                    [disabled]="busy || mode.kind !== 'none'"
+                    [disabled]="busy || mode.kind !== 'none' || receivingMove(c)"
                     [attr.aria-label]="'Delete ' + c.name"
+                    [attr.title]="receivingMove(c) ? 'A move into ' + c.name + ' has not finished' : null"
                     (click)="openDelete(c)"
                   >
                     <mat-icon>delete_outline</mat-icon>
