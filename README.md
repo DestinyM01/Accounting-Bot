@@ -46,6 +46,7 @@ A personal finance tracker: a **web dashboard** for entry, review and reporting,
 | **Categories** | Create, edit, rename and delete your own categories; deleting one in use moves its transactions, recurring rules, budgets and cash items to a category you choose |
 | **Cash envelopes** | Itemize an ATM withdrawal into what the cash was spent on; items count toward their categories' budgets and statistics without adding to total spending |
 | **Settings** | See when bank mail was last read, check it now, dismiss mails that aren't transactions; turn the weekly and monthly emails on or off and choose where they go; edit the account numbers and name fragments that tell your own transfers from spending |
+| **Growth calculator** | Compound interest from a starting amount and a monthly deposit, year by year, with a chart and a table; one click fills in your balance and average monthly savings |
 | **Tips** | AI-generated personalised financial tips (Mistral, 1-hour cache) |
 | **Email reports** | A weekly digest (Monday 07:00) and a monthly summary (the 1st), sent by the API through Gmail; "Send a test digest" on the Settings page sends one now |
 
@@ -260,6 +261,8 @@ All endpoints require a `Bearer` JWT token (issued by Authentik).
 | `GET` | `/api/ingestion/status` | Last run, last failure, unreadable mails and what mail booked lately |
 | `POST` | `/api/ingestion/run` | Check bank mail now (409 while a check runs) |
 | `POST` | `/api/ingestion/unreadable/:id/dismiss` | Stop retrying a mail that isn't a transaction |
+| `GET` | `/api/calculator/compound?start=&monthly=&rate=&years=` | Month-by-month compound growth, with one row per year |
+| `GET` | `/api/calculator/my-numbers` | Today's balance and the average saved per month over the last 3 complete months |
 | `GET` | `/api/tips` | AI financial tips (Mistral, 1h cache) |
 | `POST` | `/api/tips/refresh` | Force-refresh tips |
 | `GET` | `/api/compare/months` | Distinct months that have transaction data |
