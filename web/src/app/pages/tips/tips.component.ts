@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/services/api.service';
@@ -7,7 +7,7 @@ import { Tip } from '../../core/services/api.models';
 
 @Component({
     selector: 'app-tips',
-    imports: [CommonModule, MatIconModule],
+    imports: [MatIconModule],
     templateUrl: './tips.component.html',
     styleUrls: ['./tips.component.scss']
 })
