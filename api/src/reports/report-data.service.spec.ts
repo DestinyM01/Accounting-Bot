@@ -9,19 +9,10 @@ import { StatisticsService } from '../statistics/statistics.service';
 import { BudgetService } from '../budget/budget.service';
 import { CategorySpendService } from '../cash/category-spend.service';
 import { ReportPeriod } from './report-periods';
+import { queryStub as query } from '../test-utils/query-stub';
 
 const at = (iso: string) => new Date(iso);
 const idAt = (d: Date) => Types.ObjectId.createFromTime(Math.floor(d.getTime() / 1000));
-
-/** A chainable stand-in for a Mongoose query that resolves to `result`. */
-function query(result: unknown) {
-  const q: any = {
-    select: jest.fn(() => q),
-    sort: jest.fn(() => q),
-    lean: jest.fn(() => Promise.resolve(result)),
-  };
-  return q;
-}
 
 const WEEK: ReportPeriod = {
   kind: 'weekly',

@@ -163,13 +163,3 @@
   margin: var(--space-sm) 0 0;
   color: var(--text);
 }
-
-.cat-danger {
-  background: var(--expense);
-  border-color: var(--expense);
-  color: var(--color-accent-ink);
-
-  &:hover:not(:disabled) {
-    opacity: 0.85;
-  }
-}

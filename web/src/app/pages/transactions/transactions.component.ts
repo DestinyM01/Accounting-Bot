@@ -9,6 +9,7 @@ import { Transaction, TransactionPage } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
 import { TransactionEventsService } from '../../core/services/transaction-events.service';
 import { TransactionFormService } from '../../core/services/transaction-form.service';
+import { focusFirst } from '../../core/ui/focus';
 import { CashPanelComponent } from './cash-panel/cash-panel.component';
 
 @Component({
@@ -163,12 +164,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
 
   /** Focus the first of these elements that exists after the next render. */
   private focusSoon(...ids: string[]) {
-    setTimeout(() => {
-      for (const id of ids) {
-        const el = document.getElementById(id);
-        if (el) { el.focus(); return; }
-      }
-    }, 0);
+    focusFirst(ids);
   }
 
   /** A guess naming a category deleted since: it can't be confirmed, only replaced. Unknown until the list has loaded. */

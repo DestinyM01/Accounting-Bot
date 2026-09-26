@@ -94,14 +94,14 @@
                     @if (inUse(c)) {
                       <button
                         type="button"
-                        class="fc-btn cat-danger"
+                        class="fc-btn fc-btn--danger"
                         [disabled]="busy || !moveTo"
                         (click)="confirmDelete(c)"
                       >
                         {{ busy ? 'Moving…' : 'Delete and move' }}
                       </button>
                     } @else {
-                      <button #firstField type="button" class="fc-btn cat-danger" [disabled]="busy" (click)="confirmDelete(c)">
+                      <button #firstField type="button" class="fc-btn fc-btn--danger" [disabled]="busy" (click)="confirmDelete(c)">
                         {{ busy ? 'Deleting…' : 'Delete' }}
                       </button>
                     }

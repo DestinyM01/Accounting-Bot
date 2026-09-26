@@ -6,21 +6,10 @@ import { Balance } from '../shared/schemas/balance.schema';
 import { BalanceHistory } from '../shared/schemas/balance-history.schema';
 import { LedgerService } from '../shared/ledger/ledger.service';
 import { windowStart } from './daily-closings';
+import { queryStub as query } from '../test-utils/query-stub';
 
 const at = (iso: string) => new Date(iso);
 const NOW = at('2026-09-24T19:00:00Z');
-
-/** A chainable stand-in for a Mongoose query that resolves to `result`. */
-function query(result: unknown) {
-  const q: any = {
-    select: jest.fn(() => q),
-    sort: jest.fn(() => q),
-    skip: jest.fn(() => q),
-    limit: jest.fn(() => q),
-    lean: jest.fn(() => Promise.resolve(result)),
-  };
-  return q;
-}
 
 describe('BalanceService', () => {
   let service: BalanceService;

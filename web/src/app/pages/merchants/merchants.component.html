@@ -123,7 +123,7 @@
                   }
                   <div class="mer-actions">
                     <button type="button" class="fc-btn fc-btn--ghost" [disabled]="busy" (click)="close()">Cancel</button>
-                    <button [id]="'confirm-forget-' + m.id" type="button" class="fc-btn mer-danger" [disabled]="busy" [attr.aria-describedby]="'forget-text-' + m.id" (click)="forget(m)">
+                    <button [id]="'confirm-forget-' + m.id" type="button" class="fc-btn fc-btn--danger" [disabled]="busy" [attr.aria-describedby]="'forget-text-' + m.id" (click)="forget(m)">
                       {{ busy ? 'Forgetting…' : 'Forget' }}
                     </button>
                   </div>

@@ -25,3 +25,5 @@
   &:hover:not(:disabled) { background: var(--color-surface-hover); }
 }
 .fc-error { margin: 0; color: var(--expense); font-size: 0.8rem; }
+.fc-btn--danger { background: var(--expense); border-color: var(--expense); color: var(--color-accent-ink);
+  &:hover:not(:disabled) { opacity: 0.85; } }

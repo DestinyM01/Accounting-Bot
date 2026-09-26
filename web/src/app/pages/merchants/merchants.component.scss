@@ -124,16 +124,6 @@
   }
 }
 
-.mer-danger {
-  background: var(--expense);
-  border-color: var(--expense);
-  color: var(--color-accent-ink);
-
-  &:hover:not(:disabled) {
-    opacity: 0.85;
-  }
-}
-
 // The one announced copy of the status; the visible copies sit next to what changed.
 .mer-live {
   position: absolute;

@@ -7,6 +7,7 @@ import { Observable, Subject, Subscription, catchError, debounceTime, forkJoin, 
 import { ApiService } from '../../core/services/api.service';
 import { CategoryService } from '../../core/services/category.service';
 import { TransactionEventsService } from '../../core/services/transaction-events.service';
+import { focusFirst } from '../../core/ui/focus';
 import { MerchantMatch, RememberedMerchant } from '../../core/services/api.models';
 
 /** Same rule as the api: cash is only ATM cash, and other means "don't know". */
@@ -249,16 +250,7 @@ export class MerchantsComponent implements OnInit, OnDestroy {
 
   /** Focus the first of these elements that exists after the next render. */
   private focus(...ids: string[]): void {
-    setTimeout(() => {
-      if (this.destroyed) return;
-      for (const id of ids) {
-        const el = document.getElementById(id);
-        if (el) {
-          el.focus();
-          return;
-        }
-      }
-    }, 0);
+    focusFirst(ids, () => !this.destroyed);
   }
 
   /** Like focus(), but only when focus was lost (the focused control was removed or disabled), never stealing it. */
