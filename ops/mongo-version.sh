@@ -31,9 +31,10 @@ fcv() {
   run 'print(db.adminCommand({ getParameter: 1, featureCompatibilityVersion: 1 }).featureCompatibilityVersion.version)'
 }
 
-# rs0 primary | rs0 not-primary | standalone
+# rs0 primary | rs0 not-primary | uninitiated (started with --replSet, never
+# initiated: nothing can be read or written) | standalone
 replset() {
-  run 'const h = db.hello(); print(h.setName ? h.setName + " " + (h.isWritablePrimary ? "primary" : "not-primary") : "standalone")'
+  run 'const h = db.hello(); print(h.setName ? h.setName + " " + (h.isWritablePrimary ? "primary" : "not-primary") : (h.isreplicaset ? "uninitiated" : "standalone"))'
 }
 
 status() {

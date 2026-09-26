@@ -37,24 +37,36 @@ spec:
             # the pod's own hostname, mongodb-0: it always resolves inside this
             # pod, while the Service has no endpoints until the pod is Ready.
             # db.hello() needs no login, so this keeps working once
-            # authentication is on. The hook always exits 0: a failing
-            # postStart would kill the container.
+            # authentication is on. It waits through a plain standalone (the
+            # image's temporary init mongod on a fresh volume) for the real
+            # --replSet mongod. It reports what it did in the container's log,
+            # and always exits 0: a failing postStart would kill the container.
             postStart:
               exec:
                 command:
                   - /bin/sh
                   - -c
                   - |
+                    log() { echo "postStart: $*" > /proc/1/fd/1 2>/dev/null || true; }
                     local_uri="mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000&connectTimeoutMS=2000"
                     state=""
                     i=0
                     while [ "$i" -lt 60 ]; do
-                      state=$(timeout 10 mongosh "$local_uri" --quiet --eval 'const h = db.hello(); print(h.setName ? "initiated" : (h.isreplicaset ? "uninitiated" : "standalone"))' 2>/dev/null) && break
+                      state=$(timeout 10 mongosh "$local_uri" --quiet --eval 'const h = db.hello(); print(h.setName ? "initiated" : (h.isreplicaset ? "uninitiated" : "standalone"))' 2>/dev/null) || state=""
+                      case "$state" in initiated|uninitiated) break ;; esac
                       i=$((i + 1))
                       sleep 2
                     done
                     if [ "$state" = "uninitiated" ]; then
-                      timeout 30 mongosh "$local_uri" --quiet --eval 'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongodb-0:27017" }] })' || true
+                      if timeout 30 mongosh "$local_uri" --quiet --eval 'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongodb-0:27017" }] })'; then
+                        log "initiated replica set rs0 (member mongodb-0:27017)"
+                      else
+                        log "rs.initiate failed; initiate by hand or delete the pod to retry"
+                      fi
+                    elif [ "$state" = "initiated" ]; then
+                      log "replica set already initiated"
+                    else
+                      log "mongod never reported a replica set member (last state: ${state:-no answer}); nothing done"
                     fi
                     exit 0
           ports:
