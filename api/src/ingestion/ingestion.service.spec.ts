@@ -1248,6 +1248,17 @@ describe('IngestionService', () => {
       expect(result).toEqual(counts({ alreadyBooked: 1, unverified: 1 }));
       expect(status.recordUnreadable).not.toHaveBeenCalled();
     });
+
+    // MailClient marks a mail unopened when a bug of ours (not the sender's
+    // fault) kept it from being parsed at all; it must be listed, not passed
+    // to a parser that has nothing usable to read.
+    it('lists an unopened mail as unreadable, with its own reason, and never parses it', async () => {
+      mail.fetchSince.mockResolvedValue([makeMail({ unopened: true, verified: false, body: '' })]);
+      const result = await service.run(NOW);
+      expect(result).toEqual(counts({ unreadable: 1, unverified: 1 }));
+      expect(parserParseMock).not.toHaveBeenCalled();
+      expect(status.recordUnreadable).toHaveBeenCalledWith(expect.objectContaining({ messageId: 'msg-1', reason: "Couldn't open the mail" }));
+    });
   });
 
   // A Popular "transf recibida" email names no sender. The money may be a

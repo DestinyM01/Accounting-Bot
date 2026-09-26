@@ -20,6 +20,7 @@ jest.mock('mailparser', () => ({
 
 import { Logger } from '@nestjs/common';
 import { MailClient } from './mail.client';
+import * as mailAuth from './mail-auth';
 
 const SENDER = 'a@b.com';
 
@@ -244,5 +245,89 @@ describe('MailClient', () => {
     const mails = await new MailClient().fetchSince(new Date('2026-01-01T00:00:00Z'), [SENDER]);
     expect(mails.map((m) => m.subject)).toEqual(['one', 'three']);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('Skipped an unparseable mail (uid 2)'));
+  });
+
+  describe('a mail our own code cannot open (I4)', () => {
+    // A bug in OUR OWN code (the parser, htmlToText, ...) must not silently
+    // drop a whole bank's mail once it ages out of the window a couple of
+    // days later. The envelope alone (fetched separately from the body) still
+    // names the sender, so it can still be listed instead of lost.
+    it('lists a mail as unopened, with an error log, when parsing throws but its envelope names an allow-listed sender', async () => {
+      const arrived = new Date('2026-01-05T00:00:00Z');
+      mockFetch.mockImplementation(async function* () {
+        yield {
+          uid: 7,
+          source: Buffer.from('bad'),
+          internalDate: arrived,
+          envelope: {
+            from: [{ address: 'A@B.COM' }], // mixed case: sender must still come out lowercased
+            subject: 'Alert',
+            messageId: '<env-7>',
+            date: new Date('2026-01-05T00:00:00Z'),
+          },
+        };
+      });
+      mockSimpleParser.mockRejectedValue(new Error('malformed MIME'));
+      const errorSpy = jest.spyOn(Logger.prototype, 'error');
+
+      const [mail] = await new MailClient().fetchSince(new Date('2026-01-04T00:00:00Z'), [SENDER]);
+
+      expect(mail).toMatchObject({
+        messageId: '<env-7>',
+        sender: SENDER,
+        subject: 'Alert',
+        body: '',
+        arrivedAt: arrived,
+        verified: false,
+        unopened: true,
+      });
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining(`Couldn't open a mail from ${SENDER} (uid 7)`));
+    });
+
+    it('does not list (just warns) a mail whose envelope sender is not allow-listed when parsing throws', async () => {
+      mockFetch.mockImplementation(async function* () {
+        yield { uid: 8, source: Buffer.from('bad'), envelope: { from: [{ address: 'stranger@evil.example' }] } };
+      });
+      mockSimpleParser.mockRejectedValue(new Error('malformed MIME'));
+      const warn = jest.spyOn(Logger.prototype, 'warn');
+
+      const mails = await new MailClient().fetchSince(new Date('2026-01-01T00:00:00Z'), [SENDER]);
+
+      expect(mails).toEqual([]);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('Skipped an unparseable mail (uid 8)'));
+    });
+
+    it('drops an unopened mail that arrived before `since`, same as any other mail', async () => {
+      mockFetch.mockImplementation(async function* () {
+        yield {
+          uid: 9,
+          source: Buffer.from('bad'),
+          internalDate: new Date('2026-01-01T00:00:00Z'),
+          envelope: { from: [{ address: SENDER }] },
+        };
+      });
+      mockSimpleParser.mockRejectedValue(new Error('malformed MIME'));
+
+      const mails = await new MailClient().fetchSince(new Date('2026-01-04T00:00:00Z'), [SENDER]);
+
+      expect(mails).toEqual([]);
+    });
+  });
+
+  describe('a throwing verifySender (I4)', () => {
+    // A bug of ours in mail-auth.ts must not drop the mail outright — worse
+    // than booking one Gmail didn't actually vouch for is losing it for good.
+    it('keeps the mail, unverified, when verifySender itself throws', async () => {
+      jest.spyOn(mailAuth, 'verifySender').mockImplementation(() => {
+        throw new Error('mail-auth exploded');
+      });
+      mockFetch.mockImplementation(async function* () { yield { uid: 1, source: Buffer.from('m') }; });
+      mockSimpleParser.mockResolvedValue(parsedMail('m', new Date('2026-01-02T00:00:00Z')));
+
+      const [mail] = await new MailClient().fetchSince(new Date('2026-01-01T00:00:00Z'), [SENDER]);
+
+      expect(mail.subject).toBe('m');
+      expect(mail.verified).toBe(false);
+    });
   });
 });

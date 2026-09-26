@@ -15,6 +15,8 @@ export interface FetchedMail {
   arrivedAt: Date;
   /** Gmail's own checks (DMARC or DKIM) passed for the sender's domain; see mail-auth.ts. */
   verified: boolean;
+  /** A bug of ours (not the sender's) kept the body from being read at all; only the envelope could be. Always unverified, with an empty body. */
+  unopened?: boolean;
 }
 
 @Injectable()
@@ -98,6 +100,16 @@ export class MailClient {
 
             // headerLines keeps the headers in order: the first is the topmost, the one Gmail added.
             const authResults = parsed.headerLines?.find((h) => h.key === 'authentication-results')?.line;
+            let verified = false;
+            try {
+              verified = verifySender(authResults, sender);
+            } catch (err) {
+              // A bug of ours in mail-auth.ts must not drop the mail outright:
+              // worse than booking one Gmail didn't actually vouch for is
+              // losing it for good. Left unverified — MAIL_VERIFY=enforce
+              // still catches it below.
+              this.logger.warn(`Could not verify ${sender} (uid ${msg.uid}): ${err instanceof Error ? err.message : String(err)}`);
+            }
 
             out.push({
               messageId: parsed.messageId ?? `uid-${msg.uid}`,
@@ -107,10 +119,36 @@ export class MailClient {
               body: parsed.text?.trim() ? parsed.text : typeof parsed.html === 'string' ? htmlToText(parsed.html) : '',
               receivedAt,
               arrivedAt,
-              verified: verifySender(authResults, sender),
+              verified,
             });
           } catch (err) {
-            this.logger.warn(`Skipped an unparseable mail (uid ${msg.uid}): ${err instanceof Error ? err.message : String(err)}`);
+            // A bug of OURS (the parser, htmlToText, ...) must not silently
+            // drop a whole bank's mail once it ages out of the window a
+            // couple of days later. The envelope is fetched (and so is
+            // usable) independently of the body: when it still names an
+            // allow-listed sender, list the mail as unopened instead of
+            // skipping it outright — Settings can then show it, and it
+            // holds the window open until it's fixed or dismissed.
+            const envelopeSender = (msg.envelope?.from?.[0]?.address ?? '').toLowerCase();
+            if (msg.envelope && allow.includes(envelopeSender)) {
+              const receivedAt = envelopeDate ?? arrivedAt;
+              if (arrivedAt < since) continue;
+              if (notBefore && receivedAt < notBefore) continue;
+
+              this.logger.error(`Couldn't open a mail from ${envelopeSender} (uid ${msg.uid}): ${err instanceof Error ? err.message : String(err)}`);
+              out.push({
+                messageId: msg.envelope.messageId ?? `uid-${msg.uid}`,
+                sender: envelopeSender,
+                subject: msg.envelope.subject ?? '',
+                body: '',
+                receivedAt,
+                arrivedAt,
+                verified: false,
+                unopened: true,
+              });
+            } else {
+              this.logger.warn(`Skipped an unparseable mail (uid ${msg.uid}): ${err instanceof Error ? err.message : String(err)}`);
+            }
           }
         }
       } finally {

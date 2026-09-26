@@ -43,6 +43,9 @@ const RESUME_OVERLAP_MS = 2 * 24 * 3600_000;
 /** The Settings page's reason for a mail refused under MAIL_VERIFY=enforce. */
 const UNVERIFIED_REASON = "Couldn't verify it came from the bank";
 
+/** The Settings page's reason for a mail MailClient could not open at all (see FetchedMail.unopened). */
+const UNOPENED_REASON = "Couldn't open the mail";
+
 @Injectable()
 export class IngestionService {
   private readonly logger = new Logger(IngestionService.name);
@@ -156,6 +159,15 @@ export class IngestionService {
 
       if (known.has(mail.messageId)) { counts.alreadyBooked++; continue; }
       if (dismissed.has(mail.messageId)) { counts.notTransactions++; continue; }
+
+      // A bug of ours (see FetchedMail.unopened), not the sender's — there is
+      // nothing here for a parser to read. Listed so it's visible on Settings
+      // and holds the window open, instead of quietly ageing off the list.
+      if (mail.unopened) {
+        await this.status.recordUnreadable({ ...mail, reason: UNOPENED_REASON });
+        counts.unreadable++;
+        continue;
+      }
 
       // MAIL_VERIFY=enforce: a forged "bank alert" must not book. Listed on
       // Settings with the reason, so a real one can still be seen and dismissed.
