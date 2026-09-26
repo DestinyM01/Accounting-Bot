@@ -255,6 +255,52 @@ export class TransactionsService {
     return { id: String(doc._id) };
   }
 
+  /** The concurrency guard for update(): the row must still carry the amount and
+   * kind the delta was computed from, and — for a withdrawal whose amount
+   * shrinks — still have room for what's itemized. */
+  private writeGuarded(id: string, pre: any, patch: Record<string, unknown>) {
+    return this.transactionModel.findOneAndUpdate(
+      {
+        _id: id,
+        userId: this.userId,
+        ...NOT_DELETED,
+        amount: pre.amount,
+        transferKind: pre.transferKind ?? null,   // null matches an absent field
+        // A withdrawal whose amount changes must still cover what's itemized: an
+        // item added since the read above would otherwise slip under the new amount.
+        ...(pre.isWithdrawal && patch.amount !== undefined
+          ? { $expr: { $lte: [{ $ifNull: ['$allocatedCash', 0] }, Math.abs(patch.amount as number) + HALF_CENT] } }
+          : {}),
+      },
+      { $set: patch },
+    );
+  }
+
+  /**
+   * A guarded miss on a withdrawal's amount edit can mean a stuck allocatedCash
+   * counter blocked it, the same way it blocks the pre-check above. Re-read the
+   * row: if it's still the same row (same amount and kind) and the counter
+   * still blocks the new amount, repair once and retry the guarded write with
+   * the re-read row as the new pre-image (the patch itself doesn't change).
+   * Anything else — the row moved on, or the repair did nothing — falls
+   * through to the caller's ordinary miss handling (a 409).
+   */
+  private async repairAndRetryGuardedWrite(id: string, tx: any, patch: Record<string, unknown>) {
+    if (!tx.isWithdrawal || patch.amount === undefined) return null;
+
+    const reread = await this.transactionModel.findOne({ _id: id, userId: this.userId, ...NOT_DELETED });
+    if (!reread) return null;
+    if (reread.amount !== tx.amount || (reread.transferKind ?? null) !== (tx.transferKind ?? null)) return null;
+
+    const stillBlocked = Math.abs(patch.amount as number) + HALF_CENT < (reread.allocatedCash ?? 0);
+    if (!stillBlocked) return null;
+
+    if (!(await this.counters.repair(id))) {
+      throw new BadRequestException(`${money(reread.allocatedCash ?? 0)} of this withdrawal is itemized — remove items first`);
+    }
+    return this.writeGuarded(id, reread, patch);
+  }
+
   async update(id: string, body: UpdateTransactionBody): Promise<void> {
     let tx = await this.transactionModel.findOne({ _id: id, userId: this.userId, ...NOT_DELETED });
     if (!tx) throw new NotFoundException();
@@ -305,22 +351,13 @@ export class TransactionsService {
     // changes one of those; the filter then misses and nothing is applied.
     // Named `matched`, not `written`: it's only a truthiness check here — `tx`
     // above still carries the pre-image the delta was computed from.
-    const matched = await this.transactionModel.findOneAndUpdate(
-      {
-        _id: id,
-        userId: this.userId,
-        ...NOT_DELETED,
-        amount: tx.amount,
-        transferKind: tx.transferKind ?? null,   // null matches an absent field
-        // A withdrawal whose amount changes must still cover what's itemized: an
-        // item added since the read above would otherwise slip under the new amount.
-        ...(tx.isWithdrawal && patch.amount !== undefined
-          ? { $expr: { $lte: [{ $ifNull: ['$allocatedCash', 0] }, Math.abs(patch.amount as number) + HALF_CENT] } }
-          : {}),
-      },
-      { $set: patch },
-    );
-    if (!matched) throw new ConflictException('transaction changed concurrently; reload and retry');
+    let matched = await this.writeGuarded(id, tx, patch);
+    if (!matched) {
+      // A stuck allocatedCash counter can block the guarded write the same way
+      // it blocks the pre-check above: try the same repair-and-retry once.
+      matched = await this.repairAndRetryGuardedWrite(id, tx, patch);
+      if (!matched) throw new ConflictException('transaction changed concurrently; reload and retry');
+    }
 
     if (delta !== 0) {
       try {

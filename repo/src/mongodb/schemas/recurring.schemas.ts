@@ -42,6 +42,14 @@ export class Recurring extends Document {
    */
   @Prop()
   lastPeriod?: string;
+
+  /**
+   * Mirror of api/src/shared/schemas/recurring.schema.ts — same collection.
+   * Written only by the api: the earliest month whose booking failed and
+   * hasn't been handled since, as 'YYYY-MM'. Cleared when handled.
+   */
+  @Prop()
+  failedPeriod?: string;
 }
 
 export const RecurringSchema = SchemaFactory.createForClass(Recurring);

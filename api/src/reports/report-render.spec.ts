@@ -83,6 +83,10 @@ describe('renderWeekly', () => {
     expect(text).toContain('1 category to review');
   });
 
+  it('names the month-so-far section by its number', () => {
+    expect(renderWeekly(weekly({ month: { ...weekly().month, monthNumber: 9 } }), opts).html).toContain('September so far');
+  });
+
   it('says all is well, with the last ingested day, when nothing is wrong', () => {
     expect(renderWeekly(weekly(), opts).text).toContain(
       'Recurring payments and bank emails are up to date. Last bank email ingested Sep 27.',

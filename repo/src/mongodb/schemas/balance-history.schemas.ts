@@ -28,6 +28,10 @@ export class BalanceHistory extends Document {
 
   @Prop({ required: true, default: Date.now })
   timestamp: Date;
+
+  /** Written only by the api: Balance.seq after this change; absent on rows written before it existed. */
+  @Prop()
+  seq?: number;
 }
 
 export const BalanceHistorySchema = SchemaFactory.createForClass(BalanceHistory);

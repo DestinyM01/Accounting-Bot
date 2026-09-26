@@ -26,6 +26,10 @@ export class Balance extends Document {
 
   @Prop({ default: 'en' })
   language: string;
+
+  /** Written only by the api: incremented by every ledger write, orders history rows exactly. */
+  @Prop()
+  seq?: number;
 }
 
 export const BalanceSchema = SchemaFactory.createForClass(Balance);

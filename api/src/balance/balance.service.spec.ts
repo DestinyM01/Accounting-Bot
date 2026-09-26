@@ -204,6 +204,24 @@ describe('BalanceService', () => {
       });
     });
 
+    it('hands back a t-cursor for a full page whose last row carries no seq', async () => {
+      historyModel.find.mockReturnValueOnce(query([
+        { _id: '64b0000000000000000000b1', timestamp: at('2026-09-01T10:00:00Z'), reason: 'expense', delta: -1, newBalance: 1 },
+        { _id: '64b0000000000000000000b2', timestamp: at('2026-09-01T09:00:00Z'), reason: 'expense', delta: -1, newBalance: 1 },
+      ]));
+      const page = await service.history({ limit: '2' });
+      expect(page.nextCursor).toBe('t2026-09-01T09:00:00.000Z_64b0000000000000000000b2');
+    });
+
+    it('combines an s cursor with the reason filter', async () => {
+      await service.history({ before: 's9', reason: 'manual' });
+      expect(historyModel.find.mock.calls[0][0]).toEqual({
+        userId: 1,
+        reason: 'manual',
+        $or: [{ seq: { $lt: 9 } }, { seq: { $exists: false } }],
+      });
+    });
+
     it('continues among un-numbered rows by time and id, with the reason filter', async () => {
       await service.history({ before: 't2026-09-01T10:00:00.000Z_64b0000000000000000000a1', reason: 'manual' });
       expect(historyModel.find.mock.calls[0][0]).toEqual({
