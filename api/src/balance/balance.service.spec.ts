@@ -99,6 +99,8 @@ describe('BalanceService', () => {
       const page = await service.history({});
       expect(historyModel.find).toHaveBeenCalledWith({ userId: 1 });
       expect(q.sort).toHaveBeenCalledWith({ seq: -1, timestamp: -1, _id: -1 });
+      // toEqual/toHaveBeenCalledWith ignore key order; pin it explicitly.
+      expect(Object.keys(q.sort.mock.calls[0][0])).toEqual(['seq', 'timestamp', '_id']);
       expect(q.skip).toHaveBeenCalledWith(0);
       expect(q.limit).toHaveBeenCalledWith(20);
       expect(page).toEqual({
@@ -140,6 +142,7 @@ describe('BalanceService', () => {
       const points = await service.daily({ days: '7' }, NOW);
       expect(historyModel.findOne).toHaveBeenCalledWith({ userId: 1, timestamp: { $lt: windowStart(NOW, 7) } });
       expect(before.sort).toHaveBeenCalledWith({ timestamp: -1, seq: -1, _id: -1 });
+      expect(Object.keys(before.sort.mock.calls[0][0])).toEqual(['timestamp', 'seq', '_id']);
       expect(before.select).toHaveBeenCalledWith('newBalance');
       expect(points).toHaveLength(7);
       expect(points.every((p) => p.balance === 800)).toBe(true);
@@ -181,6 +184,7 @@ describe('BalanceService', () => {
       await service.daily({ days: '7' }, NOW);
       expect(historyModel.find).toHaveBeenCalledWith({ userId: 1, timestamp: { $gte: windowStart(NOW, 7) } });
       expect(rows.sort).toHaveBeenCalledWith({ timestamp: 1, seq: 1, _id: 1 });
+      expect(Object.keys(rows.sort.mock.calls[0][0])).toEqual(['timestamp', 'seq', '_id']);
       expect(rows.select).toHaveBeenCalledWith('timestamp newBalance previousBalance');
     });
   });
@@ -189,6 +193,18 @@ describe('BalanceService', () => {
     it('orders by sequence, then time, then id', async () => {
       await service.history({});
       expect(historyModel.find.mock.results[0].value.sort).toHaveBeenCalledWith({ seq: -1, timestamp: -1, _id: -1 });
+      expect(Object.keys(historyModel.find.mock.results[0].value.sort.mock.calls[0][0])).toEqual(['seq', 'timestamp', '_id']);
+    });
+
+    // The total must stay put while paging: it's counted against the plain
+    // filter (userId/reason only), never the cursor clause layered on top of
+    // it for the find — the same pattern Transactions uses.
+    it('counts against the plain filter, without the cursor clause, when a cursor is given', async () => {
+      await service.history({ before: 's9', reason: 'manual' });
+      expect(historyModel.countDocuments).toHaveBeenCalledWith({ userId: 1, reason: 'manual' });
+      const [countedFilter] = historyModel.countDocuments.mock.calls[0] as any[];
+      expect(countedFilter).not.toHaveProperty('$or');
+      expect(countedFilter).not.toHaveProperty('seq');
     });
 
     it('hands back an s-cursor for a numbered row and continues below it, older rows included', async () => {
@@ -243,7 +259,9 @@ describe('BalanceService', () => {
       await service.daily({});
       const sorts = historyModel.find.mock.results.map((r: any) => r.value.sort.mock.calls[0]?.[0]);
       expect(sorts).toContainEqual({ timestamp: 1, seq: 1, _id: 1 });
+      expect(Object.keys(sorts.find((s: any) => s)!)).toEqual(['timestamp', 'seq', '_id']);
       expect(historyModel.findOne.mock.results[0].value.sort).toHaveBeenCalledWith({ timestamp: -1, seq: -1, _id: -1 });
+      expect(Object.keys(historyModel.findOne.mock.results[0].value.sort.mock.calls[0][0])).toEqual(['timestamp', 'seq', '_id']);
     });
   });
 });

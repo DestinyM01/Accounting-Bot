@@ -171,6 +171,8 @@ describe('TransactionsService', () => {
       mockModel.countDocuments.mockResolvedValue(5);
       const page = await service.findAll({ limit: 2 });
       expect(mockModel.sort).toHaveBeenCalledWith({ timestamp: -1, _id: -1 });
+      // toEqual/toHaveBeenCalledWith ignore key order; pin it explicitly.
+      expect(Object.keys(mockModel.sort.mock.calls[0][0])).toEqual(['timestamp', '_id']);
       expect(page.nextCursor).toBe('2026-09-20T15:00:00.000Z_64b0000000000000000000a1');
     });
 
@@ -200,6 +202,11 @@ describe('TransactionsService', () => {
     it('skips by the given offset when there is no cursor', async () => {
       await service.findAll({ offset: 40 });
       expect(mockModel.skip).toHaveBeenCalledWith(40);
+    });
+
+    it('does not skip when both offset and a cursor are given', async () => {
+      await service.findAll({ offset: 40, before: '2026-09-20T15:00:00.000Z_64b0000000000000000000a1' });
+      expect(mockModel.skip).not.toHaveBeenCalled();
     });
 
     it('counts against the plain filter, without the cursor clause, when a cursor is given', async () => {
@@ -581,24 +588,24 @@ describe('TransactionsService', () => {
       expect(mockModel.findOneAndUpdate.mock.calls[0][0]).not.toHaveProperty('$expr');
     });
 
-    // A stuck allocatedCash counter can also block the GUARDED write (not just
-    // the pre-check) when the row read for the pre-check was already stale.
-    describe('repair on a guarded miss', () => {
-      it('repairs and retries once when the re-read still shows the blocking counter', async () => {
+    // A guarded miss can also mean another tab's itemize call raised
+    // allocatedCash between the pre-check read and this guarded write — a live
+    // reservation, not a stuck counter. Repairing there would erase that
+    // reservation and allow over-itemizing, so this path only re-reads to pick
+    // the right error; it must never call counters.repair.
+    describe('guarded miss on a withdrawal amount edit', () => {
+      it('400s naming the re-read counter when the same row still blocks the new amount', async () => {
         mockModel.findOne
           // Pre-check read: allocatedCash (300) does not block 400.
           .mockResolvedValueOnce({ _id: 't1', amount: -500, isWithdrawal: true, allocatedCash: 300, transactionName: 'cajero', transferKind: undefined })
-          // Re-read after the guarded write misses: the counter now blocks it.
+          // Re-read after the guarded write misses: the counter now blocks it (another tab reserved).
           .mockResolvedValueOnce({ _id: 't1', amount: -500, isWithdrawal: true, allocatedCash: 450, transactionName: 'cajero', transferKind: undefined });
-        mockModel.findOneAndUpdate
-          .mockResolvedValueOnce(null)          // guarded write misses
-          .mockResolvedValueOnce({ _id: 't1' }); // retry after repair succeeds
-        repair.repair.mockResolvedValue(true);
+        mockModel.findOneAndUpdate.mockResolvedValueOnce(null); // guarded write misses
 
-        await expect(service.update('t1', { amount: 400 })).resolves.toBeUndefined();
+        await expect(service.update('t1', { amount: 400 })).rejects.toThrow('$450.00 of this withdrawal is itemized — remove items first');
 
-        expect(repair.repair).toHaveBeenCalledWith('t1');
-        expect(mockModel.findOneAndUpdate).toHaveBeenCalledTimes(2);
+        expect(repair.repair).not.toHaveBeenCalled();
+        expect(mockModel.findOneAndUpdate).toHaveBeenCalledTimes(1);
       });
 
       it('409s without repairing when the re-read shows a changed amount', async () => {
@@ -606,6 +613,18 @@ describe('TransactionsService', () => {
           .mockResolvedValueOnce({ _id: 't1', amount: -500, isWithdrawal: true, allocatedCash: 300, transactionName: 'cajero', transferKind: undefined })
           // Someone else edited the amount between the pre-check and the guarded write.
           .mockResolvedValueOnce({ _id: 't1', amount: -600, isWithdrawal: true, allocatedCash: 450, transactionName: 'cajero', transferKind: undefined });
+        mockModel.findOneAndUpdate.mockResolvedValueOnce(null);
+
+        await expect(service.update('t1', { amount: 400 })).rejects.toThrow(ConflictException);
+
+        expect(repair.repair).not.toHaveBeenCalled();
+      });
+
+      it('409s without repairing when the re-read shows the same row no longer blocked', async () => {
+        mockModel.findOne
+          .mockResolvedValueOnce({ _id: 't1', amount: -500, isWithdrawal: true, allocatedCash: 300, transactionName: 'cajero', transferKind: undefined })
+          // Re-read: still the same row, but the counter no longer blocks 400.
+          .mockResolvedValueOnce({ _id: 't1', amount: -500, isWithdrawal: true, allocatedCash: 390, transactionName: 'cajero', transferKind: undefined });
         mockModel.findOneAndUpdate.mockResolvedValueOnce(null);
 
         await expect(service.update('t1', { amount: 400 })).rejects.toThrow(ConflictException);

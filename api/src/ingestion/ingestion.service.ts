@@ -104,8 +104,14 @@ export class IngestionService {
     const senders = this.parsers.flatMap((p) => p.senders);
     const mails = await this.mail.fetchSince(since, senders);
 
-    // Mails before the window can't come back: don't leave them on the unreadable list.
-    await this.status.forgetUnreadableBefore(since);
+    // Mails before the window can't come back: don't leave them on the
+    // unreadable list. Only safe when the window's start is a configured date
+    // (the same source watermark() reads) — with the rolling 24-hour
+    // fallback, `since` slides forward every poll, and forgetting would drop
+    // a mail that's still genuinely unread a day after it arrived.
+    if (parseConfiguredInstant(process.env.INGEST_START_AT)) {
+      await this.status.forgetUnreadableBefore(since);
+    }
 
     // Dedupe BEFORE any work. The watermark never advances, so every poll
     // re-fetches every mail since the start date; without this, each poll

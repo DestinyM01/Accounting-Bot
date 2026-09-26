@@ -977,9 +977,29 @@ describe('IngestionService', () => {
       expect(status.clearUnreadableMany).toHaveBeenCalledWith(['m1']);
     });
 
-    it('forgets unreadable mails from before the reading window on each run', async () => {
-      await service.run();
-      expect(status.forgetUnreadableBefore).toHaveBeenCalledWith(expect.any(Date));
+    // Forgetting is only safe when the watermark comes from a configured start
+    // date. With the rolling 24-hour fallback, forgetting would drop mail
+    // that's still genuinely unread a day after it arrived.
+    describe('forgetting unreadable mail before the window', () => {
+      let savedStartAt: string | undefined;
+      beforeEach(() => { savedStartAt = process.env.INGEST_START_AT; });
+      afterEach(() => {
+        if (savedStartAt === undefined) delete process.env.INGEST_START_AT;
+        else process.env.INGEST_START_AT = savedStartAt;
+      });
+
+      it('forgets unreadable mail from before the same since given to mail.fetchSince, when a start date is configured', async () => {
+        process.env.INGEST_START_AT = '2026-09-24T14:58:59Z';
+        await service.run();
+        const sinceGivenToMail = mail.fetchSince.mock.calls[0][0];
+        expect(status.forgetUnreadableBefore).toHaveBeenCalledWith(sinceGivenToMail);
+      });
+
+      it('does not forget unreadable mail with the rolling 24-hour fallback (no configured start date)', async () => {
+        delete process.env.INGEST_START_AT;
+        await service.run();
+        expect(status.forgetUnreadableBefore).not.toHaveBeenCalled();
+      });
     });
 
     it('reads the account lists once per run, not once per mail', async () => {

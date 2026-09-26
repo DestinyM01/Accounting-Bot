@@ -68,19 +68,22 @@ export class BalanceService {
 
     // Rows with seq (every change since it existed) come first, newest first; older
     // rows have no seq and follow, by time. The cursor encodes which kind it stopped on.
+    // The cursor clause is layered onto a copy, `pageFilter` — never `filter`
+    // itself — so the total below, counted against `filter` alone, stays
+    // stable while paging (the same split Transactions uses).
+    let pageFilter: Record<string, unknown> = filter;
     if (query.before !== undefined && query.before !== '') {
       const raw = query.before;
       if (/^s\d+$/.test(raw)) {
-        filter.$or = [{ seq: { $lt: Number(raw.slice(1)) } }, { seq: { $exists: false } }];
+        pageFilter = { ...filter, $or: [{ seq: { $lt: Number(raw.slice(1)) } }, { seq: { $exists: false } }] };
       } else if (raw.startsWith('t') && parseTimeCursor(raw.slice(1))) {
-        filter.seq = { $exists: false };
-        Object.assign(filter, afterTime(parseTimeCursor(raw.slice(1))!));
+        pageFilter = { ...filter, seq: { $exists: false }, ...afterTime(parseTimeCursor(raw.slice(1))!) };
       } else {
         throw new BadRequestException('before must be a cursor from a previous page');
       }
     }
 
-    const find = this.historyModel.find(filter).sort({ seq: -1, timestamp: -1, _id: -1 });
+    const find = this.historyModel.find(pageFilter).sort({ seq: -1, timestamp: -1, _id: -1 });
     const [rows, total] = await Promise.all([
       (query.before ? find : find.skip(offset)).limit(limit).lean(),
       this.historyModel.countDocuments(filter),

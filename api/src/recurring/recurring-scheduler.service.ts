@@ -117,9 +117,19 @@ export class RecurringSchedulerService {
       // lastPeriod only moves forward: booking a newer month after a failure
       // would carry the marker past the failed one, and it would never retry.
       if (outcome === 'failed') {
+        // Also requires the month to be unhandled by lastPeriod: two pods can
+        // race a retry, and if the other one's booking already landed and
+        // markHandled moved lastPeriod to (or past) this period, this pod's
+        // late failure must not resurrect the month as failedPeriod.
         await this.recurringModel
           .updateOne(
-            { _id: rule._id, $or: [{ failedPeriod: { $exists: false } }, { failedPeriod: { $gt: occurrence.period } }] },
+            {
+              _id: rule._id,
+              $and: [
+                { $or: [{ failedPeriod: { $exists: false } }, { failedPeriod: { $gt: occurrence.period } }] },
+                { $or: [{ lastPeriod: { $exists: false } }, { lastPeriod: { $lt: occurrence.period } }] },
+              ],
+            },
             { $set: { failedPeriod: occurrence.period } },
           )
           .catch((err) => this.logger.warn(`Could not remember failed ${occurrence.period} of ${String(rule._id)}: ${String(err)}`));

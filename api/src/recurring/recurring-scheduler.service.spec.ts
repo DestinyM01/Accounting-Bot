@@ -98,6 +98,23 @@ describe('RecurringSchedulerService', () => {
     { $set: { lastPeriod: period, lastExecutedAt: at }, $unset: { failedPeriod: '' } },
   ];
 
+  /**
+   * The exact arguments of a failure-recording update. The month must be
+   * unhandled on BOTH counters — failedPeriod and lastPeriod — so a pod
+   * whose booking fails after another pod already marked the month handled
+   * (lastPeriod caught up or moved past it) cannot resurrect it as failed.
+   */
+  const failureRecorded = (rule: any, period: string) => [
+    {
+      _id: rule._id,
+      $and: [
+        { $or: [{ failedPeriod: { $exists: false } }, { failedPeriod: { $gt: period } }] },
+        { $or: [{ lastPeriod: { $exists: false } }, { lastPeriod: { $lt: period } }] },
+      ],
+    },
+    { $set: { failedPeriod: period } },
+  ];
+
   describe('bookOccurrence', () => {
     it('books an expense once: linked row, negative amount, one ledger movement, marker forward', async () => {
       const rule = makeRule();
@@ -236,10 +253,7 @@ describe('RecurringSchedulerService', () => {
       expect(txModel.deleteOne).toHaveBeenCalledWith({ _id: 'tx1' });
       // The marker itself never moves on a failure; the failed month is remembered instead.
       expect(recurringModel.updateOne).toHaveBeenCalledTimes(1);
-      expect(recurringModel.updateOne).toHaveBeenCalledWith(
-        { _id: rule._id, $or: [{ failedPeriod: { $exists: false } }, { failedPeriod: { $gt: '2026-08' } }] },
-        { $set: { failedPeriod: '2026-08' } },
-      );
+      expect(recurringModel.updateOne).toHaveBeenCalledWith(...failureRecorded(rule, '2026-08'));
       expect(logSpy).toHaveBeenCalledWith(summary(0, 0, 0, 1));
     });
 
@@ -310,10 +324,7 @@ describe('RecurringSchedulerService', () => {
       recurringModel.find.mockResolvedValue([rule]);
       ledger.apply.mockRejectedValueOnce(new Error('balance write failed'));
       await service.sweep(NOW);
-      expect(recurringModel.updateOne).toHaveBeenCalledWith(
-        { _id: rule._id, $or: [{ failedPeriod: { $exists: false } }, { failedPeriod: { $gt: '2026-09' } }] },
-        { $set: { failedPeriod: '2026-09' } },
-      );
+      expect(recurringModel.updateOne).toHaveBeenCalledWith(...failureRecorded(rule, '2026-09'));
     });
 
     it('retries only the failed month in that sweep; later months wait for the next one', async () => {

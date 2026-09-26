@@ -277,28 +277,28 @@ export class TransactionsService {
   }
 
   /**
-   * A guarded miss on a withdrawal's amount edit can mean a stuck allocatedCash
-   * counter blocked it, the same way it blocks the pre-check above. Re-read the
-   * row: if it's still the same row (same amount and kind) and the counter
-   * still blocks the new amount, repair once and retry the guarded write with
-   * the re-read row as the new pre-image (the patch itself doesn't change).
-   * Anything else — the row moved on, or the repair did nothing — falls
-   * through to the caller's ordinary miss handling (a 409).
+   * A guarded miss on a withdrawal's amount edit can mean another tab's
+   * itemize call raised allocatedCash between the pre-check read and this
+   * guarded write — a live reservation, not a stuck counter. Repairing here
+   * would erase that reservation and allow over-itemizing, so this never
+   * calls counters.repair; it only re-reads to pick the right error. If the
+   * row is gone, or its amount/kind no longer match the pre-image, someone
+   * else changed it: an ordinary concurrent-change conflict. If it's still
+   * the same row and its counter genuinely blocks the new amount, say so
+   * plainly instead of the generic conflict. Anything else also falls
+   * through to the conflict.
    */
-  private async repairAndRetryGuardedWrite(id: string, tx: any, patch: Record<string, unknown>) {
-    if (!tx.isWithdrawal || patch.amount === undefined) return null;
-
-    const reread = await this.transactionModel.findOne({ _id: id, userId: this.userId, ...NOT_DELETED });
-    if (!reread) return null;
-    if (reread.amount !== tx.amount || (reread.transferKind ?? null) !== (tx.transferKind ?? null)) return null;
-
-    const stillBlocked = Math.abs(patch.amount as number) + HALF_CENT < (reread.allocatedCash ?? 0);
-    if (!stillBlocked) return null;
-
-    if (!(await this.counters.repair(id))) {
-      throw new BadRequestException(`${money(reread.allocatedCash ?? 0)} of this withdrawal is itemized — remove items first`);
+  private async reportGuardedMiss(id: string, tx: any, patch: Record<string, unknown>): Promise<never> {
+    if (tx.isWithdrawal && patch.amount !== undefined) {
+      const reread = await this.transactionModel.findOne({ _id: id, userId: this.userId, ...NOT_DELETED });
+      if (reread && reread.amount === tx.amount && (reread.transferKind ?? null) === (tx.transferKind ?? null)) {
+        const stillBlocked = Math.abs(patch.amount as number) + HALF_CENT < (reread.allocatedCash ?? 0);
+        if (stillBlocked) {
+          throw new BadRequestException(`${money(reread.allocatedCash ?? 0)} of this withdrawal is itemized — remove items first`);
+        }
+      }
     }
-    return this.writeGuarded(id, reread, patch);
+    throw new ConflictException('transaction changed concurrently; reload and retry');
   }
 
   async update(id: string, body: UpdateTransactionBody): Promise<void> {
@@ -351,12 +351,11 @@ export class TransactionsService {
     // changes one of those; the filter then misses and nothing is applied.
     // Named `matched`, not `written`: it's only a truthiness check here — `tx`
     // above still carries the pre-image the delta was computed from.
-    let matched = await this.writeGuarded(id, tx, patch);
+    const matched = await this.writeGuarded(id, tx, patch);
     if (!matched) {
-      // A stuck allocatedCash counter can block the guarded write the same way
-      // it blocks the pre-check above: try the same repair-and-retry once.
-      matched = await this.repairAndRetryGuardedWrite(id, tx, patch);
-      if (!matched) throw new ConflictException('transaction changed concurrently; reload and retry');
+      // Never repair here — see reportGuardedMiss: a miss can mean a live
+      // reservation from another tab, and repairing would erase it.
+      await this.reportGuardedMiss(id, tx, patch);
     }
 
     if (delta !== 0) {
