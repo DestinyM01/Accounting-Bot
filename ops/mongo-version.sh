@@ -31,8 +31,13 @@ fcv() {
   run 'print(db.adminCommand({ getParameter: 1, featureCompatibilityVersion: 1 }).featureCompatibilityVersion.version)'
 }
 
+# rs0 primary | rs0 not-primary | standalone
+replset() {
+  run 'const h = db.hello(); print(h.setName ? h.setName + " " + (h.isWritablePrimary ? "primary" : "not-primary") : "standalone")'
+}
+
 status() {
-  echo "version=$(version) fcv=$(fcv)"
+  echo "version=$(version) fcv=$(fcv) rs=$(replset)"
 }
 
 set_fcv() {
