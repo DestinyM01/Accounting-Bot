@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -14,6 +14,7 @@ type ReportsView = SettingsView['reports'];
     selector: 'app-reports-section',
     imports: [DatePipe, FormsModule, MatIconModule],
     templateUrl: './reports-section.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['../settings-section.scss']
 })
 export class ReportsSectionComponent implements OnInit, OnDestroy {

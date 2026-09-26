@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, CurrencyPipe, DecimalPipe } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { Chart, registerables } from 'chart.js';
@@ -22,6 +22,7 @@ interface DistRow {
     selector: 'app-statistics',
     imports: [CommonModule, CurrencyPipe, DecimalPipe, MatIconModule],
     templateUrl: './statistics.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./statistics.component.scss']
 })
 export class StatisticsComponent implements OnInit, OnDestroy {

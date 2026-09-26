@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -17,6 +17,7 @@ import { CashPanelComponent } from './cash-panel/cash-panel.component';
     imports: [CommonModule, CurrencyPipe, DatePipe, TitleCasePipe, FormsModule,
         MatIconModule, MatSelectModule, CashPanelComponent],
     templateUrl: './transactions.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./transactions.component.scss']
 })
 export class TransactionsComponent implements OnInit, OnDestroy {

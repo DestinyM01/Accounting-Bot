@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { Chart, registerables } from 'chart.js';
@@ -12,6 +12,7 @@ Chart.register(...registerables);
     selector: 'app-analytics',
     imports: [CommonModule, MatIconModule],
     templateUrl: './analytics.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./analytics.component.scss']
 })
 export class AnalyticsComponent implements OnInit, OnDestroy {

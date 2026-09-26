@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { TransactionFormService } from '../../services/transaction-form.service';
 
@@ -6,6 +6,7 @@ import { TransactionFormService } from '../../services/transaction-form.service'
     selector: 'app-fab',
     imports: [MatIconModule],
     templateUrl: './fab.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./fab.component.scss']
 })
 export class FabComponent {

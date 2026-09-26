@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -23,6 +23,7 @@ function ordinal(n: number): string {
     selector: 'app-recurring',
     imports: [CommonModule, TitleCasePipe, FormsModule, MatIconModule],
     templateUrl: './recurring.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./recurring.component.scss']
 })
 export class RecurringComponent implements OnInit, OnDestroy {

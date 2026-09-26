@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
@@ -24,6 +24,7 @@ function countsText(c: RunCounts): string {
     selector: 'app-mail-section',
     imports: [CurrencyPipe, DatePipe, TitleCasePipe, RouterLink],
     templateUrl: './mail-section.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['../settings-section.scss']
 })
 export class MailSectionComponent implements OnInit, OnDestroy {

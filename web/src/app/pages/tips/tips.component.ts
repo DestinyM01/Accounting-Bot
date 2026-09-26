@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,6 +9,7 @@ import { Tip } from '../../core/services/api.models';
     selector: 'app-tips',
     imports: [MatIconModule],
     templateUrl: './tips.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./tips.component.scss']
 })
 export class TipsComponent implements OnInit {

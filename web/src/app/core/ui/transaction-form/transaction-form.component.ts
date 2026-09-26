@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -13,6 +13,7 @@ import { Transaction } from '../../services/api.models';
     selector: 'app-transaction-form',
     imports: [CommonModule, FormsModule, MatIconModule, TitleCasePipe],
     templateUrl: './transaction-form.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./transaction-form.component.scss']
 })
 export class TransactionFormComponent implements OnInit, OnDestroy {

@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -29,6 +29,7 @@ const MAX_ABS_BALANCE = 1e12;
     selector: 'app-balance',
     imports: [CommonModule, DatePipe, FormsModule, MatIconModule],
     templateUrl: './balance.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./balance.component.scss']
 })
 export class BalanceComponent implements OnInit, OnDestroy {

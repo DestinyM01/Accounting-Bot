@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationStart } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { OAuthService } from 'angular-oauth2-oidc';
@@ -14,6 +14,7 @@ import { TransactionFormComponent } from './core/ui/transaction-form/transaction
     selector: 'app-root',
     imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, MatIconModule, FabComponent, TransactionFormComponent],
     templateUrl: './app.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {

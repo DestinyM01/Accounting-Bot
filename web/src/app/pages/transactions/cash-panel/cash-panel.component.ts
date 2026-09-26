@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
+import { Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges, ChangeDetectionStrategy } from '@angular/core';
 import { CurrencyPipe, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -22,6 +22,7 @@ import { CategoryService } from '../../../core/services/category.service';
     selector: 'app-cash-panel',
     imports: [CurrencyPipe, TitleCasePipe, FormsModule, MatIconModule],
     templateUrl: './cash-panel.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./cash-panel.component.scss']
 })
 export class CashPanelComponent implements OnInit, OnChanges, OnDestroy {

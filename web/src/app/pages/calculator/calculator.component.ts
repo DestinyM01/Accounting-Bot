@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
@@ -16,6 +16,7 @@ Chart.register(...registerables);
     selector: 'app-calculator',
     imports: [FormsModule, MatIconModule],
     templateUrl: './calculator.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./calculator.component.scss']
 })
 export class CalculatorComponent implements OnInit, OnDestroy {

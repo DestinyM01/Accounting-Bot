@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
@@ -16,6 +16,7 @@ const MAX_ENTRIES = 20;
     selector: 'app-accounts-section',
     imports: [FormsModule, MatIconModule],
     templateUrl: './accounts-section.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['../settings-section.scss']
 })
 export class AccountsSectionComponent implements OnInit, OnDestroy {

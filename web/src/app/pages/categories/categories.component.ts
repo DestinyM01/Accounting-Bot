@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -28,6 +28,7 @@ type Mode =
     selector: 'app-categories',
     imports: [CommonModule, FormsModule, MatIconModule],
     templateUrl: './categories.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./categories.component.scss']
 })
 export class CategoriesComponent implements OnInit, OnDestroy {

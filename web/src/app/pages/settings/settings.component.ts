@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { MailSectionComponent } from './mail-section/mail-section.component';
 import { ReportsSectionComponent } from './reports-section/reports-section.component';
 import { AccountsSectionComponent } from './accounts-section/accounts-section.component';
@@ -8,6 +8,7 @@ import { AccountsSectionComponent } from './accounts-section/accounts-section.co
     selector: 'app-settings',
     imports: [MailSectionComponent, ReportsSectionComponent, AccountsSectionComponent],
     templateUrl: './settings.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./settings.component.scss']
 })
 export class SettingsComponent {}

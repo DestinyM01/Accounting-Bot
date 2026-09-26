@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -10,6 +10,7 @@ import { CategoryService } from '../../core/services/category.service';
     selector: 'app-compare',
     imports: [CommonModule, FormsModule, MatIconModule],
     templateUrl: './compare.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./compare.component.scss']
 })
 export class CompareComponent implements OnInit {

@@ -27,15 +27,15 @@
         <div class="chart-pills">
           <div class="pill">
             <span class="pill-label">Income</span>
-            <span class="pill-val income">{{ summary?.income | currency:'USD':'symbol':'1.0-0' }}</span>
+            <span class="pill-val income">{{ $safeNavigationMigration(summary?.income) | currency:'USD':'symbol':'1.0-0' }}</span>
           </div>
           <div class="pill">
             <span class="pill-label">Expenses</span>
-            <span class="pill-val expense">{{ summary?.expense | currency:'USD':'symbol':'1.0-0' }}</span>
+            <span class="pill-val expense">{{ $safeNavigationMigration(summary?.expense) | currency:'USD':'symbol':'1.0-0' }}</span>
           </div>
           <div class="pill">
             <span class="pill-label">Net</span>
-            <span class="pill-val net">{{ summary?.net | currency:'USD':'symbol':'1.0-0' }}</span>
+            <span class="pill-val net">{{ $safeNavigationMigration(summary?.net) | currency:'USD':'symbol':'1.0-0' }}</span>
           </div>
         </div>
 

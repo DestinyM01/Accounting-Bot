@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, CurrencyPipe, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -11,6 +11,7 @@ import { CategoryService } from '../../core/services/category.service';
     selector: 'app-budget',
     imports: [CommonModule, CurrencyPipe, TitleCasePipe, FormsModule, RouterLink, MatIconModule],
     templateUrl: './budget.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./budget.component.scss']
 })
 export class BudgetComponent implements OnInit {

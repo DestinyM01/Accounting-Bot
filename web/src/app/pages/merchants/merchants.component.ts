@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, formatDate, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -32,6 +32,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
     selector: 'app-merchants',
     imports: [CommonModule, FormsModule, MatIconModule],
     templateUrl: './merchants.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./merchants.component.scss']
 })
 export class MerchantsComponent implements OnInit, OnDestroy {
