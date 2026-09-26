@@ -23,14 +23,29 @@ describe('JwtStrategy', () => {
 
   it('refuses any other account with a 403 and logs its id', () => {
     process.env.OWNER_SUB = 'owner-sub';
-    expect(() => new JwtStrategy().validate({ sub: 'someone-else' })).toThrow(ForbiddenException);
+    expect(() => new JwtStrategy().validate({ sub: 'someone-else' })).toThrow(
+      "This account can't use AccBot.",
+    );
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('someone-else'));
+  });
+
+  it('refuses a payload with no sub at all', () => {
+    process.env.OWNER_SUB = 'owner-sub';
+    expect(() => new JwtStrategy().validate({})).toThrow(ForbiddenException);
   });
 
   it('refuses everyone while OWNER_SUB is unset, and logs the id to set', () => {
     delete process.env.OWNER_SUB;
-    expect(() => new JwtStrategy().validate({ sub: 'first-login' })).toThrow(ForbiddenException);
+    expect(() => new JwtStrategy().validate({ sub: 'first-login' })).toThrow(
+      "AccBot isn't set up for an owner yet — see the api log.",
+    );
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('set OWNER_SUB to "first-login"'));
+  });
+
+  it('escapes the sub in the log, so one with CR/LF cannot forge log lines', () => {
+    process.env.OWNER_SUB = 'owner-sub';
+    expect(() => new JwtStrategy().validate({ sub: 'evil\nFAKE LOG LINE' })).toThrow(ForbiddenException);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(JSON.stringify('evil\nFAKE LOG LINE')));
   });
 
   it('treats a blank OWNER_SUB as unset', () => {
