@@ -21,6 +21,39 @@ spec:
         app: mongodb
     spec:
       terminationGracePeriodSeconds: 30
+      # Copies the replica set's keyfile from the mongodb-auth Secret to a
+      # private in-memory volume, owned by mongod's user (999) with mode 400:
+      # mongod refuses a keyfile anyone else can read, and a Secret volume
+      # can't be given that owner. Same image as mongod (already on the node).
+      initContainers:
+        - name: keyfile
+          image: mongo:8.0.32
+          command: ["/bin/sh", "-c", "install -o 999 -g 999 -m 400 /keyfile-secret/keyfile /keyfile/keyfile"]
+          volumeMounts:
+            - name: keyfile-secret
+              mountPath: /keyfile-secret
+              readOnly: true
+            - name: keyfile
+              mountPath: /keyfile
+          resources:
+            requests:
+              memory: 16Mi
+              cpu: 10m
+            limits:
+              memory: 64Mi
+              cpu: 100m
+      volumes:
+        - name: keyfile-secret
+          secret:
+            secretName: mongodb-auth
+            items:
+              - key: keyfile
+                path: keyfile
+            defaultMode: 256   # 0400
+        - name: keyfile
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
       containers:
         - name: mongodb
           image: mongo:8.0.32
@@ -31,7 +64,9 @@ spec:
           # connect with directConnection=true (see the postStart hook). The
           # oplog keeps its default size; it isn't preallocated and grows only
           # with writes (cap it online with replSetResizeOplog if needed).
-          args: ["--wiredTigerCacheSizeGB", "0.25", "--replSet", "rs0"]
+          # --keyFile turns on authentication; every client logs in (see the
+          # mongodb-auth Secret and ops/mongo-auth.sh).
+          args: ["--wiredTigerCacheSizeGB", "0.25", "--replSet", "rs0", "--keyFile", "/etc/mongo-keyfile/keyfile"]
           lifecycle:
             # Initiates the replica set the first time mongod starts with
             # --replSet, and does nothing on every later start. The member is
@@ -96,6 +131,9 @@ spec:
           volumeMounts:
             - name: mongo-data
               mountPath: /data/db
+            - name: keyfile
+              mountPath: /etc/mongo-keyfile
+              readOnly: true
           resources:
             # The request stays at 256Mi: mongodb-0 can only run on the node
             # holding its volume, and a bigger request could leave it Pending
