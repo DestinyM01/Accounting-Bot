@@ -242,3 +242,17 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
    - GHCR has new `sha-<commit>` tags.
 3. Give the user the commands to remove the self-hosted runner. There is nothing to restart: the images are functionally the same.
 4. Add "As built" to this plan and update memory. Then start round B's design.
+
+## As built (2026-09-26)
+
+The work landed in `d24f08d` (the workflow) and `2158537` (the runner script and the README). It was pushed with the spec and plan.
+
+- **First run, 36212208012, all green on GitHub-hosted `ubuntu-latest`:**
+  - `1 · Test`, 38 s: 830 tests and `tsc`;
+  - then `2 · API` and `3 · Web` in parallel, about 20 s each.
+- **The gate:** both builds started only after `test` finished, as `needs: test` defines.
+- **The bot:** its image isn't built any more.
+- **`CONTEXT.md`** was updated locally; it is gitignored.
+- **One remaining `self-hosted` match,** in `.env.example`, refers to hosting MongoDB yourself, so it stays.
+
+**The user's remaining step:** remove the self-hosted runner from GitHub and from the LXC, with the commands from the spec.
