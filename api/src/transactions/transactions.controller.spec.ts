@@ -56,4 +56,25 @@ describe('TransactionsController#setCategory', () => {
     await expect(controller.setCategory('t1', { category: 'food' })).resolves.toEqual({ alsoFiled: 2 });
     expect(service.setCategory).toHaveBeenCalledWith('t1', 'food');
   });
+
+  // Express 5 hands @Body() undefined, not {}, when a request carries no body
+  // (Express 4 handed {}). Both must reach the service the same way: no
+  // category to set.
+  it('passes undefined through when no body is sent', async () => {
+    const service = { setCategory: jest.fn().mockResolvedValue({ alsoFiled: 0 }) };
+    const controller = new TransactionsController(service as any);
+    await controller.setCategory('t1', undefined as any);
+    expect(service.setCategory).toHaveBeenCalledWith('t1', undefined);
+  });
+});
+
+describe('TransactionsController#resolveTransfer', () => {
+  // Same Express 5 change as setCategory above: a bodyless request must still
+  // reach the service, not throw before getting there.
+  it('passes undefined through when no body is sent', async () => {
+    const service = { resolveTransfer: jest.fn().mockResolvedValue(undefined) };
+    const controller = new TransactionsController(service as any);
+    await controller.resolveTransfer('t1', undefined as any);
+    expect(service.resolveTransfer).toHaveBeenCalledWith('t1', undefined);
+  });
 });

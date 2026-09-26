@@ -246,7 +246,10 @@ export class TransactionsService {
   }
 
   async create(body: CreateTransactionBody): Promise<{ id: string }> {
-    const { type, amount, name, category, timestamp } = body;
+    // Express 5 leaves req.body undefined (not {}) when no body is sent;
+    // fall back to {} so a bodyless POST still fails the checks below with
+    // the same 400s an empty-object body always produced.
+    const { type, amount, name, category, timestamp } = body ?? ({} as CreateTransactionBody);
     if (type !== 'income' && type !== 'expense') throw new BadRequestException(`type must be income or expense (got ${type})`);
     this.assertPositive(amount);
     if (!name?.trim()) throw new BadRequestException('name is required');
@@ -326,6 +329,9 @@ export class TransactionsService {
   }
 
   async update(id: string, body: UpdateTransactionBody): Promise<void> {
+    // Express 5 leaves req.body undefined (not {}) when no body is sent;
+    // treat it the same as an empty-object body, i.e. a no-op update.
+    body = body ?? {};
     let tx = await this.transactionModel.findOne({ _id: id, userId: this.userId, ...NOT_DELETED });
     if (!tx) throw new NotFoundException();
 

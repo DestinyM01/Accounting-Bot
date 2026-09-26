@@ -14,6 +14,10 @@ export class CompareController {
 
   @Post()
   compare(@Body() dto: { monthA: string; monthB: string }): Promise<CompareResult> {
-    return this.compareService.compare(dto.monthA, dto.monthB);
+    // Express 5 leaves req.body undefined (not {}) when no body is sent; a
+    // missing month still reaches compare(), which rejects the bad format
+    // the same way an empty-object body always did.
+    const { monthA, monthB } = dto ?? ({} as { monthA: string; monthB: string });
+    return this.compareService.compare(monthA, monthB);
   }
 }

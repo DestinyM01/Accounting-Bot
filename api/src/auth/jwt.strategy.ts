@@ -1,10 +1,15 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy, StrategyOptions } from 'passport-jwt';
+import { ExtractJwt, Strategy, StrategyOptionsWithoutRequest } from 'passport-jwt';
 import { passportJwtSecret } from 'jwks-rsa';
 
-/** The passport-jwt options, from the environment. A function so the audience rule can be tested. */
-export function jwtOptions(env: NodeJS.ProcessEnv = process.env): StrategyOptions {
+/**
+ * The passport-jwt options, from the environment. A function so the audience
+ * rule can be tested. Never sets `passReqToCallback` (validate() below takes
+ * no request), so this is the "without request" half of passport-jwt's
+ * options — typed as such so the Strategy constructor overload resolves.
+ */
+export function jwtOptions(env: NodeJS.ProcessEnv = process.env): StrategyOptionsWithoutRequest {
   const audience = env.AUTHENTIK_CLIENT_ID?.trim();
   return {
     secretOrKeyProvider: passportJwtSecret({

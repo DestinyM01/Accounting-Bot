@@ -65,13 +65,16 @@ export class TransactionsController {
   @Patch(':id/category')
   @HttpCode(200)
   setCategory(@Param('id') id: string, @Body() body: SetCategoryBody) {
-    return this.transactionsService.setCategory(id, body.category);
+    // Express 5 leaves req.body undefined (not {}) when no body is sent; a
+    // missing category still reaches setCategory, which rejects it the same
+    // way an empty-object body always did.
+    return this.transactionsService.setCategory(id, (body ?? ({} as SetCategoryBody)).category);
   }
 
   @Patch(':id/transfer-kind')
   @HttpCode(204)
   async resolveTransfer(@Param('id') id: string, @Body() body: ResolveTransferBody) {
-    await this.transactionsService.resolveTransfer(id, body.kind);
+    await this.transactionsService.resolveTransfer(id, (body ?? ({} as ResolveTransferBody)).kind);
   }
 
   @Get('export')

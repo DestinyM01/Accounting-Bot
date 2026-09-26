@@ -485,6 +485,14 @@ describe('TransactionsService', () => {
       await expect(service.create({ type: 'refund' as any, amount: 1, name: 'x', category: 'food' })).rejects.toThrow(/type/);
     });
 
+    // Express 5 hands the controller undefined, not {}, when a POST carries no
+    // body (Express 4 handed {}). Either way create() must reject with the
+    // same 400, not throw a raw TypeError destructuring it.
+    it('rejects a missing body the same way an empty one is rejected', async () => {
+      await expect(service.create(undefined as any)).rejects.toThrow(/type/);
+      expect(mockModel.create).not.toHaveBeenCalled();
+    });
+
     it('uses the provided timestamp, else now', async () => {
       await service.create({ type: 'expense', amount: 1, name: 'x', category: 'food', timestamp: '2026-09-01T12:00:00Z' });
       expect(mockModel.create).toHaveBeenCalledWith(expect.objectContaining({ timestamp: new Date('2026-09-01T12:00:00Z') }));
@@ -511,6 +519,15 @@ describe('TransactionsService', () => {
     beforeEach(() => {
       mockModel.findOne = jest.fn();
       mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({});
+    });
+
+    // Express 5 hands the controller undefined, not {}, when a PUT carries no
+    // body (Express 4 handed {}). Either way update() must be a no-op, not
+    // throw a raw TypeError reading body.amount off undefined.
+    it('is a no-op when the body is missing, same as an empty one', async () => {
+      mockModel.findOne.mockResolvedValue(live());
+      await service.update('t1', undefined as any);
+      expect(mockModel.findOneAndUpdate).not.toHaveBeenCalled();
     });
 
     it('applies the net delta when an ordinary expense amount changes', async () => {

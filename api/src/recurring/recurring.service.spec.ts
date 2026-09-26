@@ -69,6 +69,14 @@ describe('RecurringService', () => {
       await expect(service.create({ ...ok, name: ' ' })).rejects.toThrow(/name/);
       expect(mockModel.create).not.toHaveBeenCalled();
     });
+
+    // Express 5 hands the controller undefined, not {}, when a POST carries no
+    // body (Express 4 handed {}). Either way create() must reject with the
+    // same 400, not throw a raw TypeError destructuring it.
+    it('rejects a missing body the same way an empty one is rejected', async () => {
+      await expect(service.create(undefined as any)).rejects.toThrow(/type/);
+      expect(mockModel.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('list', () => {

@@ -20,6 +20,10 @@ export class BudgetController {
   async set(
     @Body() body: { category: string; limitAmount: number; month?: number; year?: number },
   ) {
-    await this.budgetService.set(body.category, body.limitAmount, body.month, body.year);
+    // Express 5 leaves req.body undefined (not {}) when no body is sent; a
+    // missing limitAmount still reaches set(), which rejects it the same
+    // way an empty-object body always did.
+    const b = body ?? ({} as { category: string; limitAmount: number; month?: number; year?: number });
+    await this.budgetService.set(b.category, b.limitAmount, b.month, b.year);
   }
 }
