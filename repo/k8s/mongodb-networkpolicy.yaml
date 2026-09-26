@@ -1,0 +1,42 @@
+# Only the api and the nightly backup (and MongoDB itself) can open a
+# connection to MongoDB: every other pod is refused before it reaches the
+# login (except host-network pods on MongoDB's own node, which count as the
+# node). This sits in front of authentication, not instead of it.
+#
+# Not affected: the kubelet's TCP probes (traffic from the pod's own node is
+# always allowed), kubectl exec / cp / port-forward (the ops/ scripts and
+# Compass; they don't use the pod network), and the postStart hook
+# (127.0.0.1). Test it with ops/mongo-network.sh check. To undo it, revert the
+# commit that added this file: Argo CD prunes it, and a kubectl delete would be
+# put back by self-heal.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mongodb
+  namespace: accounting-bot
+  labels:
+    app: mongodb
+spec:
+  podSelector:
+    matchLabels:
+      app: mongodb
+  policyTypes:
+    - Ingress
+  ingress:
+    # Any of these labels, from this namespace (a podSelector alone never
+    # matches pods in other namespaces). MongoDB itself: mongod connects to
+    # its own member address (mongodb-0:27017, its own pod IP). That never
+    # leaves the pod, so no policy sees it today, but a second member would.
+    - from:
+        - podSelector:
+            matchLabels:
+              app: accounting-api
+        - podSelector:
+            matchLabels:
+              app: mongodb-backup
+        - podSelector:
+            matchLabels:
+              app: mongodb
+      ports:
+        - protocol: TCP
+          port: 27017
