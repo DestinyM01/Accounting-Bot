@@ -23,3 +23,14 @@ kubectl -n accounting-bot exec mongodb-0 -- grep -m1 -o -w avx /proc/cpuinfo
 ```
 
 It prints `avx` when the CPU supports it, and nothing when it doesn't.
+
+## AVX check result (2026-09-26)
+
+- **The k3s node that runs MongoDB** (`k3scontrolnode`) is a **KVM VM**. `systemd-detect-virt` gives `kvm`, and its CPU shows as "Common KVM processor", Proxmox's generic `kvm64` type. `grep avx /proc/cpuinfo` finds nothing, so **AVX is hidden**.
+- **The Proxmox host has AVX.** `grep -m1 -o -w avx /proc/cpuinfo` prints `avx`.
+- **Round D's first step:**
+  1. Set that VM's CPU type to `host` (Proxmox → the VM → Hardware → Processors → Type).
+  2. Fully **shut down and start** the VM; a reboot from inside isn't enough.
+  3. Check that `avx` appears in the MongoDB pod.
+  4. Only then upgrade past 4.4.
+- **Other nodes.** If other k3s nodes could run MongoDB, either pin MongoDB to this node or give those VMs the same CPU type.
