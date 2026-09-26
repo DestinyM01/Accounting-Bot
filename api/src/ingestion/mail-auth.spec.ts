@@ -28,6 +28,10 @@ describe('verifySender', () => {
     expect(verifySender(header('DKIM=Pass header.d=Bank.Example'), 'Alerts@BANK.example')).toBe(true);
   });
 
+  it('tolerates whitespace around the = in a result (normalised before splitting on ;)', () => {
+    expect(verifySender(header('dkim = pass header.d = bank.example'), FROM)).toBe(true);
+  });
+
   it('fails without a header', () => {
     expect(verifySender(undefined, FROM)).toBe(false);
     expect(verifySender('', FROM)).toBe(false);
@@ -115,8 +119,12 @@ describe('verifySender', () => {
       ['a quoted MAIL FROM local part whose ) closes Gmail\'s comment and whose ( reopens it around a fake pass (F4)', header('dkim=none', 'spf=softfail (google.com: domain of transitioning "x) ; dkim=pass header.i=@bank.example ; (y"@evil.example does not designate 192.0.2.9 as permitted sender) smtp.mailfrom="x) ; dkim=pass header.i=@bank.example ; (y"@evil.example', 'dmarc=fail header.from=bank.example')],
       ['the same, without the smtp.mailfrom echo (F4b)', header('dkim=none', 'spf=softfail (google.com: domain of transitioning "x) ; dkim=pass header.i=@bank.example ; (y"@evil.example does not designate 192.0.2.9 as permitted sender)', 'dmarc=fail header.from=bank.example')],
       ['a quoted mailfrom carrying ; and a fake pass', header('dkim=none', 'spf=neutral smtp.mailfrom="x;dkim=pass header.i=@bank.example;"@evil.example', 'dmarc=fail header.from=bank.example')],
-      ['an escaped backslash before ) inside a comment (F3)', header('dkim=none', 'spf=pass (google.com: x\\) ; dkim=pass header.i=@bank.example ; y) smtp.mailfrom=x@evil.example', 'dmarc=fail header.from=bank.example')],
-      ['a stray closing paren with nothing open', header('dkim=pass header.i=@bank.example) header.s=s1')],
+      // Two backslashes, not one: an odd number would escape the ")" (leaving
+      // the comment open, as F3 originally intended to probe); an even number
+      // cancels out, so the ")" genuinely closes the comment and this must
+      // still be refused by the guard on any backslash at all — never parsed.
+      ['two escaped backslashes before ) inside a comment (F3)', header('dkim=none', 'spf=pass (google.com: x\\\\) ; dkim=pass header.i=@bank.example ; y) smtp.mailfrom=x@evil.example', 'dmarc=fail header.from=bank.example')],
+      ['a stray closing paren on an otherwise harmless token', header('dkim=pass header.i=@bank.example header.s=s1)')],
       ['a result that merely ends with dkim=pass, not starts with it', header('xdkim=pass header.i=@bank.example')],
       ['a result whose method is not exactly pass', header('dkim=passed header.i=@bank.example')],
       ['a fake header.i hidden inside a header.s value', header('dkim=pass header.s=x.header.i=@bank.example header.i=@evil.example')],
