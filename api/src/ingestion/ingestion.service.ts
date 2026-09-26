@@ -173,7 +173,11 @@ export class IngestionService implements BeforeApplicationShutdown {
     const { cash: ownCashAccounts, senders: ownIdentifiers } = await this.settings.accounts();
 
     for (const mail of mails) {
-      if (!mail.verified) {
+      // An unopened mail's checks never ran at all — not "ran and failed" —
+      // so it says nothing about a forged sender. Counting it would skew the
+      // "no unverified mail for days, then suddenly some" signal for a
+      // reason that has nothing to do with verification.
+      if (!mail.unopened && !mail.verified) {
         counts.unverified++;
         // Still counted either way, but a mail already booked or dismissed
         // doesn't deserve a fresh warning every single poll — that would

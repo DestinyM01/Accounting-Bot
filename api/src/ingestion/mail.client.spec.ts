@@ -312,6 +312,139 @@ describe('MailClient', () => {
 
       expect(mails).toEqual([]);
     });
+
+    // notBefore (the configured-start business rule) must apply here too —
+    // deleting the check would pass every other test in this file.
+    it('drops an unopened mail whose envelope date is before notBefore', async () => {
+      mockFetch.mockImplementation(async function* () {
+        yield {
+          uid: 23,
+          source: Buffer.from('bad'),
+          internalDate: new Date('2026-01-05T00:00:00Z'),
+          envelope: { from: [{ address: SENDER }], date: new Date('2026-01-01T00:00:00Z') },
+        };
+      });
+      mockSimpleParser.mockRejectedValue(new Error('malformed MIME'));
+
+      const mails = await new MailClient().fetchSince(new Date('2026-01-04T00:00:00Z'), [SENDER], new Date('2026-01-03T00:00:00Z'));
+
+      expect(mails).toEqual([]);
+    });
+
+    // imapflow keeps an unparseable envelope date as a raw string; naively
+    // wrapping it in `new Date(...)` gives an Invalid Date that Mongoose then
+    // rejects in recordUnreadable — a write recordUnreadable's own try/catch
+    // swallows, so the mail would vanish rather than merely mis-date.
+    it("falls back to arrivedAt for an unopened mail whose envelope date can't be parsed", async () => {
+      const arrived = new Date('2026-01-05T00:00:00Z');
+      mockFetch.mockImplementation(async function* () {
+        yield {
+          uid: 22,
+          source: Buffer.from('bad'),
+          internalDate: arrived,
+          envelope: { from: [{ address: SENDER }], date: 'not-a-real-date' as any, subject: 'Alert', messageId: '<env-22>' },
+        };
+      });
+      mockSimpleParser.mockRejectedValue(new Error('malformed MIME'));
+
+      const [mail] = await new MailClient().fetchSince(new Date('2026-01-04T00:00:00Z'), [SENDER]);
+
+      expect(mail.receivedAt).toEqual(arrived);
+      expect(mail.unopened).toBe(true);
+    });
+
+    describe('envelope message id normalisation', () => {
+      it('brackets an unbracketed envelope message id, matching mailparser\'s own form', async () => {
+        mockFetch.mockImplementation(async function* () {
+          yield {
+            uid: 24,
+            source: Buffer.from('bad'),
+            internalDate: new Date('2026-01-05T00:00:00Z'),
+            envelope: { from: [{ address: SENDER }], messageId: 'raw-id-no-brackets' },
+          };
+        });
+        mockSimpleParser.mockRejectedValue(new Error('malformed MIME'));
+
+        const [mail] = await new MailClient().fetchSince(new Date('2026-01-04T00:00:00Z'), [SENDER]);
+
+        expect(mail.messageId).toBe('<raw-id-no-brackets>');
+      });
+
+      it('leaves an already-bracketed envelope message id alone', async () => {
+        mockFetch.mockImplementation(async function* () {
+          yield {
+            uid: 25,
+            source: Buffer.from('bad'),
+            internalDate: new Date('2026-01-05T00:00:00Z'),
+            envelope: { from: [{ address: SENDER }], messageId: '<already-bracketed>' },
+          };
+        });
+        mockSimpleParser.mockRejectedValue(new Error('malformed MIME'));
+
+        const [mail] = await new MailClient().fetchSince(new Date('2026-01-04T00:00:00Z'), [SENDER]);
+
+        expect(mail.messageId).toBe('<already-bracketed>');
+      });
+
+      // imapflow gives '' (not undefined) for a missing envelope message id —
+      // `??` alone doesn't catch that, so every id-less unopened mail would
+      // otherwise share the key '' and clobber each other on the unreadable list.
+      it('falls back to uid-N when the envelope message id is empty', async () => {
+        mockFetch.mockImplementation(async function* () {
+          yield {
+            uid: 26,
+            source: Buffer.from('bad'),
+            internalDate: new Date('2026-01-05T00:00:00Z'),
+            envelope: { from: [{ address: SENDER }], messageId: '' },
+          };
+        });
+        mockSimpleParser.mockRejectedValue(new Error('malformed MIME'));
+
+        const [mail] = await new MailClient().fetchSince(new Date('2026-01-04T00:00:00Z'), [SENDER]);
+
+        expect(mail.messageId).toBe('uid-26');
+      });
+    });
+  });
+
+  describe('internalDate hardening (re-review)', () => {
+    it("asks IMAP for internalDate — Gmail's own arrival time — not just the Date header", async () => {
+      const since = new Date('2026-01-01T00:00:00Z');
+      await new MailClient().fetchSince(since, [SENDER]);
+      expect(mockFetch).toHaveBeenCalledWith({ since }, expect.objectContaining({ internalDate: true }));
+    });
+
+    // A missing/invalid internalDate must not silently fall back to the
+    // sender's Date header — that would quietly restore the exact forgery
+    // the arrival-time window exists to prevent. now() is at least as recent
+    // as the mail, so it stays inside the window instead of being dropped.
+    it('falls back to now (not the Date header) and warns when internalDate is missing', async () => {
+      mockFetch.mockImplementation(async function* () {
+        yield { uid: 20, source: Buffer.from('m') }; // no internalDate at all
+      });
+      mockSimpleParser.mockResolvedValue(parsedMail('m', new Date('2020-01-01T00:00:00Z')));
+      const warn = jest.spyOn(Logger.prototype, 'warn');
+      const before = Date.now();
+
+      const [mail] = await new MailClient().fetchSince(new Date('2026-01-01T00:00:00Z'), [SENDER]);
+
+      expect(mail.arrivedAt.getTime()).toBeGreaterThanOrEqual(before);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('uid 20'));
+    });
+
+    it('falls back to now and warns when internalDate is an invalid value', async () => {
+      mockFetch.mockImplementation(async function* () {
+        yield { uid: 21, source: Buffer.from('m'), internalDate: 'not-a-real-date' as any };
+      });
+      mockSimpleParser.mockResolvedValue(parsedMail('m', new Date('2020-01-01T00:00:00Z')));
+      const warn = jest.spyOn(Logger.prototype, 'warn');
+      const before = Date.now();
+
+      const [mail] = await new MailClient().fetchSince(new Date('2026-01-01T00:00:00Z'), [SENDER]);
+
+      expect(mail.arrivedAt.getTime()).toBeGreaterThanOrEqual(before);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('uid 21'));
+    });
   });
 
   describe('a throwing verifySender (I4)', () => {

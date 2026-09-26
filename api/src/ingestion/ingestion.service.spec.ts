@@ -1266,12 +1266,16 @@ describe('IngestionService', () => {
     // MailClient marks a mail unopened when a bug of ours (not the sender's
     // fault) kept it from being parsed at all; it must be listed, not passed
     // to a parser that has nothing usable to read.
-    it('lists an unopened mail as unreadable, with its own reason, and never parses it', async () => {
+    // Not counted (or warned about) as unverified: its checks never ran at
+    // all, so it says nothing about the "no unverified mail for days, then
+    // enforce" signal — counting it would skew that unrelated to any forgery.
+    it('lists an unopened mail as unreadable, with its own reason, never parses it, and does not count it as unverified', async () => {
       mail.fetchSince.mockResolvedValue([makeMail({ unopened: true, verified: false, body: '' })]);
       const result = await service.run(NOW);
-      expect(result).toEqual(counts({ unreadable: 1, unverified: 1 }));
+      expect(result).toEqual(counts({ unreadable: 1 }));
       expect(parserParseMock).not.toHaveBeenCalled();
       expect(status.recordUnreadable).toHaveBeenCalledWith(expect.objectContaining({ messageId: 'msg-1', reason: "Couldn't open the mail" }));
+      expect(loggerWarnSpy).not.toHaveBeenCalledWith(expect.stringContaining('Unverified mail'));
     });
 
     // M1: every unverified mail is still counted, but a mail already booked or

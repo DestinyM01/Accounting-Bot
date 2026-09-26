@@ -75,8 +75,20 @@ export class MailClient {
 
           // Computed from the envelope alone, before parsing the body: Gmail's
           // own arrival time, needed even when parsing the body fails below.
-          const envelopeDate = msg.envelope?.date ? new Date(msg.envelope.date) : undefined;
-          const arrivedAt = msg.internalDate ? new Date(msg.internalDate) : (envelopeDate ?? new Date());
+          const envelopeDate = validDate(msg.envelope?.date);
+          const internalDate = validDate(msg.internalDate);
+          let arrivedAt: Date;
+          if (internalDate) {
+            arrivedAt = internalDate;
+          } else {
+            // internalDate is always requested above; missing or invalid is
+            // rare enough to be worth a warning. Falling back to the Date
+            // header here would silently restore the exact forgery the
+            // arrival-time window exists to prevent — now() is at least as
+            // recent as the mail, so it stays inside the window instead.
+            this.logger.warn(`Missing or invalid internalDate for uid ${msg.uid}; treating it as arriving now`);
+            arrivedAt = new Date();
+          }
 
           // One malformed message must not end the run for every other mail.
           try {
@@ -137,7 +149,7 @@ export class MailClient {
 
               this.logger.error(`Couldn't open a mail from ${envelopeSender} (uid ${msg.uid}): ${err instanceof Error ? err.message : String(err)}`);
               out.push({
-                messageId: msg.envelope.messageId ?? `uid-${msg.uid}`,
+                messageId: envelopeMessageId(msg.envelope.messageId, msg.uid),
                 sender: envelopeSender,
                 subject: msg.envelope.subject ?? '',
                 body: '',
@@ -163,4 +175,25 @@ export class MailClient {
     this.logger.log(`Fetched ${out.length} matching mail(s) since ${since.toISOString()}`);
     return out;
   }
+}
+
+/** A valid Date from a fetch field, or null when missing or unparseable (imapflow can hand back a raw, unparseable string). */
+function validDate(value: Date | string | undefined): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * imapflow's raw, trimmed envelope message id — '' (not undefined) when
+ * missing, unlike mailparser's own `messageId`, which is why `??` alone
+ * isn't enough here. Normalised to mailparser's bracketed form so an
+ * unopened mail's id lines up with the same mail's id once it later parses
+ * successfully — otherwise the two are never recognised as the same
+ * message, and the unreadable row for it is never cleared.
+ */
+function envelopeMessageId(raw: string | undefined, uid: number): string {
+  const id = raw?.trim();
+  if (!id) return `uid-${uid}`;
+  return id.startsWith('<') ? id : `<${id}>`;
 }
