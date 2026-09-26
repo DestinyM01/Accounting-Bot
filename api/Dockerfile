@@ -1,15 +1,14 @@
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
-# pnpm is pinned: the newest line that runs on this image's Node 20 (pnpm 11+ needs Node 22.13).
-# It reads the v9 lockfile; --frozen-lockfile installs exactly the tested dependency versions
-# and fails loudly if the lockfile is out of date.
-RUN npm install -g pnpm@10.34.5
-COPY package.json pnpm.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# pnpm is pinned so the lockfile and the install are exactly what CI tested.
+# --frozen-lockfile fails loudly if the lockfile is out of date.
+RUN npm install -g pnpm@12.6.0
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm run build
 
-FROM node:20-alpine
+FROM node:24-alpine
 # The user's zone: server-local months and days, and bank-mail times, are Santo Domingo's
 # (UTC−4 all year, no DST). tzdata backs TZ; Node's bundled ICU would usually suffice.
 RUN apk add --no-cache tzdata
