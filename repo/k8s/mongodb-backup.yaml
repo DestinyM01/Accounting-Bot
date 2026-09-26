@@ -88,6 +88,7 @@ spec:
                   done
                   test -s "$f"
                   test -s "$f.counts"
+                  rm -f "$f.counts.before"
                   find /backups -name 'accbot-*' -mtime +14 -delete
                   ls -l /backups
               volumeMounts:
