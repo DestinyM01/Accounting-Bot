@@ -166,3 +166,19 @@ After fetching, each run deletes `UnreadableMail` records whose `receivedAt` is 
   - a clean build;
   - preview screenshots: Recurring at 375 px, the brighter muted text, the Merchants status under a changed row, a huge Calculator result and the Balance chart loading;
   - the dropdown keyboard behaviour, driven by synthetic key events.
+
+## Settled in review (2026-09-25)
+
+- **1.9, the guarded write's miss.** It doesn't repair. The miss happens only while another tab's itemize is in flight, and a repair there could erase its reservation. The api re-reads the row and reports a 400 naming what's itemized, or the 409. The pre-check repairs a genuinely stuck counter.
+- **1.10.** DELETE answers the refreshed view (200).
+- **1.11.** Unreadable mails are forgotten only when `INGEST_START_AT` is configured.
+- **2.2.** The history `total` is counted before the cursor.
+- **3.2.**
+  - `failedPeriod` is recorded only while the month is unhandled.
+  - A retrying sweep books only that month.
+- **Web:**
+  - type-ahead letters wait like the arrow keys;
+  - Transactions ignores stale "Load more" replies;
+  - the Merchants status falls back to the top;
+  - the calculator shows "over $999T" from 999.95e12;
+  - the component-style warning budget is 10 kB.
