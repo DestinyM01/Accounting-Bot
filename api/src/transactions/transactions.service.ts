@@ -74,6 +74,17 @@ export interface TransactionItem {
   allocatedCash?: number;
 }
 
+/**
+ * A quoted CSV cell for free text. A leading =, +, -, @, tab or carriage return
+ * would make a spreadsheet run the cell as a formula (a bank merchant's name is
+ * third-party text), so such a value gets a leading apostrophe, which
+ * spreadsheets show as plain text.
+ */
+function csvText(value: string): string {
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
+
 export interface TransactionPage {
   items: TransactionItem[];
   total: number;
@@ -210,8 +221,7 @@ export class TransactionsService {
       const type   = isTransfer ? 'transfer' : (t.amount < 0 ? 'expense' : 'income');
       const kind   = t.transferKind || '';
       const amount = Math.abs(t.amount).toFixed(2);
-      const name   = t.transactionName.replace(/"/g, '""');
-      return `"${date}","${name}","${type}","${t.category || 'other'}","${kind}","${amount}"`;
+      return `"${date}",${csvText(t.transactionName)},"${type}",${csvText(t.category || 'other')},"${kind}","${amount}"`;
     }).join('\n');
 
     return header + rows;

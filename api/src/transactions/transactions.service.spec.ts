@@ -281,6 +281,23 @@ describe('TransactionsService', () => {
       expect(csv).toContain('"He said, ""lunch"""');
     });
 
+    it.each(['=', '+', '-', '@', '\t', '\r'])('makes a name starting with %j plain text for a spreadsheet', async (lead) => {
+      mockModel.lean.mockResolvedValueOnce([
+        { transactionName: `${lead}SUM(A1)`, transactionType: 'Расход', amount: -5, timestamp: new Date('2026-05-02'), category: 'food' },
+      ]);
+      const csv = await service.exportCsv({});
+      expect(csv).toContain(`"'${lead}SUM(A1)"`);
+    });
+
+    it('does the same for a custom category name, and leaves the amount alone', async () => {
+      mockModel.lean.mockResolvedValueOnce([
+        { transactionName: 'shop', transactionType: 'Расход', amount: -20, timestamp: new Date('2026-05-02'), category: '+cat' },
+      ]);
+      const csv = await service.exportCsv({});
+      expect(csv).toContain(`"'+cat"`);
+      expect(csv).toContain('"20.00"');
+    });
+
     it('excludes them from CSV export too', async () => {
       await service.exportCsv({ type: 'expense' });
       expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining(SPENDING_ONLY));
