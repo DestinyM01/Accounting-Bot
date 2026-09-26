@@ -2,7 +2,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 # Pinned: pnpm 11+ needs Node 22.13; 10.x is the newest line that runs on Node 20.
 RUN npm install -g pnpm@10.34.5
-COPY package.json pnpm.json pnpm-lock.yaml .npmrc pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml .npmrc pnpm-workspace.yaml ./
 RUN --mount=type=cache,id=pnpm-web-store,target=/root/.local/share/pnpm/store \
     CI=true pnpm install --frozen-lockfile --shamefully-hoist
 COPY . .
