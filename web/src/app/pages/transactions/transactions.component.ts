@@ -2,7 +2,6 @@ import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/
 import { CommonModule, CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
 import { debounceTime, distinctUntilChanged, map, Subject, Subscription } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { Transaction, TransactionPage } from '../../core/services/api.models';
@@ -15,7 +14,7 @@ import { CashPanelComponent } from './cash-panel/cash-panel.component';
 @Component({
     selector: 'app-transactions',
     imports: [CommonModule, CurrencyPipe, DatePipe, TitleCasePipe, FormsModule,
-        MatIconModule, MatSelectModule, CashPanelComponent],
+        MatIconModule, CashPanelComponent],
     templateUrl: './transactions.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./transactions.component.scss']

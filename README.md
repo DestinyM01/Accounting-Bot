@@ -9,8 +9,8 @@ A personal finance tracker: a **web dashboard** for entry, review and reporting,
 | Surface | Tech | Purpose |
 |---|---|---|
 | **Telegram bot** | NestJS + Telegraf + MongoDB | Retired (scaled to zero, 2026-09). Recurring bookings now run in the API |
-| **Web dashboard** | Angular 17 | Review, filter, export, compare periods, view analytics |
-| **REST API** | NestJS 10 + Mongoose | JWT-guarded backend for the web dashboard |
+| **Web dashboard** | Angular 22 | Review, filter, export, compare periods, view analytics |
+| **REST API** | NestJS 11 + Mongoose | JWT-guarded backend for the web dashboard |
 
 ---
 
@@ -66,7 +66,7 @@ Acc_bot/
 │   │   ├── mongodb/shemas/ ← Mongoose schemas
 │   │   └── constants/      ← Message strings and button labels (EN/ES)
 │   └── Dockerfile
-├── api/                    ← REST API for the web dashboard (NestJS 10)
+├── api/                    ← REST API for the web dashboard (NestJS 11)
 │   ├── src/
 │   │   ├── auth/           ← JWT guard (Authentik JWKS)
 │   │   ├── balance/        ← GET/PUT /api/balance, GET /api/balance/history, GET /api/balance/daily
@@ -79,7 +79,7 @@ Acc_bot/
 │   │   ├── compare/        ← GET /api/compare/months, POST /api/compare
 │   │   └── analytics/      ← GET /api/analytics/top10, GET /api/analytics/chart/:name
 │   └── k8s/                ← Kubernetes manifests (Deployment, Service, ArgoCD app)
-└── web/                    ← Angular 17 SPA
+└── web/                    ← Angular 22 SPA
     └── src/app/pages/      ← dashboard, transactions, budget, statistics,
                                 compare, analytics, recurring, tips
 ```
@@ -88,7 +88,7 @@ Acc_bot/
 
 ## Prerequisites
 
-- **Node.js** 20+, **pnpm** 8+
+- **Node.js** 24.15+, **pnpm** 12
 - **MongoDB** (in production, the StatefulSet in `repo/k8s/`)
 - A **Mistral API key** from [console.mistral.ai](https://console.mistral.ai) (free tier works)
 
