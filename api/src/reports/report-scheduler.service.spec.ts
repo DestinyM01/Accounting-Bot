@@ -293,6 +293,16 @@ describe('ReportSchedulerService', () => {
     expect(sendModel.findOne).toHaveBeenCalledTimes(1);
   });
 
+  // Nest calls onModuleDestroy on every module before any module's
+  // beforeApplicationShutdown runs. Setting `stopping` there (not only in
+  // beforeApplicationShutdown) closes the window where another service is
+  // still awaiting waitForIdle with this one's flag not yet set.
+  it('stops accepting new runs as soon as onModuleDestroy runs, before beforeApplicationShutdown', async () => {
+    service.onModuleDestroy();
+    await service.run(NOW);
+    expect(sendModel.findOne).not.toHaveBeenCalled();
+  });
+
   it('records a monthly report turned off as skipped', async () => {
     latest.mockReturnValue([MONTHLY]);
     settings.reports.mockResolvedValue({ weekly: true, monthly: false, recipient: 'me@example.com' });

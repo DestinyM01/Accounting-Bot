@@ -1,4 +1,4 @@
-import { BadGatewayException, ConflictException, Controller, Get, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
+import { BadGatewayException, ConflictException, Controller, Get, HttpCode, Param, Post, ServiceUnavailableException, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { IngestionService } from './ingestion.service';
 import { IngestionStatusService, RunCounts } from './ingestion-status.service';
@@ -26,7 +26,10 @@ export class IngestionController {
     } catch (err) {
       throw new BadGatewayException(`The check failed: ${err instanceof Error ? err.message : String(err)}`.slice(0, 300));
     }
-    if (!counts) throw new ConflictException('A check is already running');
+    if (!counts) {
+      if (this.ingestion.isStopping) throw new ServiceUnavailableException('The server is restarting — try again in a minute.');
+      throw new ConflictException('A check is already running');
+    }
     return counts;
   }
 

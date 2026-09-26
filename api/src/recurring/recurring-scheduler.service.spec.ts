@@ -307,6 +307,16 @@ describe('RecurringSchedulerService', () => {
       expect(recurringModel.find).toHaveBeenCalledTimes(1);
     });
 
+    // Nest calls onModuleDestroy on every module before any module's
+    // beforeApplicationShutdown runs. Setting `stopping` there (not only in
+    // beforeApplicationShutdown) closes the window where another service is
+    // still awaiting waitForIdle with this one's flag not yet set.
+    it('stops accepting new sweeps as soon as onModuleDestroy runs, before beforeApplicationShutdown', async () => {
+      service.onModuleDestroy();
+      await service.sweep(NOW);
+      expect(recurringModel.find).not.toHaveBeenCalled();
+    });
+
     it('logs a failed rule query instead of throwing, and releases the guard', async () => {
       recurringModel.find.mockRejectedValueOnce(new Error('mongo down'));
       await expect(service.sweep(NOW)).resolves.toBeUndefined();

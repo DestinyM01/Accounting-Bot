@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { HTTP_CODE_METADATA } from '@nestjs/common/constants';
-import { BadGatewayException, ConflictException } from '@nestjs/common';
+import { BadGatewayException, ConflictException, ServiceUnavailableException } from '@nestjs/common';
 
 // IngestionService carries a @Cron; @nestjs/schedule is ESM-only under this Jest setup.
 jest.mock('@nestjs/schedule', () => ({ Cron: () => () => undefined }));
@@ -24,6 +24,13 @@ describe('IngestionController', () => {
 
   it('answers 409 while a run is in flight', async () => {
     await expect(make({ runGuarded: jest.fn().mockResolvedValue(null) }, {}).run()).rejects.toThrow(ConflictException);
+  });
+
+  it('answers 503 instead of 409 when the null comes from the server shutting down', async () => {
+    const ingestion = { runGuarded: jest.fn().mockResolvedValue(null), isStopping: true };
+    await expect(make(ingestion, {}).run()).rejects.toThrow(
+      new ServiceUnavailableException('The server is restarting — try again in a minute.'),
+    );
   });
 
   it('answers 502 with the reason when the check fails', async () => {

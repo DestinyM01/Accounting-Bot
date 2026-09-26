@@ -1,4 +1,4 @@
-import { BeforeApplicationShutdown, Injectable, Logger } from '@nestjs/common';
+import { BeforeApplicationShutdown, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Cron } from '@nestjs/schedule';
 import { Model } from 'mongoose';
@@ -48,7 +48,7 @@ const UNVERIFIED_REASON = "Couldn't verify it came from the bank";
 const UNOPENED_REASON = "Couldn't open the mail";
 
 @Injectable()
-export class IngestionService implements BeforeApplicationShutdown {
+export class IngestionService implements BeforeApplicationShutdown, OnModuleDestroy {
   private readonly logger = new Logger(IngestionService.name);
   private readonly userId = parseInt(process.env.BOSS_USER_ID || '0', 10);
   private readonly parsers: BankParser[] = [popularParser, bhdParser, santaCruzParser, banreservasParser];
@@ -88,6 +88,11 @@ export class IngestionService implements BeforeApplicationShutdown {
     return this.running;
   }
 
+  /** True once shutdown has begun (from onModuleDestroy or beforeApplicationShutdown). */
+  get isStopping(): boolean {
+    return this.stopping;
+  }
+
   /**
    * One run, unless one is already in flight (then null). The outcome is
    * recorded for the Settings page; a run that fails as a whole is logged,
@@ -114,6 +119,13 @@ export class IngestionService implements BeforeApplicationShutdown {
     } finally {
       this.running = false;
     }
+  }
+
+  // Nest calls onModuleDestroy on every module before any module's
+  // beforeApplicationShutdown runs — set the flag here so a sibling service
+  // still awaiting its own waitForIdle never sees this one accept a fresh run.
+  onModuleDestroy(): void {
+    this.stopping = true;
   }
 
   async beforeApplicationShutdown(): Promise<void> {

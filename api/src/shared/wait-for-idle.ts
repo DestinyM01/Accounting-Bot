@@ -1,6 +1,12 @@
 import { Logger } from '@nestjs/common';
 
-/** How long shutdown waits for a run in flight. The pod's grace period (45 s) leaves room for the rest of shutdown. */
+/**
+ * How long shutdown waits for a run in flight. Nest awaits each module's
+ * BeforeApplicationShutdown hook in turn, not concurrently, so the three
+ * callers of this function wait one after another rather than all at once;
+ * the pod's grace period (45 s) is sized to cover one run in flight — the
+ * usual case — not all three hung at once.
+ */
 export const SHUTDOWN_WAIT_MS = 25_000;
 const POLL_MS = 100;
 

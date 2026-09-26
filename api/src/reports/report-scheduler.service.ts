@@ -1,4 +1,4 @@
-import { BeforeApplicationShutdown, Injectable, Logger } from '@nestjs/common';
+import { BeforeApplicationShutdown, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Cron } from '@nestjs/schedule';
 import { Model } from 'mongoose';
@@ -23,7 +23,7 @@ type Outcome = 'sent' | 'skipped' | 'failed';
  * window closes and it is recorded as skipped.
  */
 @Injectable()
-export class ReportSchedulerService implements BeforeApplicationShutdown {
+export class ReportSchedulerService implements BeforeApplicationShutdown, OnModuleDestroy {
   private readonly logger = new Logger(ReportSchedulerService.name);
   /** Set while a run is in flight so a slow run is never overlapped by the next tick. */
   private running = false;
@@ -86,6 +86,13 @@ export class ReportSchedulerService implements BeforeApplicationShutdown {
     } finally {
       this.running = false;
     }
+  }
+
+  // Nest calls onModuleDestroy on every module before any module's
+  // beforeApplicationShutdown runs — set the flag here so a sibling service
+  // still awaiting its own waitForIdle never sees this one accept a fresh run.
+  onModuleDestroy(): void {
+    this.stopping = true;
   }
 
   async beforeApplicationShutdown(): Promise<void> {

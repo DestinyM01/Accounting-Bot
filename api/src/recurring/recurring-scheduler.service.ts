@@ -1,4 +1,4 @@
-import { BeforeApplicationShutdown, Injectable, Logger } from '@nestjs/common';
+import { BeforeApplicationShutdown, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Cron } from '@nestjs/schedule';
 import { Model } from 'mongoose';
@@ -25,7 +25,7 @@ interface Tally {
  * was down Sep 17–24 2026 and every rule due that week was silently skipped.
  */
 @Injectable()
-export class RecurringSchedulerService implements BeforeApplicationShutdown {
+export class RecurringSchedulerService implements BeforeApplicationShutdown, OnModuleDestroy {
   private readonly logger = new Logger(RecurringSchedulerService.name);
   private readonly userId = parseInt(process.env.BOSS_USER_ID || '0', 10);
   private running = false;
@@ -82,6 +82,13 @@ export class RecurringSchedulerService implements BeforeApplicationShutdown {
     } finally {
       this.running = false;
     }
+  }
+
+  // Nest calls onModuleDestroy on every module before any module's
+  // beforeApplicationShutdown runs — set the flag here so a sibling service
+  // still awaiting its own waitForIdle never sees this one accept a fresh sweep.
+  onModuleDestroy(): void {
+    this.stopping = true;
   }
 
   async beforeApplicationShutdown(): Promise<void> {
