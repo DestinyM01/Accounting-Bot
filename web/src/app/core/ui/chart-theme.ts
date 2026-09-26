@@ -1,9 +1,9 @@
 /**
  * Chart colours and styles from the design tokens (web/src/tokens.css), read when
  * a chart is built so charts follow the theme. The tokens are oklch() strings;
- * canvas understands those but Chart.js's colour helper (used by plugins, e.g. the
- * sankey's flow bands, to add transparency) doesn't, so colours are resolved to
- * rgb() here so Chart.js and its plugins can parse and derive from them. Chart.js's
+ * Chart.js's colour helper (used by plugins, e.g. the sankey's flow bands, to add
+ * transparency) can't parse those, so colours are converted to rgb() here, by
+ * formula, so Chart.js and its plugins can parse and derive from them. Chart.js's
  * own hover-colour derivation has the same limitation, so datasets still set their
  * hover colours explicitly from these values.
  */
@@ -17,32 +17,37 @@ export interface ChartTheme {
   expense: string;
 }
 
-/** toRgb results, keyed by the input colour string, so repeated tokens skip the canvas round-trip. */
-const rgbCache = new Map<string, string>();
-let sharedCtx: CanvasRenderingContext2D | null | undefined;
+const OKLCH = /^oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)(?:deg)?\s*(?:\/\s*([\d.]+)(%?))?\s*\)$/i;
 
-/** Any CSS colour as rgb()/rgba(): canvas understands oklch(), but Chart.js's colour helper (used by plugins to add transparency) doesn't. */
-function toRgb(color: string): string {
-  if (!color) return color;
-  const cached = rgbCache.get(color);
-  if (cached !== undefined) return cached;
-  // A colour canvas can't parse: fillStyle would silently keep its previous value
-  // (or default to black) rather than throw, so bail out before painting.
-  if (typeof CSS !== 'undefined' && !CSS.supports('color', color)) return color;
-  if (sharedCtx === undefined) {
-    sharedCtx = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
-  }
-  const ctx = sharedCtx;
-  if (!ctx) return color;
-  ctx.canvas.width = ctx.canvas.height = 1;
-  ctx.clearRect(0, 0, 1, 1);
-  ctx.fillStyle = color;
-  ctx.fillRect(0, 0, 1, 1);
-  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
-  if (a === 0 && r === 0 && g === 0 && b === 0) return color;
-  const rgb = a === 255 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${+(a / 255).toFixed(3)})`;
-  rgbCache.set(color, rgb);
-  return rgb;
+/**
+ * An oklch() colour as rgb()/rgba(), by the standard OKLab → linear sRGB → sRGB
+ * formula. Chart.js's colour helper (used by plugins to add transparency) can't
+ * parse oklch(); this needs no canvas, so anti-fingerprinting canvas noise can't
+ * scramble the charts. Any other colour string is returned unchanged.
+ */
+export function toRgb(color: string): string {
+  const m = OKLCH.exec(color.trim());
+  if (!m) return color;
+  const L = m[2] ? Number(m[1]) / 100 : Number(m[1]);
+  const C = Number(m[3]);
+  const h = (Number(m[4]) * Math.PI) / 180;
+  const a = C * Math.cos(h);
+  const b = C * Math.sin(h);
+  const l = (L + 0.3963378 * a + 0.2158038 * b) ** 3;
+  const mm = (L - 0.1055613 * a - 0.0638542 * b) ** 3;
+  const s = (L - 0.0894842 * a - 1.2914855 * b) ** 3;
+  const linear = [
+    4.0767417 * l - 3.3077116 * mm + 0.2309699 * s,
+    -1.268438 * l + 2.609757 * mm - 0.3413194 * s,
+    -0.0041961 * l - 0.7034186 * mm + 1.7076147 * s,
+  ];
+  const [r, g, bl] = linear.map((c) => {
+    const v = c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+    return Math.round(Math.min(1, Math.max(0, v)) * 255);
+  });
+  if (m[5] === undefined) return `rgb(${r}, ${g}, ${bl})`;
+  const alpha = m[6] ? Number(m[5]) / 100 : Number(m[5]);
+  return `rgba(${r}, ${g}, ${bl}, ${alpha})`;
 }
 
 export function chartTheme(): ChartTheme {
