@@ -6,63 +6,52 @@ on:
       - main
   workflow_dispatch:
 
+# Least privilege: jobs only read the repo unless they say otherwise.
+permissions:
+  contents: read
+
+# One run at a time, oldest first, so an older run can never push :latest after a newer one.
+concurrency:
+  group: docker-images
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
 
 jobs:
-  # ── Stage 1: Bot ─────────────────────────────────────────────────────────────
-  build-bot:
-    name: "1 · Bot"
-    runs-on: self-hosted
-    permissions:
-      contents: read
-      packages: write
-
+  # ── Gate: nothing is pushed unless the api's tests and type check pass ──────
+  test:
+    name: "1 · Test"
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Lowercase image name
-        run: echo "BOT_IMAGE=${IMAGE,,}" >> $GITHUB_ENV
-        env:
-          IMAGE: ${{ env.REGISTRY }}/${{ github.repository_owner }}/accounting-bot
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          node-version: '20'
 
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.BOT_IMAGE }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=sha-
+      - name: Install pnpm
+        run: npm install -g pnpm@10.34.5
 
-      - name: Build & push
-        uses: docker/build-push-action@v6
-        with:
-          context: ./repo
-          file: ./repo/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.BOT_IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.BOT_IMAGE }}:buildcache,mode=max
-          provenance: false
+      - name: Install api dependencies
+        working-directory: api
+        run: pnpm install --frozen-lockfile
 
-  # ── Stage 2: API ─────────────────────────────────────────────────────────────
+      - name: Run api tests
+        working-directory: api
+        run: pnpm test
+
+      - name: Type-check api
+        working-directory: api
+        run: npx tsc --noEmit -p tsconfig.json
+
+  # ── API image ───────────────────────────────────────────────────────────────
   build-api:
     name: "2 · API"
-    needs: build-bot
-    runs-on: self-hosted
+    needs: test
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -107,11 +96,11 @@ jobs:
           cache-to: type=registry,ref=${{ env.API_IMAGE }}:buildcache,mode=max
           provenance: false
 
-  # ── Stage 3: Web ─────────────────────────────────────────────────────────────
+  # ── Web image ───────────────────────────────────────────────────────────────
   build-web:
     name: "3 · Web"
-    needs: build-api
-    runs-on: self-hosted
+    needs: test
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
