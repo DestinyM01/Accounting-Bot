@@ -81,6 +81,16 @@ describe('HTTP smoke', () => {
     expect(tx.setCategory).toHaveBeenCalledWith('64b0000000000000000000a1', 'food');
   });
 
+  // Express 5 leaves req.body undefined when nothing is sent (Express 4 gave
+  // {}): a handler reading body.x would crash with a 500 instead of letting
+  // the service answer 400.
+  it('survives a request with no body', async () => {
+    tx.setCategory.mockResolvedValue({ alsoFiled: 0 });
+    const res = await request(app.getHttpServer()).patch('/transactions/64b0000000000000000000a1/category');
+    expect(res.status).toBe(200);
+    expect(tx.setCategory).toHaveBeenCalledWith('64b0000000000000000000a1', undefined);
+  });
+
   it('answers Check mail now with the counts', async () => {
     const counts = { created: 1, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, unverified: 0 };
     ingestion.runGuarded.mockResolvedValue(counts);
