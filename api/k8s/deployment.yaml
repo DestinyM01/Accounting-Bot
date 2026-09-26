@@ -20,6 +20,8 @@ spec:
       labels:
         app: accounting-api
     spec:
+      # The schedulers finish a run in flight (up to 25 s) before the pod stops.
+      terminationGracePeriodSeconds: 45
       containers:
         - name: accounting-api
           image: ghcr.io/destinym01/accounting-api:latest
@@ -43,6 +45,18 @@ spec:
               value: "https://auth.andujaronline.uk/application/o/bot-angular-auth/jwks/"
             - name: CORS_ORIGIN
               value: "https://bot.andujaronline.uk"
+            # The web app's OIDC client id (public: it ships in the web bundle).
+            # Tokens issued to any other Authentik application are refused.
+            - name: AUTHENTIK_CLIENT_ID
+              value: "DFlVNYRNAW6gpRai7lTVa0sVcNEgnylA9ESOU6qA"
+            # The owner's Authentik user id (the token's sub). Until it's set,
+            # the api refuses everyone and logs the id of whoever tried.
+            - name: OWNER_SUB
+              valueFrom:
+                secretKeyRef:
+                  name: accounting-bot-secret
+                  key: OWNER_SUB
+                  optional: true
             - name: MISTRAL_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -64,6 +78,11 @@ spec:
               value: "Banks"
             - name: INGEST_POLL_CRON
               value: "*/10 * * * *"
+            # report: count and log bank mail Gmail couldn't verify, but book it.
+            # enforce: list it as unreadable instead. Switch once Settings shows
+            # none unverified for every bank.
+            - name: MAIL_VERIFY
+              value: "report"
             # The next three are user-specific: real account digits and a
             # deploy-time timestamp. This repository is public, so they live in
             # the Secret, never in this manifest. optional: true only keeps the
@@ -75,8 +94,8 @@ spec:
             # Their absence does NOT make the ingester inert — only missing
             # GMAIL_USER/GMAIL_APP_PASSWORD does. Without OWN_CASH_ACCOUNTS every
             # transfer is booked as an expense that moves the balance; without
-            # INGEST_START_AT the last 24h of mail is ingested. Set all three in
-            # the Secret BEFORE adding the Gmail credentials.
+            # INGEST_START_AT the first check reads the last 24h of mail. Set
+            # all three in the Secret BEFORE adding the Gmail credentials.
             - name: INGEST_START_AT
               valueFrom:
                 secretKeyRef:

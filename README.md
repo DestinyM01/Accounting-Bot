@@ -119,13 +119,16 @@ The web app expects the API at `/api` (proxied in `angular.json` or via nginx in
 | `MISTRAL_API_KEY` | Mistral API key for Tips and Compare |
 | `AUTHENTIK_ISSUER` | OIDC issuer URL for JWT validation |
 | `AUTHENTIK_JWKS_URI` | JWKS endpoint for JWT validation |
+| `AUTHENTIK_CLIENT_ID` | The web app's client id; when set, tokens issued to other applications are refused |
+| `OWNER_SUB` | The owner's Authentik user id (the token's `sub`). Unset, the api refuses everyone and logs the id of whoever tried |
 | `CORS_ORIGIN` | Allowed CORS origin for the web app |
 | `PORT` | API port (default: `4000`) |
 | `GMAIL_USER` | Gmail address to read from (default: none — ingestion disabled) |
 | `GMAIL_APP_PASSWORD` | Google App Password, not the account password (default: none — ingestion disabled) |
 | `INGEST_MAILBOX` | Mailbox/label to read (default: `INBOX`) |
 | `INGEST_POLL_CRON` | Poll schedule, cron expression (default: `*/10 * * * *`, every 10 min) |
-| `INGEST_START_AT` | Forward-only watermark, ISO date; mail older than this is never ingested (default: 24 hours ago) |
+| `INGEST_START_AT` | Forward-only floor, ISO date: mail older than this is never read. Each check reads from two days before the last good check (further back for mail still waiting), never before this date (default: no floor; the first check reads the last 24 hours) |
+| `MAIL_VERIFY` | `report` (default): count and log bank mail Gmail couldn't verify (DKIM/DMARC), but book it. `enforce`: list it as unreadable instead |
 | `OWN_ACCOUNT_IDENTIFIERS` | Comma-separated own account last-4s and/or name fragments (fragments match whole words only), used to decide transfer direction (default: empty — Banreservas transfers all skipped). A value saved on the Settings page takes precedence; this is only the starting value. |
 | `OWN_CASH_ACCOUNTS` | Comma-separated last-4s of your own savings/checking accounts; transfers to these are internal, not expenses (default: empty — no transfer is treated as internal). A value saved on the Settings page takes precedence; this is only the starting value. |
 | `REPORT_TO` | Recipient of the weekly digest and monthly summary (default: `GMAIL_USER`). Reports go through Gmail SMTP with the same app password. A value saved on the Settings page takes precedence; this is only the starting value. |
@@ -139,7 +142,7 @@ The web app expects the API at `/api` (proxied in `angular.json` or via nginx in
    - `alertas@bhd.com.do` (BHD)
    - `notificaciones@bsc.com.do` (Banco Santa Cruz)
    - `notificacionestubancoapp@banreservas.com` (Banreservas)
-3. `INGEST_START_AT` should be set to roughly when you switch ingestion on — it's the forward-only guard that stops historical mail being ingested and double-counting against your current balance.
+3. `INGEST_START_AT` should be set to roughly when you switch ingestion on — the forward-only floor that stops historical mail being ingested and double-counting against your current balance. Later checks read from a stored resume point, never before it.
 4. If the sender list is empty (saved on the Settings page, else `OWN_ACCOUNT_IDENTIFIERS`), Banreservas transfers are skipped entirely — the direction can't be determined, and the system refuses to guess.
 
 ---
@@ -192,8 +195,8 @@ All endpoints require a `Bearer` JWT token (issued by Authentik).
 | `PUT` | `/api/balance` | Set the balance to a total `{ balance, note? }`; recorded as a manual adjustment |
 | `GET` | `/api/balance/history` | Balance history, newest first (`limit`, `offset`, `reason`) |
 | `GET` | `/api/balance/daily` | Daily closing balances for the last `days` days (default 90) |
-| `GET` | `/api/transactions` | Paginated transaction list (filters: `type`, `category`, `startDate`, `endDate`, `needsReview`, `unitemized`) |
-| `GET` | `/api/transactions/export` | Download filtered transactions as CSV |
+| `GET` | `/api/transactions` | Paginated transaction list (filters: `type`, `category`, `startDate`, `endDate`, `needsReview`, `unitemized`, `search`) |
+| `GET` | `/api/transactions/export` | Download filtered transactions as CSV (same filters and `search`) |
 | `GET` | `/api/budget` | Budget progress by category for a given month |
 | `GET` | `/api/statistics/summary` | Income / expense / net for a month |
 | `GET` | `/api/statistics/monthly` | Monthly income+expense chart data |
