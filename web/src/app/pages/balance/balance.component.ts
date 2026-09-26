@@ -177,6 +177,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
     this.filter = f;
     this.items = [];
     this.total = 0;
+    this.nextCursor = null;
     this.moreError = '';
     this.loadList();
   }

@@ -195,6 +195,9 @@ export class MerchantsComponent implements OnInit, OnDestroy {
     if (this.busy) return;
     const list = this.shown;
     const i = list.findIndex((x) => x.id === m.id);
+    // The row after slides into the forgotten one's position; with none, the
+    // row before is the closest thing still on screen; with neither (the only
+    // row left), there's no row to anchor to at all — the top of the page.
     const next = list[i + 1] ?? list[i - 1];
     this.run(
       this.api.forgetMerchant(m.id),
@@ -203,7 +206,7 @@ export class MerchantsComponent implements OnInit, OnDestroy {
         return `Forgot ${m.key}`;
       },
       next ? [`change-${next.id}`, 'add-merchant'] : ['add-merchant'],
-      next?.id ?? 'end',
+      next?.id ?? 'top',
     );
   }
 

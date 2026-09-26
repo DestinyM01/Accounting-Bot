@@ -10,8 +10,9 @@ import { CategoryService } from '../../../core/services/category.service';
 
 /**
  * Itemizes one withdrawal: what its cash went to, and what's left. Each open
- * panel owns its state and its requests; closing it (destroying it) drops any
- * reply still in flight, so a reply can never land on another withdrawal's panel.
+ * panel owns its state and its requests; closing it (destroying it) drops the
+ * breakdown load if one is still in flight. An add or remove already sent keeps
+ * going, though, and still updates the row's "not itemized" figure when it lands.
  */
 @Component({
   selector: 'app-cash-panel',
