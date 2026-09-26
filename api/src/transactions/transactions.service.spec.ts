@@ -298,6 +298,23 @@ describe('TransactionsService', () => {
       expect(csv).toContain('"20.00"');
     });
 
+    it('also guards a name a spreadsheet would trim before running as a formula', async () => {
+      mockModel.lean.mockResolvedValueOnce([
+        { transactionName: '  =SUM(A1)', transactionType: 'Расход', amount: -5, timestamp: new Date('2026-05-02'), category: 'food' },
+      ]);
+      const csv = await service.exportCsv({});
+      expect(csv).toContain(`"'  =SUM(A1)"`);
+    });
+
+    it('leaves a name with only an inner = alone', async () => {
+      mockModel.lean.mockResolvedValueOnce([
+        { transactionName: 'a=b', transactionType: 'Расход', amount: -5, timestamp: new Date('2026-05-02'), category: 'food' },
+      ]);
+      const csv = await service.exportCsv({});
+      expect(csv).toContain('"a=b"');
+      expect(csv).not.toContain(`"'a=b"`);
+    });
+
     it('excludes them from CSV export too', async () => {
       await service.exportCsv({ type: 'expense' });
       expect(mockModel.find).toHaveBeenCalledWith(expect.objectContaining(SPENDING_ONLY));
@@ -403,6 +420,35 @@ describe('TransactionsService', () => {
     it('filters the CSV export the same way', async () => {
       await service.exportCsv({ search: 'coffee' });
       expect(lastFind().$or).toHaveLength(3);
+    });
+
+    // Express's extended query parser turns ?search[$ne]=x into an object and
+    // ?search=a&search=b into an array; buildFilter must ignore either rather
+    // than throwing when it calls .trim() on something that isn't a string.
+    it('ignores a non-string search term (an object from the query string)', async () => {
+      await service.findAll({ search: { $ne: 'x' } as unknown as string });
+      expect(lastFind()).not.toHaveProperty('$or');
+    });
+
+    it('ignores a non-string search term (an array from the query string)', async () => {
+      await service.findAll({ search: ['a', 'b'] as unknown as string });
+      expect(lastFind()).not.toHaveProperty('$or');
+    });
+
+    // A NUL byte makes MongoDB reject the regex pattern outright.
+    it('strips a NUL byte out of the term instead of failing', async () => {
+      await service.findAll({ search: 'caf\0e' });
+      expect(lastFind().$or[0].transactionName.source).toBe('cafe');
+    });
+
+    it('ignores a term that is only a NUL byte', async () => {
+      await service.findAll({ search: '\0' });
+      expect(lastFind()).not.toHaveProperty('$or');
+    });
+
+    it('does not throw and adds no $or for a non-string search term on export', async () => {
+      await expect(service.exportCsv({ search: { $ne: 'x' } as unknown as string })).resolves.toBeDefined();
+      expect(lastFind()).not.toHaveProperty('$or');
     });
   });
 

@@ -75,13 +75,13 @@ export interface TransactionItem {
 }
 
 /**
- * A quoted CSV cell for free text. A leading =, +, -, @, tab or carriage return
- * would make a spreadsheet run the cell as a formula (a bank merchant's name is
- * third-party text), so such a value gets a leading apostrophe, which
- * spreadsheets show as plain text.
+ * A quoted CSV cell for free text. A leading =, +, -, @ (even after spaces),
+ * tab or carriage return would make a spreadsheet run the cell as a formula
+ * (a bank merchant's name is third-party text), so such a value gets a
+ * leading apostrophe, which spreadsheets show as plain text.
  */
 function csvText(value: string): string {
-  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  const safe = /^\s*[=+\-@]|^[\t\r]/.test(value) ? `'${value}` : value;
   return `"${safe.replace(/"/g, '""')}"`;
 }
 
@@ -152,8 +152,11 @@ export class TransactionsService {
     }
     // Names, merchants and categories, as the search box always matched. The
     // term is literal text, never a pattern. The cursor wraps the whole filter
-    // in $and, so this $or can't collide with the cursor's own.
-    const term = query.search?.trim().slice(0, 100);
+    // in $and, so this $or can't collide with the cursor's own. A non-string
+    // (an object or array — Express's extended query parser turns
+    // ?search[$ne]=x or ?search=a&search=b into one of those) or a NUL byte is
+    // ignored rather than failing the request.
+    const term = typeof query.search === 'string' ? query.search.replace(/\0/g, '').trim().slice(0, 100) : '';
     if (term) {
       const rx = new RegExp(escapeRegExp(term), 'i');
       filter.$or = [{ transactionName: rx }, { merchant: rx }, { category: rx }];
