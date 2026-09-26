@@ -76,22 +76,76 @@ describe('MailClient', () => {
 
   // IMAP SEARCH SINCE is date-granular: it returns everything from 00:00 of
   // the watermark's calendar day. The watermark carries a time of day, and a
-  // message from earlier that same day must not be ingested.
-  it('drops a message received earlier on the watermark day and keeps one received after', async () => {
+  // message that ARRIVED earlier that same day must not be ingested. The
+  // moving window is judged on Gmail's own arrival time (internalDate), not
+  // the sender's Date header — both messages here claim the same Date header,
+  // so only their internalDate tells them apart.
+  it('drops a message that arrived earlier on the watermark day and keeps one that arrived after', async () => {
     const since = new Date('2026-01-01T18:00:00Z');
     mockFetch.mockImplementation(async function* () {
-      yield { uid: 1, source: Buffer.from('early') };
-      yield { uid: 2, source: Buffer.from('late') };
+      yield { uid: 1, source: Buffer.from('early'), internalDate: new Date('2026-01-01T10:00:00Z') };
+      yield { uid: 2, source: Buffer.from('late'), internalDate: new Date('2026-01-01T20:00:00Z') };
     });
-    mockSimpleParser.mockImplementation(async (src: Buffer) =>
-      src.toString() === 'late'
-        ? parsedMail('late', new Date('2026-01-01T20:00:00Z'))
-        : parsedMail('early', new Date('2026-01-01T10:00:00Z')),
-    );
+    mockSimpleParser.mockImplementation(async (src: Buffer) => parsedMail(src.toString(), new Date('2026-01-01T20:00:00Z')));
 
     const out = await new MailClient().fetchSince(since, [SENDER]);
 
     expect(out.map((m) => m.messageId)).toEqual(['<late>']);
+  });
+
+  describe('arrival-time window (I2)', () => {
+    // SMTP retries can run 4-5 days; a bank alert delayed that long must
+    // still be read once it finally arrives, even though its own Date header
+    // is now well outside the window.
+    it('keeps a mail whose Date header is old but that arrived after `since`', async () => {
+      mockFetch.mockImplementation(async function* () {
+        yield { uid: 1, source: Buffer.from('m'), internalDate: new Date('2026-01-05T00:00:00Z') };
+      });
+      mockSimpleParser.mockResolvedValue(parsedMail('m', new Date('2026-01-01T00:00:00Z')));
+
+      const out = await new MailClient().fetchSince(new Date('2026-01-04T00:00:00Z'), [SENDER]);
+
+      expect(out.map((m) => m.messageId)).toEqual(['<m>']);
+    });
+
+    // A forged Date header must not drag the moving window back: the window
+    // is judged on Gmail's own arrival time, which the sender cannot set.
+    it('drops a mail that arrived before `since`, even when its Date header is newer', async () => {
+      mockFetch.mockImplementation(async function* () {
+        yield { uid: 1, source: Buffer.from('m'), internalDate: new Date('2026-01-01T00:00:00Z') };
+      });
+      mockSimpleParser.mockResolvedValue(parsedMail('m', new Date('2026-01-05T00:00:00Z')));
+
+      const out = await new MailClient().fetchSince(new Date('2026-01-04T00:00:00Z'), [SENDER]);
+
+      expect(out).toEqual([]);
+    });
+
+    // notBefore is the configured-start business rule (historical mail is
+    // never booked), judged on the mail's own claimed date — separate from
+    // the moving window, which is judged on arrival.
+    it('drops a mail whose Date header is before `notBefore`, even though it arrived inside the window', async () => {
+      mockFetch.mockImplementation(async function* () {
+        yield { uid: 1, source: Buffer.from('m'), internalDate: new Date('2026-01-05T00:00:00Z') };
+      });
+      mockSimpleParser.mockResolvedValue(parsedMail('m', new Date('2026-01-01T00:00:00Z')));
+
+      const out = await new MailClient().fetchSince(new Date('2026-01-04T00:00:00Z'), [SENDER], new Date('2026-01-03T00:00:00Z'));
+
+      expect(out).toEqual([]);
+    });
+
+    it("keeps arrivedAt as Gmail's own internal date on each returned mail", async () => {
+      const arrived = new Date('2026-01-05T00:00:00Z');
+      mockFetch.mockImplementation(async function* () {
+        yield { uid: 1, source: Buffer.from('m'), internalDate: arrived };
+      });
+      mockSimpleParser.mockResolvedValue(parsedMail('m', new Date('2026-01-05T00:00:00Z')));
+
+      const [mail] = await new MailClient().fetchSince(new Date('2026-01-04T00:00:00Z'), [SENDER]);
+
+      expect(mail.arrivedAt).toEqual(arrived);
+    });
   });
 
   // A missing or misnamed label (or one with IMAP disabled) must not degrade

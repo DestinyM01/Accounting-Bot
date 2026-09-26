@@ -81,7 +81,7 @@ export class IngestionStatusService {
   }
 
   async recordUnreadable(
-    mail: { messageId: string; sender: string; subject: string; receivedAt: Date; reason?: string },
+    mail: { messageId: string; sender: string; subject: string; receivedAt: Date; arrivedAt?: Date; reason?: string },
     at = new Date(),
   ): Promise<void> {
     await this.quietly(`record unreadable mail ${mail.messageId}`, () =>
@@ -93,6 +93,7 @@ export class IngestionStatusService {
             subject: mail.subject,
             receivedAt: mail.receivedAt,
             lastSeenAt: at,
+            ...(mail.arrivedAt ? { arrivedAt: mail.arrivedAt } : {}),
             ...(mail.reason ? { reason: mail.reason } : {}),
           },
           ...(mail.reason ? {} : { $unset: { reason: '' } }),
@@ -133,14 +134,19 @@ export class IngestionStatusService {
     );
   }
 
-  /** When the oldest mail still on the unreadable list (not dismissed) arrived; null when there is none. Throws on a failed read. */
+  /**
+   * When the oldest mail still on the unreadable list (not dismissed)
+   * arrived; null when there is none. Throws on a failed read. An
+   * aggregation, not find().sort().limit(1): $ifNull falls back to
+   * receivedAt so a legacy row saved before arrivedAt existed still counts,
+   * rather than being invisible to $min because the field is simply missing.
+   */
   async oldestPendingUnreadable(): Promise<Date | null> {
-    const row = await this.unreadableModel
-      .findOne({ userId: this.userId, dismissed: { $ne: true } })
-      .sort({ receivedAt: 1 })
-      .select('receivedAt')
-      .lean();
-    return row?.receivedAt ? new Date(row.receivedAt) : null;
+    const [row] = await this.unreadableModel.aggregate([
+      { $match: { userId: this.userId, dismissed: { $ne: true } } },
+      { $group: { _id: null, oldest: { $min: { $ifNull: ['$arrivedAt', '$receivedAt'] } } } },
+    ]);
+    return row?.oldest ? new Date(row.oldest) : null;
   }
 
   async clearUnreadable(messageId: string): Promise<void> {

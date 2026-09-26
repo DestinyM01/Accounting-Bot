@@ -9,7 +9,10 @@ export interface FetchedMail {
   sender: string; // lowercased
   subject: string;
   body: string; // plain text
+  /** The sender's own claimed Date header (or the envelope date, or now); forgeable, sometimes days late. Judged against notBefore. */
   receivedAt: Date;
+  /** Gmail's own arrival time (IMAP internalDate); the sender can't set this. The moving window is judged against it. */
+  arrivedAt: Date;
   /** Gmail's own checks (DMARC or DKIM) passed for the sender's domain; see mail-auth.ts. */
   verified: boolean;
 }
@@ -19,8 +22,11 @@ export class MailClient {
   private readonly logger = new Logger(MailClient.name);
 
   /**
-   * Fetches mail received since `since` from the configured mailbox,
-   * keeping only messages from the given sender allow-list.
+   * Fetches mail that ARRIVED (Gmail's own internalDate) since `since` from
+   * the configured mailbox, keeping only messages from the given sender
+   * allow-list, and — when `notBefore` is given — only those whose own
+   * claimed date is not earlier than it (the configured-start business rule:
+   * historical mail is never booked, regardless of when it happens to arrive).
    * Opens the mailbox READ-ONLY — never mutates the user's mail.
    *
    * Returns null — never [] — when GMAIL_USER/GMAIL_APP_PASSWORD are unset,
@@ -28,7 +34,7 @@ export class MailClient {
    * mailbox never opened" apart from "opened it, found nothing", since only
    * the latter may advance the reading window.
    */
-  async fetchSince(since: Date, senders: string[]): Promise<FetchedMail[] | null> {
+  async fetchSince(since: Date, senders: string[], notBefore?: Date | null): Promise<FetchedMail[] | null> {
     const user = process.env.GMAIL_USER;
     const pass = process.env.GMAIL_APP_PASSWORD;
     if (!user || !pass) {
@@ -62,21 +68,33 @@ export class MailClient {
         throw new Error(`Cannot open mailbox "${mailbox}": ${reason}`);
       }
       try {
-        for await (const msg of client.fetch({ since }, { source: true, envelope: true })) {
+        for await (const msg of client.fetch({ since }, { source: true, envelope: true, internalDate: true })) {
           if (!msg.source) continue;
+
+          // Computed from the envelope alone, before parsing the body: Gmail's
+          // own arrival time, needed even when parsing the body fails below.
+          const envelopeDate = msg.envelope?.date ? new Date(msg.envelope.date) : undefined;
+          const arrivedAt = msg.internalDate ? new Date(msg.internalDate) : (envelopeDate ?? new Date());
+
           // One malformed message must not end the run for every other mail.
           try {
             const parsed = await simpleParser(msg.source);
             const sender = (parsed.from?.value?.[0]?.address ?? '').toLowerCase();
             if (!allow.includes(sender)) continue;
 
-            const envelopeDate = msg.envelope?.date ? new Date(msg.envelope.date) : undefined;
             const receivedAt = parsed.date ?? envelopeDate ?? new Date();
 
-            // IMAP SEARCH SINCE is date-granular: it returns everything from
-            // 00:00 of the watermark's day. The watermark carries a time of
-            // day, so anything from earlier that day must be dropped here.
-            if (receivedAt < since) continue;
+            // The moving window is measured on Gmail's own arrival time, not
+            // the sender's Date header: a bank outage or an SMTP retry (these
+            // can run 4-5 days) can push the Date header far into the past,
+            // and a forged one could otherwise drag the window itself back.
+            // IMAP SEARCH SINCE is date-granular — it returns everything from
+            // 00:00 of the watermark's day — so anything that arrived earlier
+            // that same day must still be dropped here.
+            if (arrivedAt < since) continue;
+            // The configured start is a business rule (historical mail is
+            // never booked), judged on the mail's own claimed date.
+            if (notBefore && receivedAt < notBefore) continue;
 
             // headerLines keeps the headers in order: the first is the topmost, the one Gmail added.
             const authResults = parsed.headerLines?.find((h) => h.key === 'authentication-results')?.line;
@@ -88,6 +106,7 @@ export class MailClient {
               // Some banks (BHD) send HTML only: fall back to its tables as pipe rows.
               body: parsed.text?.trim() ? parsed.text : typeof parsed.html === 'string' ? htmlToText(parsed.html) : '',
               receivedAt,
+              arrivedAt,
               verified: verifySender(authResults, sender),
             });
           } catch (err) {

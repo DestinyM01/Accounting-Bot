@@ -23,7 +23,7 @@ const MAIL_ID = '64b0000000000000000000c1';
 describe('IngestionStatusService', () => {
   let service: IngestionStatusService;
   let statusModel: { updateOne: jest.Mock; findOne: jest.Mock };
-  let unreadableModel: { updateOne: jest.Mock; deleteOne: jest.Mock; deleteMany: jest.Mock; find: jest.Mock; findOne: jest.Mock; findOneAndUpdate: jest.Mock };
+  let unreadableModel: { updateOne: jest.Mock; deleteOne: jest.Mock; deleteMany: jest.Mock; find: jest.Mock; findOne: jest.Mock; findOneAndUpdate: jest.Mock; aggregate: jest.Mock };
   let txModel: { find: jest.Mock };
   let errorSpy: jest.SpyInstance;
 
@@ -39,6 +39,7 @@ describe('IngestionStatusService', () => {
       find: jest.fn(() => query([])),
       findOne: jest.fn(() => query(null)),
       findOneAndUpdate: jest.fn().mockResolvedValue({ _id: MAIL_ID }),
+      aggregate: jest.fn().mockResolvedValue([]),
     };
     txModel = { find: jest.fn(() => query([])) };
     const mod = await Test.createTestingModule({
@@ -118,6 +119,14 @@ describe('IngestionStatusService', () => {
     );
   });
 
+  it('stores arrivedAt on an unreadable mail when given (Gmail arrival time, for the resume-point pin)', async () => {
+    const receivedAt = new Date('2026-09-25T01:53:30Z');
+    const arrivedAt = new Date('2026-09-25T02:00:00Z');
+    await service.recordUnreadable({ messageId: 'm1', sender: 'alerts@bank.example', subject: 'Alert', receivedAt, arrivedAt }, AT);
+    const [, update] = unreadableModel.updateOne.mock.calls[0];
+    expect(update.$set.arrivedAt).toEqual(arrivedAt);
+  });
+
   it('records the unverified count with the run', async () => {
     await service.recordRun({ created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, unverified: 2 }, AT);
     expect(statusModel.updateOne).toHaveBeenCalledWith(
@@ -186,18 +195,29 @@ describe('IngestionStatusService', () => {
     expect(statusModel.updateOne).toHaveBeenCalledWith({ userId: 1 }, { $set: { resumeFrom: at } }, { upsert: true });
   });
 
-  it('finds the oldest unreadable mail still waiting (not dismissed)', async () => {
-    const receivedAt = new Date('2026-09-10T00:00:00Z');
-    const q = query({ receivedAt });
-    unreadableModel.findOne.mockReturnValue(q);
-    await expect(service.oldestPendingUnreadable()).resolves.toEqual(receivedAt);
-    expect(unreadableModel.findOne).toHaveBeenCalledWith({ userId: 1, dismissed: { $ne: true } });
-    expect(q.sort).toHaveBeenCalledWith({ receivedAt: 1 });
-  });
+  describe('oldestPendingUnreadable', () => {
+    // An aggregation, not find().sort().limit(1): $ifNull falls back to
+    // receivedAt so a legacy row saved before arrivedAt existed still counts,
+    // instead of being silently invisible to $min because the field is missing.
+    it('finds the oldest not-dismissed mail, preferring its arrival time over receivedAt', async () => {
+      const oldest = new Date('2026-09-10T00:00:00Z');
+      unreadableModel.aggregate.mockResolvedValue([{ _id: null, oldest }]);
+      await expect(service.oldestPendingUnreadable()).resolves.toEqual(oldest);
+      expect(unreadableModel.aggregate).toHaveBeenCalledWith([
+        { $match: { userId: 1, dismissed: { $ne: true } } },
+        { $group: { _id: null, oldest: { $min: { $ifNull: ['$arrivedAt', '$receivedAt'] } } } },
+      ]);
+    });
 
-  it('has no oldest waiting mail when the list is empty', async () => {
-    unreadableModel.findOne.mockReturnValue(query(null));
-    await expect(service.oldestPendingUnreadable()).resolves.toBeNull();
+    it('has no oldest waiting mail when the list is empty', async () => {
+      unreadableModel.aggregate.mockResolvedValue([]);
+      await expect(service.oldestPendingUnreadable()).resolves.toBeNull();
+    });
+
+    it('throws when the read fails, so the resume point stays where it was rather than guess', async () => {
+      unreadableModel.aggregate.mockRejectedValue(new Error('db down'));
+      await expect(service.oldestPendingUnreadable()).rejects.toThrow('db down');
+    });
   });
 
   it('removes a mail from the list once it books', async () => {

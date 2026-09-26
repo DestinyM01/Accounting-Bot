@@ -108,7 +108,11 @@ export class IngestionService {
   async run(now: Date = new Date()): Promise<RunCounts> {
     const since = await this.watermark(now);
     const senders = this.parsers.flatMap((p) => p.senders);
-    const mails = await this.mail.fetchSince(since, senders);
+    // The configured-start business rule (historical mail is never booked) is
+    // separate from the moving window: passed to MailClient so it can judge
+    // each mail's own claimed date, while `since` judges arrival.
+    const configuredStart = parseConfiguredInstant(process.env.INGEST_START_AT);
+    const mails = await this.mail.fetchSince(since, senders, configuredStart);
 
     // GMAIL_USER / GMAIL_APP_PASSWORD unset — the documented way to pause
     // ingestion. A run that never opened the mailbox must not forget
@@ -123,7 +127,6 @@ export class IngestionService {
     // the unreadable list. Only the configured start, never the moving window:
     // an unreadable mail inside the window holds the window open until it
     // books or is dismissed (see updateResumePoint).
-    const configuredStart = parseConfiguredInstant(process.env.INGEST_START_AT);
     if (configuredStart) {
       await this.status.forgetUnreadableBefore(configuredStart);
     }
@@ -196,7 +199,9 @@ export class IngestionService {
       else if (result === 'duplicate') counts.alreadyBooked++;
       else {
         counts.bookingFailed++;
-        if (!oldestFailed || mail.receivedAt < oldestFailed) oldestFailed = mail.receivedAt;
+        // arrivedAt, not receivedAt: the resume point must not react to a
+        // sender's forgeable (or simply stale) Date header.
+        if (!oldestFailed || mail.arrivedAt < oldestFailed) oldestFailed = mail.arrivedAt;
       }
     }
 

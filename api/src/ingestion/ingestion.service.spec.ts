@@ -65,6 +65,7 @@ function makeMail(overrides: Partial<FetchedMail> = {}): FetchedMail {
     subject: 'Test subject',
     body: 'Test body',
     receivedAt: new Date('2026-01-01'),
+    arrivedAt: new Date('2026-01-01'),
     verified: true,
     ...overrides,
   };
@@ -1137,12 +1138,12 @@ describe('IngestionService', () => {
       const from = new Date('2026-09-24T09:00:00Z');
       status.windowStart.mockResolvedValue(from);
       await service.run(NOW);
-      expect(mail.fetchSince).toHaveBeenCalledWith(from, expect.any(Array));
+      expect(mail.fetchSince).toHaveBeenCalledWith(from, expect.any(Array), null);
     });
 
     it('reads the last 24 hours when there is no window start yet', async () => {
       await service.run(NOW);
-      expect(mail.fetchSince).toHaveBeenCalledWith(new Date(NOW.getTime() - DAY), expect.any(Array));
+      expect(mail.fetchSince).toHaveBeenCalledWith(new Date(NOW.getTime() - DAY), expect.any(Array), null);
     });
 
     it('stores the next start two days before this run began', async () => {
@@ -1156,8 +1157,13 @@ describe('IngestionService', () => {
       expect(status.recordResumePoint).toHaveBeenLastCalledWith(new Date(NOW.getTime() + 10 * 60_000 - 2 * DAY));
     });
 
+    // The pin uses arrivedAt (Gmail's own arrival time), not receivedAt (the
+    // sender's Date header, forgeable and sometimes days late) — a stale
+    // receivedAt here must not affect where the point lands.
     it('pulls the point back to a mail whose booking failed', async () => {
-      mail.fetchSince.mockResolvedValue([makeMail({ receivedAt: new Date(NOW.getTime() - 5 * DAY) })]);
+      mail.fetchSince.mockResolvedValue([
+        makeMail({ arrivedAt: new Date(NOW.getTime() - 5 * DAY), receivedAt: new Date(NOW.getTime() - 50 * DAY) }),
+      ]);
       parserParseMock.mockReturnValue(makeParsed());
       txModel.create.mockRejectedValue(new Error('write refused'));
       const result = await service.run(NOW);
@@ -1189,6 +1195,23 @@ describe('IngestionService', () => {
       status.windowStart.mockResolvedValue(new Date('2026-09-24T00:00:00Z'));
       await service.run(NOW);
       expect(status.forgetUnreadableBefore).toHaveBeenCalledWith(new Date('2026-09-01T00:00:00Z'));
+    });
+
+    // The configured start is the business rule "historical mail is never
+    // booked", judged on the mail's own claimed date — passed to MailClient
+    // separately from the moving window (`since`), which is judged on arrival.
+    it('passes the configured start to MailClient as notBefore, separate from the moving window', async () => {
+      process.env.INGEST_START_AT = '2026-09-01T00:00:00Z';
+      const from = new Date('2026-09-24T00:00:00Z');
+      status.windowStart.mockResolvedValue(from);
+      await service.run(NOW);
+      expect(mail.fetchSince).toHaveBeenCalledWith(from, expect.any(Array), new Date('2026-09-01T00:00:00Z'));
+    });
+
+    it('passes null as notBefore when no start is configured', async () => {
+      delete process.env.INGEST_START_AT;
+      await service.run(NOW);
+      expect(mail.fetchSince).toHaveBeenCalledWith(expect.any(Date), expect.any(Array), null);
     });
 
     it('in report mode books an unverified mail, counts it and names its sender', async () => {

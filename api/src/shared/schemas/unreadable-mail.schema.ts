@@ -13,6 +13,8 @@ export class UnreadableMail extends Document {
   @Prop() sender: string;
   @Prop() subject: string;
   @Prop() receivedAt: Date;
+  /** Gmail's own arrival time (IMAP internalDate); missing on rows saved before this field existed. */
+  @Prop() arrivedAt?: Date;
   @Prop() firstSeenAt: Date;
   @Prop() lastSeenAt: Date;
   @Prop({ default: 0 }) attempts: number;
