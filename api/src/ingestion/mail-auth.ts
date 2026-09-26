@@ -9,16 +9,24 @@
  * The header can also embed sender-controlled text — the envelope sender in
  * smtp.mailfrom, and DKIM's i=/s=/d= — inside comments or quoted strings,
  * either of which can hold anything, including a fake "pass" or a stray ";".
- * So comments and the insides of quoted strings are stripped first (an
- * unterminated one fails the whole header), each ";"-separated result is then
- * parsed as whole space-separated tokens rather than a substring search, and
- * a repeated header.x keeps only the first occurrence.
+ * Gmail's own text never contains a quote or a backslash — only a value the
+ * sender chose does — and either could be used to close one of Gmail's own
+ * comments early and smuggle a fake result out into the open, so a header
+ * holding one is refused outright rather than parsed; a stray, unmatched ")"
+ * is refused the same way, since Gmail's own parentheses always balance. What
+ * remains is stripped of its (now certainly Gmail-authored) comments, each
+ * ";"-separated result is then parsed as whole space-separated tokens rather
+ * than a substring search, and a repeated header.x keeps only the first
+ * occurrence.
  *
  * Passes when DMARC passed for the From domain, or a DKIM signature passed
  * for that domain, its parent, or a subdomain of it.
  */
 export function verifySender(authResults: string | undefined, fromAddress: string): boolean {
-  if (!authResults || !fromAddress.includes('@')) return false;
+  // A quote or backslash can only come from a value the sender chose (Gmail's
+  // own text never contains either), and either could close one of Gmail's
+  // comments early; such a mail is just left unverified.
+  if (!authResults || /["\\]/.test(authResults) || !fromAddress.includes('@')) return false;
   const fromDomain = fromAddress.slice(fromAddress.lastIndexOf('@') + 1).trim().toLowerCase();
   if (!DOMAIN.test(fromDomain)) return false;
 
@@ -49,7 +57,10 @@ const DOMAIN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-
 /**
  * The header without its comments (nested ones too) and without the insides of
  * quoted strings (kept as ""), with nothing put in their place; null when a
- * comment or quote is left open. Both can carry text the sender chose.
+ * comment or quote is left open, or a ")" turns up with none open — Gmail's
+ * own text is always balanced, so either means something the caller should
+ * already have refused (quotes and backslashes are rejected before this
+ * runs) slipped through, or the header is malformed enough not to trust.
  */
 function stripCommentsAndQuotes(s: string): string | null {
   let out = '';
@@ -73,6 +84,7 @@ function stripCommentsAndQuotes(s: string): string | null {
     }
     if (c === '"') quoted = true;
     else if (c === '(') depth = 1;
+    else if (c === ')') return null;
     else out += c;
   }
   return quoted || depth ? null : out;
