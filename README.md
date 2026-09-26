@@ -83,8 +83,7 @@ Acc_bot/
 │   └── src/app/pages/      ← dashboard, transactions, budget, statistics,
 │                               compare, analytics, recurring, tips
 ├── docker-compose.yml      ← Bot + MongoDB for local / Proxmox LXC deployment
-├── DEPLOY.md               ← Proxmox LXC setup guide
-└── setup-runner.sh         ← One-time GitHub Actions runner install
+└── DEPLOY.md               ← Proxmox LXC setup guide
 ```
 
 ---
