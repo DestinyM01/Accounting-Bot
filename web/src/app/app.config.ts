@@ -8,7 +8,7 @@ import { authConfig } from './core/auth/auth.config';
 
 /**
  * Bootstrap OIDC before the router activates any route.
- * APP_INITIALIZER blocks the app until the returned Promise resolves,
+ * provideAppInitializer blocks the app until the returned Promise resolves,
  * so by the time authGuard runs the discovery document is already loaded
  * and initCodeFlow() can safely redirect to Authentik.
  */
@@ -30,9 +30,6 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(withXhr(), withInterceptors([authInterceptor])),
     provideOAuthClient(),
-    provideAppInitializer(() => {
-        const initializerFn = (initializeAuth)(inject(OAuthService));
-        return initializerFn();
-      }),
+    provideAppInitializer(() => initializeAuth(inject(OAuthService))()),
   ],
 };
