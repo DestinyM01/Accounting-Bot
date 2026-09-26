@@ -86,7 +86,12 @@ export class RecurringSchedulerService {
 
     const plan = planOccurrences(schedulableFrom(rule), now);
 
-    if (plan.tooOld.length > 0) {
+    // While a failed month is being retried, this sweep handles only that month:
+    // marking later too-old months, or booking later months, would move lastPeriod
+    // past it (and skip too-old months without their log). The next sweep, with
+    // lastPeriod at the retried month, handles the rest the usual way.
+    const retrying = !!rule.failedPeriod && plan.due.some((o) => o.period === rule.failedPeriod);
+    if (plan.tooOld.length > 0 && !retrying) {
       const periods = plan.tooOld.map((o) => o.period);
       await this.markHandled(rule, periods[periods.length - 1], now);
       tally.skipped += periods.length;
@@ -96,7 +101,8 @@ export class RecurringSchedulerService {
       );
     }
 
-    for (const occurrence of plan.due) {
+    const toBook = retrying ? plan.due.filter((o) => o.period === rule.failedPeriod) : plan.due;
+    for (const occurrence of toBook) {
       let outcome: BookingOutcome;
       try {
         outcome = await this.bookOccurrence(rule, occurrence, now);
@@ -110,7 +116,15 @@ export class RecurringSchedulerService {
       tally[outcome]++;
       // lastPeriod only moves forward: booking a newer month after a failure
       // would carry the marker past the failed one, and it would never retry.
-      if (outcome === 'failed') break;
+      if (outcome === 'failed') {
+        await this.recurringModel
+          .updateOne(
+            { _id: rule._id, $or: [{ failedPeriod: { $exists: false } }, { failedPeriod: { $gt: occurrence.period } }] },
+            { $set: { failedPeriod: occurrence.period } },
+          )
+          .catch((err) => this.logger.warn(`Could not remember failed ${occurrence.period} of ${String(rule._id)}: ${String(err)}`));
+        break;
+      }
     }
   }
 
@@ -206,11 +220,11 @@ export class RecurringSchedulerService {
     return 'booked';
   }
 
-  /** Forward-only: lastPeriod never moves back, whatever order writers land in. */
+  /** Forward-only: lastPeriod never moves back, whatever order writers land in. A handled month is no longer a failed one. */
   private async markHandled(rule: Recurring, period: string, now: Date): Promise<void> {
     await this.recurringModel.updateOne(
       { _id: rule._id, $or: [{ lastPeriod: { $exists: false } }, { lastPeriod: { $lt: period } }] },
-      { $set: { lastPeriod: period, lastExecutedAt: now } },
+      { $set: { lastPeriod: period, lastExecutedAt: now }, $unset: { failedPeriod: '' } },
     );
   }
 }

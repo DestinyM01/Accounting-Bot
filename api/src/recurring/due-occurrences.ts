@@ -22,6 +22,8 @@ export interface SchedulableRule {
   /** Last month handled, 'YYYY-MM'. */
   lastPeriod?: string;
   lastExecutedAt?: Date;
+  /** The earliest month whose booking failed and hasn't been handled since: stays due past the window. */
+  failedPeriod?: string;
 }
 
 export interface Occurrence {
@@ -65,7 +67,8 @@ export function planOccurrences(rule: SchedulableRule, now: Date): { due: Occurr
     // month in every zone from UTC−12 to UTC+14, so the key never depends on
     // where the process runs.
     const occurrence = { period: periodKey(dueAt), dueAt };
-    if (dueAt.getTime() < windowStart) tooOld.push(occurrence);
+    // A month that failed stays due until it books: past the window it would be skipped for good.
+    if (dueAt.getTime() < windowStart && occurrence.period !== rule.failedPeriod) tooOld.push(occurrence);
     else due.push(occurrence);
   }
 
@@ -82,11 +85,13 @@ export function schedulableFrom(rule: {
   dayOfMonth: number;
   lastPeriod?: string;
   lastExecutedAt?: Date;
+  failedPeriod?: string;
 }): SchedulableRule {
   return {
     dayOfMonth: rule.dayOfMonth,
     createdAt: (rule._id as { getTimestamp(): Date }).getTimestamp(),
     lastPeriod: rule.lastPeriod,
     lastExecutedAt: rule.lastExecutedAt,
+    failedPeriod: rule.failedPeriod,
   };
 }

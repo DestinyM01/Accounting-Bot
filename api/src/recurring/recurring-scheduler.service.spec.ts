@@ -95,7 +95,7 @@ describe('RecurringSchedulerService', () => {
   /** The exact arguments of a forward-only "mark handled" update. */
   const markedHandled = (rule: any, period: string, at: Date = NOW) => [
     { _id: rule._id, $or: [{ lastPeriod: { $exists: false } }, { lastPeriod: { $lt: period } }] },
-    { $set: { lastPeriod: period, lastExecutedAt: at } },
+    { $set: { lastPeriod: period, lastExecutedAt: at }, $unset: { failedPeriod: '' } },
   ];
 
   describe('bookOccurrence', () => {
@@ -227,13 +227,19 @@ describe('RecurringSchedulerService', () => {
 
     it('stops a rule at its first failed occurrence so the marker never passes it', async () => {
       // Two due occurrences (Aug 26 and Sep 26); the older one's ledger write fails.
-      recurringModel.find.mockResolvedValue([makeRule({ dayOfMonth: 26, lastPeriod: '2026-07' })]);
+      const rule = makeRule({ dayOfMonth: 26, lastPeriod: '2026-07' });
+      recurringModel.find.mockResolvedValue([rule]);
       ledger.apply.mockRejectedValueOnce(new Error('balance write failed'));
       await service.sweep(new Date('2026-09-26T12:00:00Z'));
       expect(txModel.create).toHaveBeenCalledTimes(1);
       expect(txModel.create).toHaveBeenCalledWith(expect.objectContaining({ recurringPeriod: '2026-08' }));
       expect(txModel.deleteOne).toHaveBeenCalledWith({ _id: 'tx1' });
-      expect(recurringModel.updateOne).not.toHaveBeenCalled();
+      // The marker itself never moves on a failure; the failed month is remembered instead.
+      expect(recurringModel.updateOne).toHaveBeenCalledTimes(1);
+      expect(recurringModel.updateOne).toHaveBeenCalledWith(
+        { _id: rule._id, $or: [{ failedPeriod: { $exists: false } }, { failedPeriod: { $gt: '2026-08' } }] },
+        { $set: { failedPeriod: '2026-08' } },
+      );
       expect(logSpy).toHaveBeenCalledWith(summary(0, 0, 0, 1));
     });
 
@@ -297,6 +303,27 @@ describe('RecurringSchedulerService', () => {
       expect(ledger.apply).toHaveBeenCalledTimes(1);
       expect(recurringModel.updateOne).toHaveBeenLastCalledWith(...markedHandled(rule, '2026-09', later));
       expect(logSpy).toHaveBeenCalledWith(summary(0, 1, 0, 0));
+    });
+
+    it('remembers the month that failed, keeping the earliest', async () => {
+      const rule = makeRule({ dayOfMonth: 20, lastPeriod: '2026-08' });
+      recurringModel.find.mockResolvedValue([rule]);
+      ledger.apply.mockRejectedValueOnce(new Error('balance write failed'));
+      await service.sweep(NOW);
+      expect(recurringModel.updateOne).toHaveBeenCalledWith(
+        { _id: rule._id, $or: [{ failedPeriod: { $exists: false } }, { failedPeriod: { $gt: '2026-09' } }] },
+        { $set: { failedPeriod: '2026-09' } },
+      );
+    });
+
+    it('retries only the failed month in that sweep; later months wait for the next one', async () => {
+      // July failed long ago and is still retrying; August is now older than 31 days too.
+      const rule = makeRule({ dayOfMonth: 20, lastPeriod: '2026-06', failedPeriod: '2026-07' });
+      recurringModel.find.mockResolvedValue([rule]);
+      await service.sweep(NOW);
+      expect(txModel.create).toHaveBeenCalledTimes(1);
+      expect(txModel.create).toHaveBeenCalledWith(expect.objectContaining({ recurringPeriod: '2026-07' }));
+      expect(recurringModel.updateOne).not.toHaveBeenCalledWith(...markedHandled(rule, '2026-08'));
     });
 
     it('skips a rule whose day of month is outside 1..28, warns, and books the others', async () => {

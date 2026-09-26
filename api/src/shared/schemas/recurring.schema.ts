@@ -29,6 +29,13 @@ export class Recurring extends Document {
    * never touches it, so a deleted recurring row is never booked again.
    */
   @Prop() lastPeriod?: string;
+
+  /**
+   * The earliest month whose booking failed and hasn't been handled since. It is
+   * retried every hour even after it drifts past the 31-day window, so a failure
+   * at the window's edge is never skipped for good. Cleared when handled.
+   */
+  @Prop() failedPeriod?: string;
 }
 
 export const RecurringSchema = SchemaFactory.createForClass(Recurring);

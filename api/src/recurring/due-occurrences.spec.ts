@@ -96,6 +96,23 @@ describe('schedulableFrom', () => {
   });
 });
 
+describe('planOccurrences and a failed month', () => {
+  const NOW = new Date('2026-09-25T15:00:00Z');
+  const createdAt = new Date('2026-01-01T00:00:00Z');
+
+  it('keeps retrying the failed month after it drifts past the 31-day window', () => {
+    // Aug 20 is 36 days old: normally too old, but it's the month that failed.
+    const plan = planOccurrences({ dayOfMonth: 20, createdAt, lastPeriod: '2026-07', failedPeriod: '2026-08' }, NOW);
+    expect(plan.due.map((o) => o.period)).toEqual(['2026-08', '2026-09']);
+    expect(plan.tooOld).toEqual([]);
+  });
+
+  it('still skips old months that never failed', () => {
+    const plan = planOccurrences({ dayOfMonth: 20, createdAt, lastPeriod: '2026-07' }, NOW);
+    expect(plan.tooOld.map((o) => o.period)).toEqual(['2026-08']);
+  });
+});
+
 describe('isSchedulableDay', () => {
   it.each([1, 15, 28])('accepts %i', (day) => expect(isSchedulableDay(day)).toBe(true));
   it.each([0, 29, 31, 1.5, NaN, '5', undefined])('rejects %p', (day) => expect(isSchedulableDay(day)).toBe(false));
