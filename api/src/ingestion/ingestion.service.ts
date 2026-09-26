@@ -146,7 +146,15 @@ export class IngestionService {
     const ctx = await this.loadRunContext();
 
     const counts: RunCounts = { created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, unverified: 0 };
-    const enforce = process.env.MAIL_VERIFY === 'enforce';
+    // Operator input in the Secret: whitespace or case must not silently
+    // disable enforcement, and a typo must not silently enable it either —
+    // an unrecognised value falls back to the safer "report" but is named in
+    // a warning so the typo itself is noticed.
+    const rawVerify = (process.env.MAIL_VERIFY ?? '').trim().toLowerCase();
+    if (rawVerify && rawVerify !== 'report' && rawVerify !== 'enforce') {
+      this.logger.warn(`Unrecognised MAIL_VERIFY value ${JSON.stringify(process.env.MAIL_VERIFY)}; treating it as "report"`);
+    }
+    const enforce = rawVerify === 'enforce';
     let oldestFailed: Date | null = null;
     // Saved on the Settings page, else the server's config (see SettingsService).
     const { cash: ownCashAccounts, senders: ownIdentifiers } = await this.settings.accounts();
@@ -154,7 +162,14 @@ export class IngestionService {
     for (const mail of mails) {
       if (!mail.verified) {
         counts.unverified++;
-        this.logger.warn(`Unverified mail from ${mail.sender} (${mail.messageId}): Gmail's checks didn't pass for its domain`);
+        // Still counted either way, but a mail already booked or dismissed
+        // doesn't deserve a fresh warning every single poll — that would
+        // bury genuinely new unverified mail under routine noise. sender and
+        // messageId are the sender's own text: JSON.stringify keeps either
+        // from forging extra log lines.
+        if (!known.has(mail.messageId) && !dismissed.has(mail.messageId)) {
+          this.logger.warn(`Unverified mail (Gmail's checks didn't pass for its domain): ${JSON.stringify({ sender: mail.sender, messageId: mail.messageId })}`);
+        }
       }
 
       if (known.has(mail.messageId)) { counts.alreadyBooked++; continue; }

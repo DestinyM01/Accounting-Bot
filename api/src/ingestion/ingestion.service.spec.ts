@@ -1095,10 +1095,9 @@ describe('IngestionService', () => {
       const first = service.poll();
       const second = service.poll();
       // watermark() now awaits status.windowStart() before calling
-      // fetchSince, so let that pending microtask resolve before asserting.
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      // fetchSince; a macrotask flush is a more robust way to let that
+      // pending microtask chain resolve than counting exact ticks.
+      await new Promise((r) => setImmediate(r));
       expect(mail.fetchSince).toHaveBeenCalledTimes(1);
 
       release();
@@ -1258,6 +1257,86 @@ describe('IngestionService', () => {
       expect(result).toEqual(counts({ unreadable: 1, unverified: 1 }));
       expect(parserParseMock).not.toHaveBeenCalled();
       expect(status.recordUnreadable).toHaveBeenCalledWith(expect.objectContaining({ messageId: 'msg-1', reason: "Couldn't open the mail" }));
+    });
+
+    // M1: every unverified mail is still counted, but a mail already booked or
+    // dismissed doesn't deserve a fresh warning every single poll — that
+    // would bury the genuinely new unverified mail under routine noise.
+    it('counts an already-booked unverified mail but does not warn about it', async () => {
+      txModel.find.mockReturnValue({ select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([{ sourceMessageId: 'msg-1' }]) }) });
+      mail.fetchSince.mockResolvedValue([makeMail({ verified: false })]);
+      const result = await service.run(NOW);
+      expect(result).toEqual(counts({ alreadyBooked: 1, unverified: 1 }));
+      expect(loggerWarnSpy).not.toHaveBeenCalled();
+    });
+
+    // M4: MAIL_VERIFY is operator input in the Secret; whitespace or case
+    // must not silently disable the enforcement the operator asked for.
+    it('normalises MAIL_VERIFY: " Enforce " still enforces', async () => {
+      process.env.MAIL_VERIFY = ' Enforce ';
+      mail.fetchSince.mockResolvedValue([makeMail({ verified: false })]);
+      const result = await service.run(NOW);
+      expect(result).toEqual(counts({ unreadable: 1, unverified: 1 }));
+      expect(parserParseMock).not.toHaveBeenCalled();
+    });
+
+    // An unrecognised value must not fail silently either way: it's treated
+    // as "report" (the safer default — nothing is ever refused by accident),
+    // but named in a warning so a typo like this is noticed.
+    it('warns and falls back to report mode for an unrecognised MAIL_VERIFY value', async () => {
+      process.env.MAIL_VERIFY = 'enfroce';
+      mail.fetchSince.mockResolvedValue([makeMail({ verified: false })]);
+      parserParseMock.mockReturnValue(makeParsed());
+      const result = await service.run(NOW);
+      expect(result).toEqual(counts({ created: 1, unverified: 1 }));
+      expect(loggerWarnSpy).toHaveBeenCalledWith(expect.stringContaining('enfroce'));
+    });
+
+    // M5: only a booking failure or a still-waiting unreadable mail may pull
+    // the point back — an old mail that simply booked fine must not.
+    it('does not pull the point back for an old mail that booked successfully', async () => {
+      mail.fetchSince.mockResolvedValue([makeMail({ arrivedAt: new Date(NOW.getTime() - 5 * DAY) })]);
+      parserParseMock.mockReturnValue(makeParsed());
+      await service.run(NOW);
+      expect(status.recordResumePoint).toHaveBeenCalledWith(new Date(NOW.getTime() - 2 * DAY), null);
+    });
+
+    it('pulls the point back to the earlier of two booking failures', async () => {
+      mail.fetchSince.mockResolvedValue([
+        makeMail({ messageId: 'm1', arrivedAt: new Date(NOW.getTime() - 3 * DAY) }),
+        makeMail({ messageId: 'm2', arrivedAt: new Date(NOW.getTime() - 6 * DAY) }),
+      ]);
+      parserParseMock.mockReturnValue(makeParsed());
+      txModel.create.mockRejectedValue(new Error('write refused'));
+      const result = await service.run(NOW);
+      expect(result.bookingFailed).toBe(2);
+      expect(status.recordResumePoint).toHaveBeenCalledWith(new Date(NOW.getTime() - 8 * DAY), null);
+    });
+
+    it('in enforce mode counts a dismissed unverified mail as not-a-transaction, not unreadable', async () => {
+      process.env.MAIL_VERIFY = 'enforce';
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'm1', verified: false })]);
+      status.dismissedAmong.mockResolvedValue(new Set(['m1']));
+      const result = await service.run(NOW);
+      expect(result).toEqual(counts({ notTransactions: 1, unverified: 1 }));
+      expect(status.recordUnreadable).not.toHaveBeenCalled();
+    });
+
+    // Something that throws all the way out of run() (not one of the
+    // per-mail paths persist() itself already catches) must fail the whole
+    // run — updateResumePoint runs only after the loop finishes, so it must
+    // never be reached.
+    it('leaves the point unmoved when something throws out of the loop entirely', async () => {
+      const rule = { _id: 'rule-1', userId: 999, amount: 100, dayOfMonth: 1, active: true, transactionType: TransactionType.EXPENSE };
+      recurringModel.find.mockReturnValue({ lean: jest.fn().mockResolvedValue([rule]) });
+      txModel.findOne.mockRejectedValue(new Error('read exploded'));
+      mail.fetchSince.mockResolvedValue([makeMail()]);
+      parserParseMock.mockReturnValue(
+        makeParsed({ direction: 'expense', amount: 100, currency: 'DOP', occurredAt: new Date(2026, 0, 1) }),
+      );
+
+      await expect(service.run(NOW)).rejects.toThrow('read exploded');
+      expect(status.recordResumePoint).not.toHaveBeenCalled();
     });
   });
 

@@ -360,7 +360,10 @@ describe('IngestionStatusService', () => {
           { id: 't2', name: 'own savings', amount: 500, isExpense: true, category: 'other', timestamp: AT, transferKind: 'internal' },
         ],
       });
-      expect(unreadableModel.find).toHaveBeenCalledWith({ userId: 1, dismissed: false });
+      // Same filter as oldestPendingUnreadable's pin: a row saved before
+      // `dismissed` existed (undefined, not false) must still be excluded once
+      // it's actually marked dismissed, and included otherwise either way.
+      expect(unreadableModel.find).toHaveBeenCalledWith({ userId: 1, dismissed: { $ne: true } });
       expect(unreadable.sort).toHaveBeenCalledWith({ receivedAt: -1 });
       expect(unreadable.limit).toHaveBeenCalledWith(50);
       expect(txModel.find).toHaveBeenCalledWith({ userId: 1, source: 'email', deletedAt: null });

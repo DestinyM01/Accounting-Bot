@@ -197,7 +197,10 @@ export class IngestionStatusService {
   async view(running: boolean): Promise<IngestionStatusView> {
     const [status, unreadable, recent] = await Promise.all([
       this.statusModel.findOne({ userId: this.userId }).lean(),
-      this.unreadableModel.find({ userId: this.userId, dismissed: false }).sort({ receivedAt: -1 }).limit(50).lean(),
+      // Same filter as the resume-point pin (oldestPendingUnreadable): a row
+      // saved before `dismissed` existed (undefined, not false) must still
+      // show up here, not be silently excluded by an exact-false match.
+      this.unreadableModel.find({ userId: this.userId, dismissed: { $ne: true } }).sort({ receivedAt: -1 }).limit(50).lean(),
       this.txModel
         .find({ userId: this.userId, source: 'email', ...NOT_DELETED })
         .sort({ timestamp: -1 })
