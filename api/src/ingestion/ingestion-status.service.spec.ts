@@ -190,6 +190,19 @@ describe('IngestionStatusService', () => {
       await expect(service.windowStart()).resolves.toEqual(new Date('2026-09-20T00:00:00Z'));
     });
 
+    // A removed floor asks for no re-read, not "start over from the last 24
+    // hours": treating the mismatch as a full reset (falling back to null,
+    // then watermark()'s 24h default) would silently lose every mail between
+    // now-24h and the point — e.g. an outage or a streak of failed bookings
+    // that pulled the point back several days, fixed in the same change that
+    // removes INGEST_START_AT.
+    it('keeps the stored resume point when the configured start has since been removed', async () => {
+      delete process.env.INGEST_START_AT;
+      const resume = new Date('2026-09-10T00:00:00Z');
+      withResume(resume, START_ISO); // recorded under a start that no longer exists
+      await expect(service.windowStart()).resolves.toEqual(resume);
+    });
+
     // The re-read lever: lowering (or raising, or first setting) INGEST_START_AT
     // must not be a no-op just because a resume point already sits past it —
     // the point only pins the window when it was itself computed under the
@@ -445,6 +458,15 @@ describe('IngestionStatusService', () => {
         );
         const v = await service.view(false);
         expect(v.readingFrom).toBe('2026-09-01T00:00:00.000Z');
+      });
+
+      // Same "a removed floor asks for no re-read" rule as windowStart().
+      it('keeps the stored resume point when the configured start has since been removed', async () => {
+        delete process.env.INGEST_START_AT;
+        const resumeFrom = new Date('2026-09-10T00:00:00Z');
+        statusModel.findOne.mockReturnValue(query({ resumeFrom, resumeStartAt: '2026-09-01T00:00:00.000Z' }));
+        const v = await service.view(false);
+        expect(v.readingFrom).toBe(resumeFrom.toISOString());
       });
     });
   });

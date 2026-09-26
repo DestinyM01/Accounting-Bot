@@ -272,9 +272,17 @@ function windowFrom(start: Date | null, resumeFrom: Date | null | undefined): Da
  * counts as null, same as no start configured when it was recorded. A
  * mismatch means the point is stale: ignored once, until the next run
  * re-stamps it under the start that's configured now.
+ *
+ * Except: no currently configured start always keeps the point, regardless
+ * of what it was recorded under. A removed floor asks for no re-read, not a
+ * full reset — treating it as a mismatch would fall back to windowFrom(null,
+ * null), and watermark() would then default to the last 24 hours, silently
+ * losing everything between there and the point (an outage, a streak of
+ * failed bookings, days of a stuck pin) the moment INGEST_START_AT is unset.
  */
 function resumeUnderCurrentStart(status: { resumeFrom?: Date; resumeStartAt?: string | null } | null | undefined, start: Date | null): Date | null | undefined {
-  const recordedUnder = status?.resumeStartAt ?? null;
   const currentStart = start?.toISOString() ?? null;
+  if (currentStart === null) return status?.resumeFrom;
+  const recordedUnder = status?.resumeStartAt ?? null;
   return recordedUnder === currentStart ? status?.resumeFrom : null;
 }
