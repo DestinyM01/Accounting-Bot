@@ -156,7 +156,14 @@ describe('IngestionStatusService', () => {
 
   describe('windowStart', () => {
     const START = '2026-09-01T12:00:00Z';
-    const withResume = (resumeFrom: Date | undefined) => statusModel.findOne.mockReturnValue(query(resumeFrom ? { resumeFrom } : null));
+    // recordResumePoint always stores configuredStart?.toISOString() — always
+    // millisecond-precision — regardless of how the operator typed
+    // INGEST_START_AT. A test standing in for "recorded under this same
+    // start" must store that same normalized form, not the raw env string.
+    const START_ISO = new Date(START).toISOString();
+    /** resumeStartAt omitted means "no such field" (a legacy row), not "recorded under no start". */
+    const withResume = (resumeFrom: Date | undefined, resumeStartAt?: string | null) =>
+      statusModel.findOne.mockReturnValue(query(resumeFrom ? { resumeFrom, resumeStartAt } : null));
 
     it('is null before any run and without a configured start', async () => {
       withResume(undefined);
@@ -169,18 +176,37 @@ describe('IngestionStatusService', () => {
       await expect(service.windowStart()).resolves.toEqual(new Date(START));
     });
 
-    it('is the stored resume point without a configured start (after an outage, too)', async () => {
+    it('is the stored resume point when no start is configured now or when it was recorded (after an outage, too)', async () => {
       const resume = new Date('2026-09-20T00:00:00Z');
-      withResume(resume);
+      withResume(resume, null);
       await expect(service.windowStart()).resolves.toEqual(resume);
     });
 
-    it('is never before the configured start', async () => {
+    it('is never before the configured start, when the point was recorded under that same start', async () => {
       process.env.INGEST_START_AT = START;
-      withResume(new Date('2026-08-01T00:00:00Z'));
+      withResume(new Date('2026-08-01T00:00:00Z'), START_ISO);
       await expect(service.windowStart()).resolves.toEqual(new Date(START));
-      withResume(new Date('2026-09-20T00:00:00Z'));
+      withResume(new Date('2026-09-20T00:00:00Z'), START_ISO);
       await expect(service.windowStart()).resolves.toEqual(new Date('2026-09-20T00:00:00Z'));
+    });
+
+    // The re-read lever: lowering (or raising, or first setting) INGEST_START_AT
+    // must not be a no-op just because a resume point already sits past it —
+    // the point only pins the window when it was itself computed under the
+    // start that's configured right now.
+    it('uses the configured start, ignoring a resume point recorded under a different start', async () => {
+      process.env.INGEST_START_AT = START;
+      withResume(new Date('2026-09-20T00:00:00Z'), '2026-08-15T00:00:00Z');
+      await expect(service.windowStart()).resolves.toEqual(new Date(START));
+    });
+
+    // A row saved by the pre-resumeStartAt code has no such field at all. Once
+    // a start is configured, that must count as a mismatch (ignored once) —
+    // not be silently honoured just because nothing was ever recorded to compare.
+    it('uses the configured start, ignoring a legacy point with no resumeStartAt field at all', async () => {
+      process.env.INGEST_START_AT = START;
+      withResume(new Date('2026-09-20T00:00:00Z'));
+      await expect(service.windowStart()).resolves.toEqual(new Date(START));
     });
 
     it('throws when the status cannot be read, so the run fails instead of guessing', async () => {
@@ -189,10 +215,26 @@ describe('IngestionStatusService', () => {
     });
   });
 
-  it('stores the resume point', async () => {
-    const at = new Date('2026-09-23T10:00:00Z');
-    await service.recordResumePoint(at);
-    expect(statusModel.updateOne).toHaveBeenCalledWith({ userId: 1 }, { $set: { resumeFrom: at } }, { upsert: true });
+  describe('recordResumePoint', () => {
+    it('stores the resume point alongside the start it was computed under', async () => {
+      const at = new Date('2026-09-23T10:00:00Z');
+      await service.recordResumePoint(at, new Date('2026-09-01T00:00:00Z'));
+      expect(statusModel.updateOne).toHaveBeenCalledWith(
+        { userId: 1 },
+        { $set: { resumeFrom: at, resumeStartAt: '2026-09-01T00:00:00.000Z' } },
+        { upsert: true },
+      );
+    });
+
+    it('stores a null resumeStartAt when no start is configured', async () => {
+      const at = new Date('2026-09-23T10:00:00Z');
+      await service.recordResumePoint(at, null);
+      expect(statusModel.updateOne).toHaveBeenCalledWith(
+        { userId: 1 },
+        { $set: { resumeFrom: at, resumeStartAt: null } },
+        { upsert: true },
+      );
+    });
   });
 
   describe('oldestPendingUnreadable', () => {
@@ -364,6 +406,43 @@ describe('IngestionStatusService', () => {
       statusModel.findOne.mockReturnValue(query({ lastRunAt: AT, created: 1, skipped: 5, failed: 2 }));
       const v = await service.view(false);
       expect(v.lastRun).toEqual({ at: AT, created: 1, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, unverified: 0 });
+    });
+
+    it('shows a non-zero unverified count from the last run', async () => {
+      statusModel.findOne.mockReturnValue(
+        query({ lastRunAt: AT, created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, unverified: 3 }),
+      );
+      const v = await service.view(false);
+      expect(v.lastRun?.unverified).toBe(3);
+    });
+
+    it("carries an unreadable row's reason through to the view", async () => {
+      unreadableModel.find.mockReturnValue(
+        query([{ _id: MAIL_ID, sender: 's@bank.example', subject: 'Alert', receivedAt: AT, attempts: 1, lastSeenAt: AT, reason: "Couldn't verify it came from the bank" }]),
+      );
+      const v = await service.view(false);
+      expect(v.unreadable[0].reason).toBe("Couldn't verify it came from the bank");
+    });
+
+    describe('readingFrom', () => {
+      it("follows the stored resume point's ISO — even later than the configured start — when it was recorded under that same start", async () => {
+        process.env.INGEST_START_AT = '2026-09-01T00:00:00Z';
+        const resumeFrom = new Date('2026-09-20T00:00:00Z');
+        statusModel.findOne.mockReturnValue(
+          query({ resumeFrom, resumeStartAt: new Date('2026-09-01T00:00:00Z').toISOString() }),
+        );
+        const v = await service.view(false);
+        expect(v.readingFrom).toBe(resumeFrom.toISOString());
+      });
+
+      it('falls back to the configured start when the stored point was recorded under a different start', async () => {
+        process.env.INGEST_START_AT = '2026-09-01T00:00:00Z';
+        statusModel.findOne.mockReturnValue(
+          query({ resumeFrom: new Date('2026-09-20T00:00:00Z'), resumeStartAt: '2026-08-01T00:00:00Z' }),
+        );
+        const v = await service.view(false);
+        expect(v.readingFrom).toBe('2026-09-01T00:00:00.000Z');
+      });
     });
   });
 });

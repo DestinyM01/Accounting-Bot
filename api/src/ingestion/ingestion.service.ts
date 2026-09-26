@@ -210,7 +210,7 @@ export class IngestionService {
         `notTransactions=${counts.notTransactions} unreadable=${counts.unreadable} bookingFailed=${counts.bookingFailed} ` +
         `unverified=${counts.unverified}`,
     );
-    await this.updateResumePoint(now, oldestFailed);
+    await this.updateResumePoint(now, oldestFailed, configuredStart);
     return counts;
   }
 
@@ -225,9 +225,11 @@ export class IngestionService {
    * booking that failed, or an unreadable mail not dismissed), less two days.
    * Measured from the run's start, not the newest mail's, so a quiet inbox
    * doesn't widen the window and an empty run doesn't slide it back. If the
-   * waiting list can't be read, the point stays where it was.
+   * waiting list can't be read, the point stays where it was. Tagged with
+   * `configuredStart` so a later change to INGEST_START_AT is noticed instead
+   * of being shadowed by this point forever (see IngestionStatusService.windowStart).
    */
-  private async updateResumePoint(runStart: Date, oldestFailed: Date | null): Promise<void> {
+  private async updateResumePoint(runStart: Date, oldestFailed: Date | null, configuredStart: Date | null): Promise<void> {
     let oldestUnreadable: Date | null;
     try {
       oldestUnreadable = await this.status.oldestPendingUnreadable();
@@ -238,7 +240,7 @@ export class IngestionService {
     const oldest = [runStart, oldestFailed, oldestUnreadable]
       .filter((d): d is Date => d !== null)
       .reduce((a, b) => (b < a ? b : a));
-    await this.status.recordResumePoint(new Date(oldest.getTime() - RESUME_OVERLAP_MS));
+    await this.status.recordResumePoint(new Date(oldest.getTime() - RESUME_OVERLAP_MS), configuredStart);
   }
 
   /**

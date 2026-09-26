@@ -121,16 +121,26 @@ export class IngestionStatusService {
    * INGEST_START_AT; the start alone before the first finished run; null when
    * there is neither (the caller then reads the last 24 hours). A failed read
    * throws: the run fails rather than guess a window.
+   *
+   * The stored point counts only when it was itself computed under today's
+   * configured start (see resumeUnderCurrentStart) — otherwise it's ignored
+   * once, so lowering (or raising, or first setting) INGEST_START_AT actually
+   * re-reads from the new start instead of a stale point shadowing it forever.
    */
   async windowStart(): Promise<Date | null> {
-    const status = await this.statusModel.findOne({ userId: this.userId }).select('resumeFrom').lean();
-    return windowFrom(parseConfiguredInstant(process.env.INGEST_START_AT), status?.resumeFrom);
+    const status = await this.statusModel.findOne({ userId: this.userId }).select('resumeFrom resumeStartAt').lean();
+    const start = parseConfiguredInstant(process.env.INGEST_START_AT);
+    return windowFrom(start, resumeUnderCurrentStart(status, start));
   }
 
-  /** Where the next run should start; see IngestionService.updateResumePoint. */
-  async recordResumePoint(resumeFrom: Date): Promise<void> {
+  /** Where the next run should start, and the configured start it was computed under; see IngestionService.updateResumePoint. */
+  async recordResumePoint(resumeFrom: Date, configuredStart: Date | null): Promise<void> {
     await this.quietly('record where the next run starts', () =>
-      this.statusModel.updateOne({ userId: this.userId }, { $set: { resumeFrom } }, { upsert: true }),
+      this.statusModel.updateOne(
+        { userId: this.userId },
+        { $set: { resumeFrom, resumeStartAt: configuredStart?.toISOString() ?? null } },
+        { upsert: true },
+      ),
     );
   }
 
@@ -202,7 +212,7 @@ export class IngestionStatusService {
     const startAt = start?.toISOString() ?? null;
     return {
       startAt,
-      readingFrom: windowFrom(start, status?.resumeFrom)?.toISOString() ?? null,
+      readingFrom: windowFrom(start, resumeUnderCurrentStart(status, start))?.toISOString() ?? null,
       running,
       lastRun: status?.lastRunAt
         ? {
@@ -251,4 +261,17 @@ function windowFrom(start: Date | null, resumeFrom: Date | null | undefined): Da
   const resume = resumeFrom ? new Date(resumeFrom) : null;
   if (start && resume) return resume > start ? resume : start;
   return resume ?? start;
+}
+
+/**
+ * The stored resumeFrom, but only when it was computed under today's
+ * configured start — undefined (a legacy row with no such field at all)
+ * counts as null, same as no start configured when it was recorded. A
+ * mismatch means the point is stale: ignored once, until the next run
+ * re-stamps it under the start that's configured now.
+ */
+function resumeUnderCurrentStart(status: { resumeFrom?: Date; resumeStartAt?: string | null } | null | undefined, start: Date | null): Date | null | undefined {
+  const recordedUnder = status?.resumeStartAt ?? null;
+  const currentStart = start?.toISOString() ?? null;
+  return recordedUnder === currentStart ? status?.resumeFrom : null;
 }

@@ -16,6 +16,14 @@ export class IngestionStatus extends Document {
   @Prop() unverified?: number;
   /** Where the next run starts reading (never before INGEST_START_AT). Moves only after a run that finished. */
   @Prop() resumeFrom?: Date;
+  /**
+   * The configured start (ISO, or null when none) resumeFrom was computed
+   * under. Lets windowStart() tell a stale point — recorded under a start
+   * that has since changed — apart from one still valid under today's start,
+   * so lowering INGEST_START_AT re-reads from it instead of being shadowed
+   * by a point that already sits past it.
+   */
+  @Prop({ type: String, default: null }) resumeStartAt?: string | null;
   /** The last run that failed as a whole (e.g. IMAP login refused); null again after a successful run. */
   @Prop({ type: String, default: null }) lastError?: string | null;
   @Prop() lastErrorAt?: Date;

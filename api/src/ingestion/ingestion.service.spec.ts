@@ -1148,13 +1148,13 @@ describe('IngestionService', () => {
 
     it('stores the next start two days before this run began', async () => {
       await service.run(NOW);
-      expect(status.recordResumePoint).toHaveBeenCalledWith(new Date(NOW.getTime() - 2 * DAY));
+      expect(status.recordResumePoint).toHaveBeenCalledWith(new Date(NOW.getTime() - 2 * DAY), null);
     });
 
     it('does not slide the point back on an empty run', async () => {
       await service.run(NOW);
       await service.run(new Date(NOW.getTime() + 10 * 60_000));
-      expect(status.recordResumePoint).toHaveBeenLastCalledWith(new Date(NOW.getTime() + 10 * 60_000 - 2 * DAY));
+      expect(status.recordResumePoint).toHaveBeenLastCalledWith(new Date(NOW.getTime() + 10 * 60_000 - 2 * DAY), null);
     });
 
     // The pin uses arrivedAt (Gmail's own arrival time), not receivedAt (the
@@ -1168,13 +1168,13 @@ describe('IngestionService', () => {
       txModel.create.mockRejectedValue(new Error('write refused'));
       const result = await service.run(NOW);
       expect(result.bookingFailed).toBe(1);
-      expect(status.recordResumePoint).toHaveBeenCalledWith(new Date(NOW.getTime() - 7 * DAY));
+      expect(status.recordResumePoint).toHaveBeenCalledWith(new Date(NOW.getTime() - 7 * DAY), null);
     });
 
     it('pulls the point back to an unreadable mail still waiting', async () => {
       status.oldestPendingUnreadable.mockResolvedValue(new Date(NOW.getTime() - 10 * DAY));
       await service.run(NOW);
-      expect(status.recordResumePoint).toHaveBeenCalledWith(new Date(NOW.getTime() - 12 * DAY));
+      expect(status.recordResumePoint).toHaveBeenCalledWith(new Date(NOW.getTime() - 12 * DAY), null);
     });
 
     it('leaves the point where it was when the waiting list cannot be read', async () => {
@@ -1212,6 +1212,15 @@ describe('IngestionService', () => {
       delete process.env.INGEST_START_AT;
       await service.run(NOW);
       expect(mail.fetchSince).toHaveBeenCalledWith(expect.any(Date), expect.any(Array), null);
+    });
+
+    // The stored point is tagged with the start it was computed under
+    // (IngestionStatusService.windowStart then re-reads from a lowered start
+    // instead of treating a stale point as still pinning the window).
+    it('tags the stored resume point with the currently configured start', async () => {
+      process.env.INGEST_START_AT = '2026-09-01T00:00:00Z';
+      await service.run(NOW);
+      expect(status.recordResumePoint).toHaveBeenCalledWith(expect.any(Date), new Date('2026-09-01T00:00:00Z'));
     });
 
     it('in report mode books an unverified mail, counts it and names its sender', async () => {
