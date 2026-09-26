@@ -144,7 +144,7 @@ The web app expects the API at `/api` (proxied in `angular.json` or via nginx in
    - `notificacionestubancoapp@banreservas.com` (Banreservas)
 3. `INGEST_START_AT` should be set to roughly when you switch ingestion on — the forward-only floor that stops historical mail being ingested and double-counting against your current balance. Later checks read from a stored resume point, never before it.
 4. If the sender list is empty (saved on the Settings page, else `OWN_ACCOUNT_IDENTIFIERS`), Banreservas transfers are skipped entirely — the direction can't be determined, and the system refuses to guess.
-5. To re-read bank mail from an earlier date (after a parser fix, say), set `INGEST_START_AT` to that date and restart: the next check reads from it once, then carries on from its resume point. Mail already booked is never booked twice.
+5. To re-read bank mail from an earlier date (after a parser fix, say), set `INGEST_START_AT` to that date and restart: the next check reads from it once, then carries on from its resume point. Mail already booked is never booked twice. That date must never be earlier than when ingestion was first switched on (see note 3): mail from before then is already reflected in your balance, and re-reading it would book it again as a new transaction.
 6. Leave `MAIL_VERIFY` at `report` until Settings › Bank mail shows no unverified mail for every bank for a few days, then set it to `enforce`.
 
 ---

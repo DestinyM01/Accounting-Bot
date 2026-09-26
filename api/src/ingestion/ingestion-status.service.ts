@@ -19,7 +19,12 @@ export interface RunCounts {
   unreadable: number;
   /** Read fine but the save failed; retried on the next poll. */
   bookingFailed: number;
-  /** Not a sixth bucket: how many of the mails, whichever count they landed in, Gmail couldn't verify. */
+  /**
+   * Not a sixth bucket: how many of the mails, whichever count they landed
+   * in, Gmail couldn't verify. Excludes mail MailClient couldn't open at all
+   * (see FetchedMail.unopened) — its checks never ran, so it says nothing
+   * about verification.
+   */
   unverified: number;
 }
 

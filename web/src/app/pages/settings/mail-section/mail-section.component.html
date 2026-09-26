@@ -47,7 +47,7 @@
             <div class="set-row-main">
               <span class="set-row-title">{{ m.subject || '(no subject)' }}</span>
               <span class="set-muted">
-                {{ m.sender }} · arrived {{ m.receivedAt | date: 'MMM d, h:mm a' }} · tried {{ m.attempts }} {{ m.attempts === 1 ? 'time' : 'times' }}@if (m.reason) { · {{ m.reason }} }
+                {{ m.sender }} · dated {{ m.receivedAt | date: 'MMM d, h:mm a' }} · tried {{ m.attempts }} {{ m.attempts === 1 ? 'time' : 'times' }}@if (m.reason) { · {{ m.reason }} }
               </span>
             </div>
             @if (confirming === m.id) {
