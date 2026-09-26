@@ -26,13 +26,37 @@ IMAGE=$(kubectl -n "$NS" get pod mongodb-0 -o jsonpath='{.spec.containers[0].ima
 # Each accbot collection and its document count, one per line, sorted.
 COUNT_JS='var d = db.getSiblingDB("accbot"); d.getCollectionNames().sort().forEach(function (c) { print(c + " " + d.getCollection(c).countDocuments({})); })'
 
-# The shell inside a pod's image: mongosh from MongoDB 6.0 on, mongo before.
-shell_in() {
-  if kubectl -n "$NS" exec "$1" -- sh -c 'command -v mongosh' >/dev/null 2>&1; then echo mongosh; else echo mongo; fi
+# kubectl exec that names mongodb-0's main container: that pod also has an
+# init container (the keyfile copy); the helper pods have one container each.
+kexec() { # pod, then kubectl exec's arguments
+  pod=$1
+  shift
+  if [ "$pod" = mongodb-0 ]; then
+    kubectl -n "$NS" exec -c mongodb "$pod" "$@"
+  else
+    kubectl -n "$NS" exec "$pod" "$@"
+  fi
 }
 
+# The shell inside a pod's image: mongosh from MongoDB 6.0 on, mongo before.
+shell_in() {
+  if kexec "$1" -- sh -c 'command -v mongosh' >/dev/null 2>&1; then echo mongosh; else echo mongo; fi
+}
+
+# Without a login whenever the server allows it (the drill pod always does);
+# otherwise as the pod's admin (MONGO_ADMIN_*, which mongodb-0 has from
+# MongoDB D3b on).
 counts() { # pod shell
-  kubectl -n "$NS" exec "$1" -- "$2" --quiet --eval "$COUNT_JS"
+  # shellcheck disable=SC2016  # these expand inside the pod
+  kexec "$1" -- sh -c '
+    if "$1" --quiet --eval "db.getSiblingDB(\"admin\").getUsers()" >/dev/null 2>&1; then
+      exec "$1" --quiet --eval "$2"
+    fi
+    if [ -n "${MONGO_ADMIN_PASSWORD:-}" ]; then
+      exec "$1" --quiet -u "$MONGO_ADMIN_USERNAME" -p "$MONGO_ADMIN_PASSWORD" --authenticationDatabase admin --eval "$2"
+    fi
+    exec "$1" --quiet --eval "$2"
+  ' _ "$2" "$COUNT_JS"
 }
 
 # Waits for a helper pod; if it never starts, prints what Kubernetes says and fails.
@@ -86,9 +110,15 @@ backup() {
   sh_bin=$(shell_in mongodb-0)
 
   counts mongodb-0 "$sh_bin" > "$file.counts.before"
-  kubectl -n "$NS" exec mongodb-0 -- mongodump --quiet --archive=/tmp/backup.archive.gz --gzip
-  kubectl -n "$NS" cp mongodb-0:/tmp/backup.archive.gz "$file"
-  kubectl -n "$NS" exec mongodb-0 -- rm -f /tmp/backup.archive.gz
+  # shellcheck disable=SC2016  # these expand inside the pod
+  kexec mongodb-0 -- sh -c '
+    if mongosh --quiet --eval "db.getSiblingDB(\"admin\").getUsers()" >/dev/null 2>&1 || [ -z "${MONGO_ADMIN_PASSWORD:-}" ]; then
+      exec mongodump --quiet --archive=/tmp/backup.archive.gz --gzip
+    fi
+    exec mongodump --quiet -u "$MONGO_ADMIN_USERNAME" -p "$MONGO_ADMIN_PASSWORD" --authenticationDatabase admin --archive=/tmp/backup.archive.gz --gzip
+  '
+  kubectl -n "$NS" cp -c mongodb mongodb-0:/tmp/backup.archive.gz "$file"
+  kexec mongodb-0 -- rm -f /tmp/backup.archive.gz
   counts mongodb-0 "$sh_bin" > "$file.counts"
 
   # A write that lands during the dump makes the counts uncertain: start over.

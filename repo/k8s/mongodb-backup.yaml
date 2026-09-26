@@ -71,8 +71,9 @@ spec:
                   if command -v mongosh >/dev/null 2>&1; then shell=mongosh; else shell=mongo; fi
                   count_js='var d = db.getSiblingDB("accbot"); d.getCollectionNames().sort().forEach(function (c) { print(c + " " + d.getCollection(c).countDocuments({})); })'
                   # Direct to the one server: never ask a replica set for its member list
-                  # (its member host, mongodb-0, only resolves inside that pod).
-                  uri="mongodb://mongodb-svc:27017/?directConnection=true"
+                  # (its member host, mongodb-0, only resolves inside that pod). Logs in
+                  # as the backup user; its hex password needs no escaping in a URI.
+                  uri="mongodb://backup:${BACKUP_PASSWORD}@mongodb-svc:27017/?directConnection=true&authSource=admin"
                   f="/backups/accbot-$(date -u +%Y%m%dT%H%MZ).archive.gz"
                   # Only a finished, checked dump gets the final name.
                   trap 'rm -f "$f.partial" "$f.counts.before"' EXIT
@@ -94,6 +95,12 @@ spec:
                   rm -f "$f.counts.before"
                   find /backups -name 'accbot-*' -mtime +14 -delete
                   ls -l /backups
+              env:
+                - name: BACKUP_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: mongodb-auth
+                      key: backupPassword
               volumeMounts:
                 - name: backups
                   mountPath: /backups

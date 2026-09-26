@@ -40,15 +40,17 @@ spec:
             # db.hello() needs no login, so this keeps working once
             # authentication is on. It waits through a plain standalone (the
             # image's temporary init mongod on a fresh volume) for the real
-            # --replSet mongod. It reports what it did in the container's log,
-            # and always exits 0: a failing postStart would kill the container.
+            # --replSet mongod. It records what it did in /tmp/postStart.log
+            # (kubectl exec mongodb-0 -- cat /tmp/postStart.log): a hook can't
+            # write to mongod's own output, which runs as another user. It
+            # always exits 0: a failing postStart would kill the container.
             postStart:
               exec:
                 command:
                   - /bin/sh
                   - -c
                   - |
-                    log() { echo "postStart: $*" > /proc/1/fd/1 2>/dev/null || true; }
+                    log() { echo "$(date -u +%FT%TZ) postStart: $*" >> /tmp/postStart.log 2>/dev/null || true; }
                     local_uri="mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000&connectTimeoutMS=2000"
                     state=""
                     i=0
@@ -76,6 +78,21 @@ spec:
           env:
             - name: MONGO_INITDB_DATABASE
               value: accbot
+            # The admin login for the ops scripts (ops/mongo-*.sh), which run
+            # mongosh inside this pod. Deliberately NOT MONGO_INITDB_ROOT_*: the
+            # image's entrypoint adds --auth whenever those are set, even on an
+            # existing database, and a replica set with --auth but no keyfile
+            # refuses to start.
+            - name: MONGO_ADMIN_USERNAME
+              value: admin
+            - name: MONGO_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-auth
+                  key: adminPassword
+                  # The database must start even without the Secret; only
+                  # the scripts' login depends on it.
+                  optional: true
           volumeMounts:
             - name: mongo-data
               mountPath: /data/db

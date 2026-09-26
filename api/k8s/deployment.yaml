@@ -32,8 +32,15 @@ spec:
           env:
             - name: PORT
               value: "4000"
+            # The api's MongoDB login (user accbot), from the mongodb-auth
+            # Secret that ops/mongo-auth.sh creates in the cluster: it holds a
+            # password, so it's never in this public repo. Not optional: without
+            # the Secret the api doesn't start, rather than run without a login.
             - name: MONGO_URI
-              value: "mongodb://mongodb-svc:27017/accbot?directConnection=true"
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-auth
+                  key: apiUri
             - name: BOSS_USER_ID
               valueFrom:
                 secretKeyRef:

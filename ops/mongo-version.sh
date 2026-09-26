@@ -13,14 +13,26 @@ NS=accounting-bot
 POD=mongodb-0
 
 # The shell inside the image: mongosh from MongoDB 6.0 on, mongo before.
-if kubectl -n "$NS" exec "$POD" -- sh -c 'command -v mongosh' >/dev/null 2>&1; then
+# (-c mongodb: the pod also has an init container.)
+if kubectl -n "$NS" exec -c mongodb "$POD" -- sh -c 'command -v mongosh' >/dev/null 2>&1; then
   SHELL_BIN=mongosh
 else
   SHELL_BIN=mongo
 fi
 
+# Runs JavaScript in mongodb-0's shell: without a login whenever the server
+# allows it, otherwise as the pod's admin (MONGO_ADMIN_*, from MongoDB D3b on).
 run() {
-  kubectl -n "$NS" exec "$POD" -- "$SHELL_BIN" --quiet --eval "$1"
+  # shellcheck disable=SC2016  # these expand inside the pod
+  kubectl -n "$NS" exec -c mongodb "$POD" -- sh -c '
+    if "$1" --quiet --eval "db.getSiblingDB(\"admin\").getUsers()" >/dev/null 2>&1; then
+      exec "$1" --quiet --eval "$2"
+    fi
+    if [ -n "${MONGO_ADMIN_PASSWORD:-}" ]; then
+      exec "$1" --quiet -u "$MONGO_ADMIN_USERNAME" -p "$MONGO_ADMIN_PASSWORD" --authenticationDatabase admin --eval "$2"
+    fi
+    exec "$1" --quiet --eval "$2"
+  ' _ "$SHELL_BIN" "$1"
 }
 
 version() {
