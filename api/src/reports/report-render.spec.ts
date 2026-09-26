@@ -26,7 +26,7 @@ function weekly(overrides: Partial<WeeklyReportData> = {}): WeeklyReportData {
       largest: [{ name: 'Rent Co', at: at('2026-09-22T15:00:00Z'), amount: 12000 }],
     },
     month: {
-      label: 'September',
+      monthNumber: 9,
       spent: 61200,
       income: 75000,
       net: 13800,

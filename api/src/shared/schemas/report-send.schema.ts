@@ -1,6 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
+export type ReportSendKind = 'weekly' | 'monthly';
+/** 'sending' is a claim in progress; 'sent' and 'skipped' are final. */
+export type ReportSendStatus = 'sending' | 'sent' | 'skipped';
+
 /**
  * One record per emailed report (weekly digest or monthly summary), claimed
  * before sending. 'sending' is in progress (or abandoned, if old); 'sent' and
@@ -8,12 +12,10 @@ import { Document } from 'mongoose';
  */
 @Schema()
 export class ReportSend extends Document {
-  /** 'weekly' | 'monthly' */
-  @Prop({ required: true }) kind: string;
+  @Prop({ required: true, type: String }) kind: ReportSendKind;
   /** The period key: 'YYYY-Www' or 'YYYY-MM'. */
   @Prop({ required: true }) period: string;
-  /** 'sending' | 'sent' | 'skipped' */
-  @Prop({ required: true }) status: string;
+  @Prop({ required: true, type: String }) status: ReportSendStatus;
   /** When status was last set. */
   @Prop({ required: true }) at: Date;
 }

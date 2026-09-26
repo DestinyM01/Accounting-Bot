@@ -18,10 +18,6 @@ export const INGESTION_STALE_DAYS = 3;
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 86_400_000;
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const toBudgetLines = (rows: { category: string; limit: number; spent: number }[]): BudgetLine[] =>
   rows.map((b) => ({ category: b.category, limit: b.limit, spent: b.spent }));
@@ -72,7 +68,7 @@ export class ReportDataService {
       to: period.to,
       week: { spent: round2(spent), income: round2(income), topCategories, largest },
       month: {
-        label: MONTHS[summary.month - 1],
+        monthNumber: summary.month,
         spent: summary.expense,
         income: summary.income,
         net: summary.net,

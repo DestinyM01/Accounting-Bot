@@ -134,7 +134,7 @@ describe('ReportDataService', () => {
       expect(statistics.summary).toHaveBeenCalledWith();
       expect(budgets.get).toHaveBeenCalledWith();
       expect(month).toEqual({
-        label: 'September',
+        monthNumber: 9,
         spent: 61200,
         income: 75000,
         net: 13800,

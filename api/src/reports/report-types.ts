@@ -36,8 +36,8 @@ export interface WeeklyReportData {
   from: Date;
   to: Date;
   week: { spent: number; income: number; topCategories: CategoryTotal[]; largest: ExpenseLine[] };
-  /** The month of the send time, so far. `label` is the month's name, e.g. 'September'. */
-  month: { label: string; spent: number; income: number; net: number; budgets: BudgetLine[] };
+  /** The month of the send time, so far. `monthNumber` is 1..12; the render names it. */
+  month: { monthNumber: number; spent: number; income: number; net: number; budgets: BudgetLine[] };
   waiting: { unresolved: number; toReview: number };
   health: Health;
 }

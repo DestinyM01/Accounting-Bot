@@ -23,7 +23,7 @@ const WEEKLY_DATA: WeeklyReportData = {
   from: at('2026-09-21T04:00:00Z'),
   to: at('2026-09-28T04:00:00Z'),
   week: { spent: 18450, income: 45000, topCategories: [], largest: [] },
-  month: { label: 'September', spent: 61200, income: 75000, net: 13800, budgets: [] },
+  month: { monthNumber: 9, spent: 61200, income: 75000, net: 13800, budgets: [] },
   waiting: { unresolved: 0, toReview: 0 },
   health: { overdueRecurring: [], lastIngestedAt: at('2026-09-27T14:00:00Z'), daysSinceIngest: 0, ingestionStale: false },
 };

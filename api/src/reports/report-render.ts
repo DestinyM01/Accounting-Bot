@@ -138,7 +138,7 @@ export function renderWeekly(d: WeeklyReportData, opts: RenderOptions): Rendered
     });
   }
   sections.push({
-    title: `${d.month.label} so far`,
+    title: `${MONTHS[d.month.monthNumber - 1]} so far`,
     rows: [
       { label: 'Spent', value: money(d.month.spent) },
       { label: 'Income', value: money(d.month.income) },
