@@ -60,12 +60,17 @@ describe('MailClient', () => {
     jest.restoreAllMocks();
   });
 
-  it('returns an empty list and does not throw when credentials are missing', async () => {
+  // null (not []) tells the caller "the mailbox was never opened" — the
+  // documented way to pause ingestion. Returning [] here would look
+  // indistinguishable from "opened it, found nothing", and the caller
+  // (IngestionService.run) would move its resume point regardless, silently
+  // losing everything older than the overlap once credentials come back.
+  it('returns null and does not throw when credentials are missing', async () => {
     delete process.env.GMAIL_USER;
     delete process.env.GMAIL_APP_PASSWORD;
 
     const client = new MailClient();
-    await expect(client.fetchSince(new Date(), [SENDER])).resolves.toEqual([]);
+    await expect(client.fetchSince(new Date(), [SENDER])).resolves.toBeNull();
     expect(mockImapFlow).not.toHaveBeenCalled();
   });
 

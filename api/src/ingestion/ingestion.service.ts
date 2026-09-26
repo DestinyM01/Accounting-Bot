@@ -110,6 +110,15 @@ export class IngestionService {
     const senders = this.parsers.flatMap((p) => p.senders);
     const mails = await this.mail.fetchSince(since, senders);
 
+    // GMAIL_USER / GMAIL_APP_PASSWORD unset — the documented way to pause
+    // ingestion. A run that never opened the mailbox must not forget
+    // unreadable mail or move the resume point: either would silently
+    // narrow the window while paused, so mail from before it resumed would
+    // be skipped for good once credentials come back.
+    if (mails === null) {
+      return { created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, unverified: 0 };
+    }
+
     // Mails before the configured start can't come back: don't leave them on
     // the unreadable list. Only the configured start, never the moving window:
     // an unreadable mail inside the window holds the window open until it

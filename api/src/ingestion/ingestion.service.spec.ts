@@ -1120,6 +1120,19 @@ describe('IngestionService', () => {
       if (saved.start === undefined) delete process.env.INGEST_START_AT; else process.env.INGEST_START_AT = saved.start;
     });
 
+    // GMAIL_USER / GMAIL_APP_PASSWORD unset is the documented way to pause
+    // ingestion (MailClient.fetchSince then returns null, not []). A run that
+    // never opened the mailbox must not forget unreadable mail or move the
+    // resume point — either would narrow the window while paused, so mail
+    // from before ingestion resumed would never be read once it comes back.
+    it('does nothing and returns zero counts when the mailbox is not configured', async () => {
+      mail.fetchSince.mockResolvedValue(null);
+      const result = await service.run(NOW);
+      expect(result).toEqual(counts());
+      expect(status.recordResumePoint).not.toHaveBeenCalled();
+      expect(status.forgetUnreadableBefore).not.toHaveBeenCalled();
+    });
+
     it('reads from the window start the status gives', async () => {
       const from = new Date('2026-09-24T09:00:00Z');
       status.windowStart.mockResolvedValue(from);

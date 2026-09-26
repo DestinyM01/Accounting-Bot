@@ -22,13 +22,18 @@ export class MailClient {
    * Fetches mail received since `since` from the configured mailbox,
    * keeping only messages from the given sender allow-list.
    * Opens the mailbox READ-ONLY — never mutates the user's mail.
+   *
+   * Returns null — never [] — when GMAIL_USER/GMAIL_APP_PASSWORD are unset,
+   * the documented way to pause ingestion: the caller must tell "paused,
+   * mailbox never opened" apart from "opened it, found nothing", since only
+   * the latter may advance the reading window.
    */
-  async fetchSince(since: Date, senders: string[]): Promise<FetchedMail[]> {
+  async fetchSince(since: Date, senders: string[]): Promise<FetchedMail[] | null> {
     const user = process.env.GMAIL_USER;
     const pass = process.env.GMAIL_APP_PASSWORD;
     if (!user || !pass) {
       this.logger.warn('GMAIL_USER / GMAIL_APP_PASSWORD not set — skipping fetch');
-      return [];
+      return null;
     }
 
     const mailbox = process.env.INGEST_MAILBOX || 'INBOX';
