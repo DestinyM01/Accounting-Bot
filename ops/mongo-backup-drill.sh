@@ -37,8 +37,18 @@ drill() { # archive
 
   trap 'kubectl -n "$NS" delete pod "$DRILL" --ignore-not-found --wait=false >/dev/null 2>&1 || true' EXIT
   kubectl -n "$NS" delete pod "$DRILL" --ignore-not-found --wait=true >/dev/null
-  kubectl -n "$NS" run "$DRILL" --image="$IMAGE" --restart=Never --labels=app=mongo-drill >/dev/null
-  kubectl -n "$NS" wait --for=condition=Ready "pod/$DRILL" --timeout=180s >/dev/null
+
+  # On mongodb-0's node, which already has the image: pulling it fresh on
+  # another node can take minutes.
+  node=$(kubectl -n "$NS" get pod mongodb-0 -o jsonpath='{.spec.nodeName}')
+  kubectl -n "$NS" run "$DRILL" --image="$IMAGE" --restart=Never --labels=app=mongo-drill \
+    --overrides="{\"apiVersion\":\"v1\",\"spec\":{\"nodeSelector\":{\"kubernetes.io/hostname\":\"$node\"}}}" >/dev/null
+  if ! kubectl -n "$NS" wait --for=condition=Ready "pod/$DRILL" --timeout=300s >/dev/null; then
+    echo "The drill pod didn't start. What Kubernetes says about it:" >&2
+    kubectl -n "$NS" get pod "$DRILL" -o wide >&2 || true
+    kubectl -n "$NS" describe pod "$DRILL" 2>/dev/null | sed -n '/^Events:/,$p' >&2 || true
+    exit 1
+  fi
 
   sh_bin=$(shell_in "$DRILL")
   tries=0
