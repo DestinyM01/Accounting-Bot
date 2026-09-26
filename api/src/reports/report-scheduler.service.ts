@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BeforeApplicationShutdown, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Cron } from '@nestjs/schedule';
 import { Model } from 'mongoose';
 import { ReportSend } from '../shared/schemas/report-send.schema';
+import { waitForIdle } from '../shared/wait-for-idle';
 import { MailerService } from './mailer.service';
 import { ReportDataService } from './report-data.service';
 import { SettingsService } from '../settings/settings.service';
@@ -22,10 +23,13 @@ type Outcome = 'sent' | 'skipped' | 'failed';
  * window closes and it is recorded as skipped.
  */
 @Injectable()
-export class ReportSchedulerService {
+export class ReportSchedulerService implements BeforeApplicationShutdown {
   private readonly logger = new Logger(ReportSchedulerService.name);
   /** Set while a run is in flight so a slow run is never overlapped by the next tick. */
   private running = false;
+
+  /** Set once shutdown begins: no new run starts after that. */
+  private stopping = false;
 
   constructor(
     @InjectModel(ReportSend.name) private readonly sendModel: Model<ReportSend>,
@@ -44,6 +48,10 @@ export class ReportSchedulerService {
   }
 
   async run(now: Date): Promise<void> {
+    if (this.stopping) {
+      this.logger.warn('Report run skipped: shutting down');
+      return;
+    }
     if (this.running) {
       this.logger.warn('Report run skipped: previous run still in flight');
       return;
@@ -78,6 +86,11 @@ export class ReportSchedulerService {
     } finally {
       this.running = false;
     }
+  }
+
+  async beforeApplicationShutdown(): Promise<void> {
+    this.stopping = true;
+    await waitForIdle(() => this.running, 'a report run', this.logger);
   }
 
   private async handle(

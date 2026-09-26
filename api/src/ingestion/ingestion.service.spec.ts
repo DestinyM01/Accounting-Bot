@@ -486,6 +486,21 @@ describe('IngestionService', () => {
       mail.fetchSince.mockResolvedValue([]);
       await expect(service.runGuarded()).resolves.toEqual(counts());
     });
+
+    it('waits for a run in flight at shutdown, then starts no new one', async () => {
+      let release!: () => void;
+      mail.fetchSince.mockReturnValueOnce(new Promise<FetchedMail[]>((resolve) => { release = () => resolve([]); }));
+      const first = service.runGuarded();
+      let stopped = false;
+      const stopping = service.beforeApplicationShutdown().then(() => (stopped = true));
+      await new Promise((r) => setTimeout(r, 150));
+      expect(stopped).toBe(false);
+      release();
+      await first;
+      await stopping;
+      await expect(service.runGuarded()).resolves.toBeNull();
+      expect(mail.fetchSince).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('skips (without a matching parser) a mail whose sender is not registered to any parser', async () => {

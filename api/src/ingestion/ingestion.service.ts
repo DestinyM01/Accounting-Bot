@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BeforeApplicationShutdown, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Cron } from '@nestjs/schedule';
 import { Model } from 'mongoose';
+import { waitForIdle } from '../shared/wait-for-idle';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { Category } from '../shared/schemas/category.enum';
 import { LedgerService } from '../shared/ledger/ledger.service';
@@ -47,7 +48,7 @@ const UNVERIFIED_REASON = "Couldn't verify it came from the bank";
 const UNOPENED_REASON = "Couldn't open the mail";
 
 @Injectable()
-export class IngestionService {
+export class IngestionService implements BeforeApplicationShutdown {
   private readonly logger = new Logger(IngestionService.name);
   private readonly userId = parseInt(process.env.BOSS_USER_ID || '0', 10);
   private readonly parsers: BankParser[] = [popularParser, bhdParser, santaCruzParser, banreservasParser];
@@ -67,6 +68,9 @@ export class IngestionService {
 
   /** Set while a run is in flight so a slow run is never overlapped by the next tick. */
   private running = false;
+
+  /** Set once shutdown begins: no new run starts after that. */
+  private stopping = false;
 
   // waitForCompletion makes the scheduler itself skip ticks while a run is in
   // flight; the flag covers the same ground for any direct caller of poll().
@@ -90,6 +94,10 @@ export class IngestionService {
    * recorded and rethrown.
    */
   async runGuarded(): Promise<RunCounts | null> {
+    if (this.stopping) {
+      this.logger.warn('Ingestion run skipped: shutting down');
+      return null;
+    }
     if (this.running) {
       this.logger.warn('Ingestion poll skipped: previous run still in flight');
       return null;
@@ -106,6 +114,11 @@ export class IngestionService {
     } finally {
       this.running = false;
     }
+  }
+
+  async beforeApplicationShutdown(): Promise<void> {
+    this.stopping = true;
+    await waitForIdle(() => this.running, 'an ingestion run', this.logger);
   }
 
   async run(now: Date = new Date()): Promise<RunCounts> {

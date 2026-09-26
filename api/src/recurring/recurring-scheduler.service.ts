@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BeforeApplicationShutdown, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Cron } from '@nestjs/schedule';
 import { Model } from 'mongoose';
@@ -7,6 +7,7 @@ import { Transaction } from '../shared/schemas/transaction.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { NOT_DELETED } from '../shared/schemas/transfer-kind';
 import { LedgerService } from '../shared/ledger/ledger.service';
+import { waitForIdle } from '../shared/wait-for-idle';
 import { isSchedulableDay, LOOKBACK_DAYS, Occurrence, planOccurrences, schedulableFrom } from './due-occurrences';
 
 export type BookingOutcome = 'booked' | 'satisfied' | 'failed';
@@ -24,10 +25,13 @@ interface Tally {
  * was down Sep 17–24 2026 and every rule due that week was silently skipped.
  */
 @Injectable()
-export class RecurringSchedulerService {
+export class RecurringSchedulerService implements BeforeApplicationShutdown {
   private readonly logger = new Logger(RecurringSchedulerService.name);
   private readonly userId = parseInt(process.env.BOSS_USER_ID || '0', 10);
   private running = false;
+
+  /** Set once shutdown begins: no new run starts after that. */
+  private stopping = false;
 
   constructor(
     @InjectModel(Recurring.name) private readonly recurringModel: Model<Recurring>,
@@ -49,6 +53,10 @@ export class RecurringSchedulerService {
    * catch-up logic runs every day, not only after an outage.
    */
   async sweep(now: Date): Promise<void> {
+    if (this.stopping) {
+      this.logger.warn('Recurring sweep skipped: shutting down');
+      return;
+    }
     if (this.running) {
       this.logger.warn('Recurring sweep skipped: previous run still in flight');
       return;
@@ -74,6 +82,11 @@ export class RecurringSchedulerService {
     } finally {
       this.running = false;
     }
+  }
+
+  async beforeApplicationShutdown(): Promise<void> {
+    this.stopping = true;
+    await waitForIdle(() => this.running, 'a recurring sweep', this.logger);
   }
 
   private async processRule(rule: Recurring, now: Date, tally: Tally): Promise<void> {

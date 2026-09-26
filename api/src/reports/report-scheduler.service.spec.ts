@@ -278,6 +278,21 @@ describe('ReportSchedulerService', () => {
     await first;
   });
 
+  it('waits for a run in flight at shutdown, then starts no new one', async () => {
+    let release!: (doc: unknown) => void;
+    sendModel.findOne.mockReturnValueOnce({ lean: () => new Promise((resolve) => (release = resolve)) });
+    const first = service.run(NOW);
+    let stopped = false;
+    const stopping = service.beforeApplicationShutdown().then(() => (stopped = true));
+    await new Promise((r) => setTimeout(r, 150));
+    expect(stopped).toBe(false);
+    release({ ...key, status: 'sent', at: NOW });
+    await first;
+    await stopping;
+    await service.run(NOW);
+    expect(sendModel.findOne).toHaveBeenCalledTimes(1);
+  });
+
   it('records a monthly report turned off as skipped', async () => {
     latest.mockReturnValue([MONTHLY]);
     settings.reports.mockResolvedValue({ weekly: true, monthly: false, recipient: 'me@example.com' });

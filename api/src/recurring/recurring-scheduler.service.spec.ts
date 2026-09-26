@@ -292,6 +292,21 @@ describe('RecurringSchedulerService', () => {
       await first;
     });
 
+    it('waits for a sweep in flight at shutdown, then starts no new one', async () => {
+      let release!: (rules: unknown[]) => void;
+      recurringModel.find.mockReturnValueOnce(new Promise((resolve) => (release = resolve)));
+      const first = service.sweep(NOW);
+      let stopped = false;
+      const stopping = service.beforeApplicationShutdown().then(() => (stopped = true));
+      await new Promise((r) => setTimeout(r, 150));
+      expect(stopped).toBe(false);
+      release([]);
+      await first;
+      await stopping;
+      await service.sweep(NOW);
+      expect(recurringModel.find).toHaveBeenCalledTimes(1);
+    });
+
     it('logs a failed rule query instead of throwing, and releases the guard', async () => {
       recurringModel.find.mockRejectedValueOnce(new Error('mongo down'));
       await expect(service.sweep(NOW)).resolves.toBeUndefined();
