@@ -63,7 +63,7 @@ spec:
           containers:
             - name: backup
               # Same image as the StatefulSet: its mongodump and shell match the server.
-              image: mongo:5.0.33
+              image: mongo:6.0.28
               command: ["/bin/sh", "-c"]
               args:
                 - |
