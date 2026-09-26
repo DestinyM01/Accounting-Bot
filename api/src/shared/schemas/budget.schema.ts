@@ -11,3 +11,6 @@ export class Budget extends Document {
 }
 
 export const BudgetSchema = SchemaFactory.createForClass(Budget);
+
+// One budget per category and month. Without it, two saves at once could each insert a row.
+BudgetSchema.index({ userId: 1, category: 1, month: 1, year: 1 }, { unique: true });
