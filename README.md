@@ -79,11 +79,9 @@ Acc_bot/
 │   │   ├── compare/        ← GET /api/compare/months, POST /api/compare
 │   │   └── analytics/      ← GET /api/analytics/top10, GET /api/analytics/chart/:name
 │   └── k8s/                ← Kubernetes manifests (Deployment, Service, ArgoCD app)
-├── web/                    ← Angular 17 SPA
-│   └── src/app/pages/      ← dashboard, transactions, budget, statistics,
-│                               compare, analytics, recurring, tips
-├── docker-compose.yml      ← Bot + MongoDB for local / Proxmox LXC deployment
-└── DEPLOY.md               ← Proxmox LXC setup guide
+└── web/                    ← Angular 17 SPA
+    └── src/app/pages/      ← dashboard, transactions, budget, statistics,
+                                compare, analytics, recurring, tips
 ```
 
 ---
@@ -91,48 +89,8 @@ Acc_bot/
 ## Prerequisites
 
 - **Node.js** 20+, **pnpm** 8+
-- **Docker** and **Docker Compose** (for the bot)
-- **MongoDB** 7 (provided by Docker Compose)
-- A **Telegram bot token** from [@BotFather](https://t.me/BotFather)
+- **MongoDB** (in production, the StatefulSet in `repo/k8s/`)
 - A **Mistral API key** from [console.mistral.ai](https://console.mistral.ai) (free tier works)
-
----
-
-## Quick Start — Telegram Bot
-
-```bash
-# 1. Clone
-git clone https://github.com/DestinyM01/Accounting-Bot.git
-cd Accounting-Bot
-
-# 2. Create .env
-cp .env.example .env
-# Fill in TELEGRAM_TOKEN, MISTRAL_API_KEY, MONGO_URI
-
-# 3. Start
-docker compose up -d --build
-
-# 4. Check logs
-docker compose logs -f app
-```
-
-Expected healthy output:
-```
-[NestFactory] Starting Nest application...
-[AppModule] Mongoose connected
-[TelegrafModule] Bot started
-```
-
-### Environment Variables (bot)
-
-| Variable | Description |
-|---|---|
-| `TELEGRAM_TOKEN` | Bot token from @BotFather |
-| `MISTRAL_API_KEY` | Mistral API key for AI compare |
-| `MONGO_URI` | MongoDB connection string (default: `mongodb://mongo:27017/accbot`) |
-| `CRON_SCHEDULE` | Inactivity reminder cron expression (default: `47 15 * * *`) |
-| `CRON_TIMEZONE` | Timezone for all cron jobs (default: `America/Santo_Domingo`) |
-| `BOSS_USER_ID` | Your Telegram user ID — only this user can interact with the bot |
 
 ---
 
@@ -221,10 +179,6 @@ kubectl create secret generic accounting-bot-secret \
   --from-literal=MISTRAL_API_KEY=<your_mistral_key> \
   -n accounting-bot
 ```
-
-### Proxmox LXC (bot only)
-
-See [DEPLOY.md](DEPLOY.md) for full step-by-step instructions.
 
 ---
 

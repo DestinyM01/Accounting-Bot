@@ -12,3 +12,10 @@ out-tsc/
 
 # Angular cache
 .angular/
+
+# Local only: Claude Code settings and planning docs
+.claude/
+docs/superpowers/
+
+# IDE
+.idea/
