@@ -137,4 +137,53 @@ describe('MailClient', () => {
 
     expect(out[0].body).toBe('body of has-text');
   });
+
+  const GMAIL_PASS = 'Authentication-Results: mx.google.com;\r\n       dkim=pass header.i=@b.com header.s=s1;\r\n       dmarc=pass (p=REJECT) header.from=b.com';
+
+  it('marks a mail verified when the topmost Authentication-Results is a Gmail pass for its domain', async () => {
+    mockFetch.mockImplementation(async function* () { yield { uid: 1, source: Buffer.from('m') }; });
+    mockSimpleParser.mockResolvedValue({
+      ...parsedMail('m', new Date('2026-01-02T00:00:00Z')),
+      headerLines: [{ key: 'authentication-results', line: GMAIL_PASS }],
+    });
+    const [mail] = await new MailClient().fetchSince(new Date('2026-01-01T00:00:00Z'), [SENDER]);
+    expect(mail.verified).toBe(true);
+  });
+
+  it('ignores a forged pass below a failing topmost header', async () => {
+    mockFetch.mockImplementation(async function* () { yield { uid: 1, source: Buffer.from('m') }; });
+    mockSimpleParser.mockResolvedValue({
+      ...parsedMail('m', new Date('2026-01-02T00:00:00Z')),
+      headerLines: [
+        { key: 'authentication-results', line: 'Authentication-Results: mx.google.com; dkim=fail header.i=@b.com; dmarc=fail header.from=b.com' },
+        { key: 'authentication-results', line: GMAIL_PASS },
+      ],
+    });
+    const [mail] = await new MailClient().fetchSince(new Date('2026-01-01T00:00:00Z'), [SENDER]);
+    expect(mail.verified).toBe(false);
+  });
+
+  it('marks a mail without the header unverified', async () => {
+    mockFetch.mockImplementation(async function* () { yield { uid: 1, source: Buffer.from('m') }; });
+    mockSimpleParser.mockResolvedValue(parsedMail('m', new Date('2026-01-02T00:00:00Z')));
+    const [mail] = await new MailClient().fetchSince(new Date('2026-01-01T00:00:00Z'), [SENDER]);
+    expect(mail.verified).toBe(false);
+  });
+
+  it('skips a message that cannot be parsed and still returns the others', async () => {
+    mockFetch.mockImplementation(async function* () {
+      yield { uid: 1, source: Buffer.from('one') };
+      yield { uid: 2, source: Buffer.from('bad') };
+      yield { uid: 3, source: Buffer.from('three') };
+    });
+    mockSimpleParser.mockImplementation(async (source: Buffer) => {
+      const id = source.toString();
+      if (id === 'bad') throw new Error('malformed MIME');
+      return parsedMail(id, new Date('2026-01-02T00:00:00Z'));
+    });
+    const warn = jest.spyOn(Logger.prototype, 'warn');
+    const mails = await new MailClient().fetchSince(new Date('2026-01-01T00:00:00Z'), [SENDER]);
+    expect(mails.map((m) => m.subject)).toEqual(['one', 'three']);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Skipped an unparseable mail (uid 2)'));
+  });
 });

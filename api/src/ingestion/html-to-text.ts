@@ -37,8 +37,17 @@ function decodeEntities(s: string): string {
   return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code: string) => {
     if (code[0] === '#') {
       const n = code[1].toLowerCase() === 'x' ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
-      return Number.isFinite(n) ? String.fromCodePoint(n) : whole;
+      return Number.isFinite(n) ? codePoint(n) : whole;
     }
     return NAMED[code.toLowerCase()] ?? whole;
   });
+}
+
+/**
+ * The character for a numeric entity. One no string can hold (beyond U+10FFFF,
+ * or a lone surrogate) becomes U+FFFD: String.fromCodePoint would throw, and
+ * one such entity in a mail must not fail the whole ingestion run.
+ */
+function codePoint(n: number): string {
+  return n > 0x10ffff || (n >= 0xd800 && n <= 0xdfff) ? '�' : String.fromCodePoint(n);
 }

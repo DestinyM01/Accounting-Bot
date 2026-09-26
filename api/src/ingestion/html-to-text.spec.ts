@@ -98,4 +98,15 @@ describe('htmlToText', () => {
     expect(htmlToText('<p>&#xF3;</p>')).toBe('ó');
     expect(htmlToText('<p>&foo;</p>')).toBe('&foo;');
   });
+
+  describe('numeric entities no string can hold', () => {
+    it('keeps the highest code point', () => {
+      expect(htmlToText('<p>&#x10FFFF;</p>')).toBe('\u{10FFFF}');
+    });
+    it('turns one beyond it, a huge one, or a lone surrogate into U+FFFD instead of throwing', () => {
+      expect(htmlToText('<p>a&#x110000;b</p>')).toBe('a�b');
+      expect(htmlToText('<p>&#99999999;</p>')).toBe('�');
+      expect(htmlToText('<p>&#xD800;</p>')).toBe('�');
+    });
+  });
 });

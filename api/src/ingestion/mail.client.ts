@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { htmlToText } from './html-to-text';
+import { verifySender } from './mail-auth';
 
 export interface FetchedMail {
   messageId: string; // RFC message id — the dedupe key
@@ -9,6 +10,8 @@ export interface FetchedMail {
   subject: string;
   body: string; // plain text
   receivedAt: Date;
+  /** Gmail's own checks (DMARC or DKIM) passed for the sender's domain; see mail-auth.ts. */
+  verified: boolean;
 }
 
 @Injectable()
@@ -56,27 +59,35 @@ export class MailClient {
       try {
         for await (const msg of client.fetch({ since }, { source: true, envelope: true })) {
           if (!msg.source) continue;
+          // One malformed message must not end the run for every other mail.
+          try {
+            const parsed = await simpleParser(msg.source);
+            const sender = (parsed.from?.value?.[0]?.address ?? '').toLowerCase();
+            if (!allow.includes(sender)) continue;
 
-          const parsed = await simpleParser(msg.source);
-          const sender = (parsed.from?.value?.[0]?.address ?? '').toLowerCase();
-          if (!allow.includes(sender)) continue;
+            const envelopeDate = msg.envelope?.date ? new Date(msg.envelope.date) : undefined;
+            const receivedAt = parsed.date ?? envelopeDate ?? new Date();
 
-          const envelopeDate = msg.envelope?.date ? new Date(msg.envelope.date) : undefined;
-          const receivedAt = parsed.date ?? envelopeDate ?? new Date();
+            // IMAP SEARCH SINCE is date-granular: it returns everything from
+            // 00:00 of the watermark's day. The watermark carries a time of
+            // day, so anything from earlier that day must be dropped here.
+            if (receivedAt < since) continue;
 
-          // IMAP SEARCH SINCE is date-granular: it returns everything from
-          // 00:00 of the watermark's day. The watermark carries a time of
-          // day, so anything from earlier that day must be dropped here.
-          if (receivedAt < since) continue;
+            // headerLines keeps the headers in order: the first is the topmost, the one Gmail added.
+            const authResults = parsed.headerLines?.find((h) => h.key === 'authentication-results')?.line;
 
-          out.push({
-            messageId: parsed.messageId ?? `uid-${msg.uid}`,
-            sender,
-            subject: parsed.subject ?? '',
-            // Some banks (BHD) send HTML only: fall back to its tables as pipe rows.
-            body: parsed.text?.trim() ? parsed.text : typeof parsed.html === 'string' ? htmlToText(parsed.html) : '',
-            receivedAt,
-          });
+            out.push({
+              messageId: parsed.messageId ?? `uid-${msg.uid}`,
+              sender,
+              subject: parsed.subject ?? '',
+              // Some banks (BHD) send HTML only: fall back to its tables as pipe rows.
+              body: parsed.text?.trim() ? parsed.text : typeof parsed.html === 'string' ? htmlToText(parsed.html) : '',
+              receivedAt,
+              verified: verifySender(authResults, sender),
+            });
+          } catch (err) {
+            this.logger.warn(`Skipped an unparseable mail (uid ${msg.uid}): ${err instanceof Error ? err.message : String(err)}`);
+          }
         }
       } finally {
         lock.release();

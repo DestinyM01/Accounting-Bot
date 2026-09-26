@@ -65,6 +65,7 @@ function makeMail(overrides: Partial<FetchedMail> = {}): FetchedMail {
     subject: 'Test subject',
     body: 'Test body',
     receivedAt: new Date('2026-01-01'),
+    verified: true,
     ...overrides,
   };
 }
