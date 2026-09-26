@@ -16,7 +16,7 @@
   </div>
 
   <p class="mer-live" aria-live="polite">{{ status }}</p>
-  @if (status && statusAt === 'top') {
+  @if (status && effectiveStatusAt === 'top') {
     <p class="mer-status" aria-hidden="true">{{ status }}</p>
   }
 
@@ -152,15 +152,12 @@
                   </button>
                 </div>
               }
-              @if (status && statusAt === m.id) {
+              @if (status && effectiveStatusAt === m.id) {
                 <p class="mer-row-status" aria-hidden="true">{{ status }}</p>
               }
             </li>
           }
         </ul>
-      }
-      @if (status && statusAt === 'end') {
-        <p class="mer-row-status" aria-hidden="true">{{ status }}</p>
       }
     </section>
   }

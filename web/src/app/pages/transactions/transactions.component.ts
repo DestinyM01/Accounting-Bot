@@ -52,6 +52,14 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   private searchSub!: Subscription;
   private eventsSub!: Subscription;
 
+  /**
+   * Bumped by a fresh load (never by "load more"), the same pattern as the
+   * Balance page: a reply that started under an older generation is stale
+   * (superseded by a filter change, another fresh load, or an in-place
+   * reload) and is ignored, whether it succeeds or errors.
+   */
+  private generation = 0;
+
   constructor(
     private api: ApiService,
     private catSvc: CategoryService,
@@ -86,8 +94,17 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   }
 
   load(append: boolean) {
-    if (append) this.loadingMore = true;
-    else        this.loading     = true;
+    let gen = this.generation;
+    if (append) {
+      this.loadingMore = true;
+    } else {
+      this.loading = true;
+      // Clear before the request goes out, not after it comes back: a stale
+      // "load more" in flight must not append past a cursor that no longer
+      // matches this (possibly re-filtered) fresh load.
+      this.nextCursor = null;
+      gen = ++this.generation;
+    }
     this.filedNote = '';
 
     this.api.getTransactions({
@@ -96,6 +113,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       ...this.currentFilters(),
     }).subscribe({
       next: (page: TransactionPage) => {
+        if (gen !== this.generation) return;
         this.items      = append ? [...this.items, ...page.items] : page.items;
         this.total      = page.total;
         this.nextCursor = page.nextCursor;
@@ -104,6 +122,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         this.dropPanelIfGone();
       },
       error: () => {
+        if (gen !== this.generation) return;
         this.loading = this.loadingMore = false;
         this.error = 'Could not load transactions — reload the page.';
       },
@@ -113,18 +132,25 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   /**
    * Re-fetch what is on screen without the blocking "Loading…" state, keeping
    * scroll position, paged rows and the focused element. Cap at the API's max.
+   * Bumps the generation too, so a "load more" already in flight cannot
+   * append its (now stale) page onto this fresher one.
    */
   private reloadInPlace() {
     const count = Math.min(Math.max(this.items.length, this.limit), 200);
+    const gen = ++this.generation;
     this.api.getTransactions({ ...this.currentFilters(), limit: count }).subscribe({
       next: (page: TransactionPage) => {
+        if (gen !== this.generation) return;
         this.items      = page.items;
         this.total      = page.total;
         this.nextCursor = page.nextCursor;
         this.error      = null;
         this.dropPanelIfGone();
       },
-      error: () => { this.error = 'Could not refresh the list — reload the page.'; },
+      error: () => {
+        if (gen !== this.generation) return;
+        this.error = 'Could not refresh the list — reload the page.';
+      },
     });
   }
 
@@ -179,7 +205,13 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   private static readonly PICK_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
 
   onPickKey(tx: Transaction, e: KeyboardEvent, select: HTMLSelectElement) {
-    if (TransactionsComponent.PICK_KEYS.has(e.key)) {
+    // On Windows, typing a letter on a closed select also jumps it to the
+    // matching option and fires `change` immediately — the same "wait for
+    // Enter/blur" treatment the arrow/paging keys get above. A plain
+    // single-character key (no modifier) is a type-ahead pick; Ctrl/Meta/Alt
+    // combos (shortcuts, not type-ahead) are excluded.
+    const isTypeAheadPick = e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+    if (TransactionsComponent.PICK_KEYS.has(e.key) || isTypeAheadPick) {
       this.keyPicking.add(tx._id);
       return;
     }

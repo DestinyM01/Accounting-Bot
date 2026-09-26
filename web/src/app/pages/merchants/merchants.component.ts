@@ -42,7 +42,7 @@ export class MerchantsComponent implements OnInit, OnDestroy {
   loading = true;
   loadError = '';
   status = '';
-  /** Where the visual status shows: a merchant id (under that row), 'end' (after the list) or 'top'. */
+  /** Where the status is anchored: a merchant id, or 'top'. See effectiveStatusAt for where it actually renders. */
   statusAt: string = 'top';
   filter = '';
 
@@ -99,6 +99,16 @@ export class MerchantsComponent implements OnInit, OnDestroy {
     return f
       ? this.merchants.filter((m) => m.key.includes(f) || ('id' in mode && mode.id === m.id))
       : this.merchants;
+  }
+
+  /**
+   * Where the status actually renders. `statusAt` anchors it to the row that
+   * changed, but a filter typed since (or the forgotten row's neighbour no
+   * longer matching) can leave that row out of `shown` — anchoring to a row
+   * nobody sees would drop the message silently, so it falls back to the top.
+   */
+  get effectiveStatusAt(): string {
+    return this.statusAt === 'top' || this.shown.some((m) => m.id === this.statusAt) ? this.statusAt : 'top';
   }
 
   /** The live line under the name field: what the typed name would match. */

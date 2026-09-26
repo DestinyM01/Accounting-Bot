@@ -13,6 +13,10 @@ import { CategoryService } from '../../../core/services/category.service';
  * panel owns its state and its requests; closing it (destroying it) drops the
  * breakdown load if one is still in flight. An add or remove already sent keeps
  * going, though, and still updates the row's "not itemized" figure when it lands.
+ * That in-flight reply has no generation guard against the list itself: if it
+ * lands after a list reload (a fresh `tx` object) or after the panel is closed
+ * and reopened for the same row, it can be lost or counted twice in the row's
+ * figure until the next reload corrects it (accepted edge).
  */
 @Component({
   selector: 'app-cash-panel',
