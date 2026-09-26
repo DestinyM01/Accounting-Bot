@@ -23,7 +23,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: mongodb
-          image: mongo:4.4
+          image: mongo:5.0.33
           # A fixed WiredTiger cache instead of the default (at least 256MB,
           # alongside a larger memory overhead on newer versions). The image's
           # entrypoint puts mongod in front of arguments that start with '-'.
