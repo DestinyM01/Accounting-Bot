@@ -67,6 +67,11 @@ export class MailSectionComponent implements OnInit, OnDestroy {
     return this.catSvc.color(category);
   }
 
+  /** Where "reading from" reads from: the resume point once one exists, else the configured floor. */
+  get readingSince(): string | null {
+    return this.status?.readingFrom ?? this.status?.startAt ?? null;
+  }
+
   checkNow() {
     if (this.checking || this.status?.running) return;
     this.checking = true;

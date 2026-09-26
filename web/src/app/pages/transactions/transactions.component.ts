@@ -3,7 +3,7 @@ import { CommonModule, CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/co
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
-import { debounceTime, distinctUntilChanged, Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged, map, Subject, Subscription } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { Transaction, TransactionPage } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
@@ -68,7 +68,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.searchSub = this.search$.pipe(debounceTime(300), distinctUntilChanged())
+    this.searchSub = this.search$.pipe(map((s) => s.trim()), debounceTime(300), distinctUntilChanged())
       .subscribe(() => this.load(false));
     this.eventsSub = this.events.changed$.subscribe(() => this.reloadInPlace());
     // The category list is loaded once at app start; refresh it so a category
@@ -145,11 +145,13 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         this.items      = page.items;
         this.total      = page.total;
         this.nextCursor = page.nextCursor;
+        this.loading    = this.loadingMore = false;
         this.error      = null;
         this.dropPanelIfGone();
       },
       error: () => {
         if (gen !== this.generation) return;
+        this.loading = this.loadingMore = false;
         this.error = 'Could not refresh the list — reload the page.';
       },
     });

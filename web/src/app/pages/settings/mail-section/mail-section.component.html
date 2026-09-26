@@ -17,7 +17,7 @@
       <p class="fc-error" role="alert">The last check failed at {{ err.at | date: 'MMM d, h:mm a' }}: {{ err.message }}</p>
     }
     <p class="set-muted">
-      @if (status.readingFrom ?? status.startAt; as from) {
+      @if (readingSince; as from) {
         Reading mail since {{ from | date: 'MMM d, y, h:mm a' }}
       } @else {
         Reading the last 24 hours of mail
@@ -39,7 +39,7 @@
 
     <h3 id="unreadable-heading" tabindex="-1">Couldn't read</h3>
     @if (status.unreadable.length === 0) {
-      <p class="set-muted">Every mail since {{ (status.readingFrom ?? status.startAt) ? ((status.readingFrom ?? status.startAt) | date: 'MMM d') : 'yesterday' }} was read.</p>
+      <p class="set-muted">Every mail since {{ readingSince ? (readingSince | date: 'MMM d') : 'yesterday' }} was read.</p>
     } @else {
       <ul class="set-list">
         @for (m of status.unreadable; track m.id) {

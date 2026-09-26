@@ -7,13 +7,13 @@
     </div>
   </div>
 
-  @if (loading) {
-    <p class="loading-state">{{ refreshError ? "Couldn't load the overview — trying again every minute." : 'Loading…' }}</p>
-  } @else {
-    @if (refreshError) {
-      <p class="refresh-error" role="status">Couldn't refresh — showing the last numbers, trying again every minute.</p>
-    }
+  <p class="refresh-error" role="status">{{ refreshError ? (loading ? "Couldn't load the overview — trying again every minute." : "Couldn't refresh — showing the last numbers, trying again every minute.") : '' }}</p>
 
+  @if (loading) {
+    @if (!refreshError) {
+      <p class="loading-state">Loading…</p>
+    }
+  } @else {
     <!-- Stat cards -->
     <div class="stat-grid">
       @for (s of stats; track s.label) {
