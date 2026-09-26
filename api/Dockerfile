@@ -1,8 +1,10 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-RUN npm install -g pnpm
-COPY package.json pnpm.json ./
-RUN pnpm install
+# Pinned to the version that wrote pnpm-lock.yaml; --frozen-lockfile installs exactly
+# the tested dependency versions and fails loudly if the lockfile is out of date.
+RUN npm install -g pnpm@11.3.0
+COPY package.json pnpm.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm run build
 

@@ -1,6 +1,6 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-RUN npm install -g pnpm
+RUN npm install -g pnpm@11.3.0
 COPY package.json pnpm.json pnpm-lock.yaml .npmrc pnpm-workspace.yaml ./
 RUN --mount=type=cache,id=pnpm-web-store,target=/root/.local/share/pnpm/store \
     CI=true pnpm install --frozen-lockfile --shamefully-hoist
