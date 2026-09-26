@@ -7,7 +7,7 @@ import { Transaction } from '../shared/schemas/transaction.schema';
 import { NOT_DELETED } from '../shared/schemas/transfer-kind';
 import { parseConfiguredInstant } from '../shared/time-zone';
 
-/** What one ingestion run did with each mail it read. Every mail lands in exactly one count. */
+/** What one ingestion run did with each mail it read. Every mail lands in exactly one of the first five counts. */
 export interface RunCounts {
   /** Booked this run. */
   created: number;
@@ -19,14 +19,18 @@ export interface RunCounts {
   unreadable: number;
   /** Read fine but the save failed; retried on the next poll. */
   bookingFailed: number;
+  /** Not a sixth bucket: how many of the mails, whichever count they landed in, Gmail couldn't verify. */
+  unverified: number;
 }
 
 export interface IngestionStatusView {
   startAt: string | null;
+  /** Where the next run will actually start reading; see IngestionStatusService.windowStart. */
+  readingFrom: string | null;
   running: boolean;
   lastRun: ({ at: Date } & RunCounts) | null;
   lastError: { at: Date; message: string } | null;
-  unreadable: { id: string; sender: string; subject: string; receivedAt: Date; attempts: number; lastSeenAt: Date }[];
+  unreadable: { id: string; sender: string; subject: string; receivedAt: Date; attempts: number; lastSeenAt: Date; reason: string | null }[];
   recent: { id: string; name: string; amount: number; isExpense: boolean; category: string; timestamp: Date; transferKind: string | null }[];
 }
 
@@ -58,6 +62,7 @@ export class IngestionStatusService {
             notTransactions: counts.notTransactions,
             unreadable: counts.unreadable,
             bookingFailed: counts.bookingFailed,
+            unverified: counts.unverified,
             lastError: null,
           },
           // The old counts are no longer in the schema; strict: false lets this one write remove them.
@@ -76,14 +81,21 @@ export class IngestionStatusService {
   }
 
   async recordUnreadable(
-    mail: { messageId: string; sender: string; subject: string; receivedAt: Date },
+    mail: { messageId: string; sender: string; subject: string; receivedAt: Date; reason?: string },
     at = new Date(),
   ): Promise<void> {
     await this.quietly(`record unreadable mail ${mail.messageId}`, () =>
       this.unreadableModel.updateOne(
         { userId: this.userId, messageId: mail.messageId },
         {
-          $set: { sender: mail.sender, subject: mail.subject, receivedAt: mail.receivedAt, lastSeenAt: at },
+          $set: {
+            sender: mail.sender,
+            subject: mail.subject,
+            receivedAt: mail.receivedAt,
+            lastSeenAt: at,
+            ...(mail.reason ? { reason: mail.reason } : {}),
+          },
+          ...(mail.reason ? {} : { $unset: { reason: '' } }),
           $setOnInsert: { firstSeenAt: at, dismissed: false },
           $inc: { attempts: 1 },
         },
@@ -101,6 +113,34 @@ export class IngestionStatusService {
     await this.quietly('forget unreadable mails outside the window', () =>
       this.unreadableModel.deleteMany({ userId: this.userId, receivedAt: { $lt: since }, dismissed: { $ne: true } }),
     );
+  }
+
+  /**
+   * Where the next run starts reading: the stored resume point, never before
+   * INGEST_START_AT; the start alone before the first finished run; null when
+   * there is neither (the caller then reads the last 24 hours). A failed read
+   * throws: the run fails rather than guess a window.
+   */
+  async windowStart(): Promise<Date | null> {
+    const status = await this.statusModel.findOne({ userId: this.userId }).select('resumeFrom').lean();
+    return windowFrom(parseConfiguredInstant(process.env.INGEST_START_AT), status?.resumeFrom);
+  }
+
+  /** Where the next run should start; see IngestionService.updateResumePoint. */
+  async recordResumePoint(resumeFrom: Date): Promise<void> {
+    await this.quietly('record where the next run starts', () =>
+      this.statusModel.updateOne({ userId: this.userId }, { $set: { resumeFrom } }, { upsert: true }),
+    );
+  }
+
+  /** When the oldest mail still on the unreadable list (not dismissed) arrived; null when there is none. Throws on a failed read. */
+  async oldestPendingUnreadable(): Promise<Date | null> {
+    const row = await this.unreadableModel
+      .findOne({ userId: this.userId, dismissed: { $ne: true } })
+      .sort({ receivedAt: 1 })
+      .select('receivedAt')
+      .lean();
+    return row?.receivedAt ? new Date(row.receivedAt) : null;
   }
 
   async clearUnreadable(messageId: string): Promise<void> {
@@ -152,9 +192,11 @@ export class IngestionStatusService {
     // The web's date pipe throws on a malformed date string, and
     // INGEST_START_AT is free-form operator input in the Secret — never pass
     // it through unvalidated.
-    const startAt = parseConfiguredInstant(process.env.INGEST_START_AT)?.toISOString() ?? null;
+    const start = parseConfiguredInstant(process.env.INGEST_START_AT);
+    const startAt = start?.toISOString() ?? null;
     return {
       startAt,
+      readingFrom: windowFrom(start, status?.resumeFrom)?.toISOString() ?? null,
       running,
       lastRun: status?.lastRunAt
         ? {
@@ -164,6 +206,7 @@ export class IngestionStatusService {
             notTransactions: status.notTransactions ?? 0,
             unreadable: status.unreadable ?? 0,
             bookingFailed: status.bookingFailed ?? 0,
+            unverified: status.unverified ?? 0,
           }
         : null,
       lastError: status?.lastError && status.lastErrorAt ? { at: status.lastErrorAt, message: status.lastError } : null,
@@ -174,6 +217,7 @@ export class IngestionStatusService {
         receivedAt: u.receivedAt,
         attempts: u.attempts,
         lastSeenAt: u.lastSeenAt,
+        reason: u.reason ?? null,
       })),
       recent: recent.map((t) => ({
         id: String(t._id),
@@ -194,4 +238,11 @@ export class IngestionStatusService {
       this.logger.error(`Could not ${what}`, err instanceof Error ? err.stack : String(err));
     }
   }
+}
+
+/** The later of the configured start and the stored resume point, whichever exist. */
+function windowFrom(start: Date | null, resumeFrom: Date | null | undefined): Date | null {
+  const resume = resumeFrom ? new Date(resumeFrom) : null;
+  if (start && resume) return resume > start ? resume : start;
+  return resume ?? start;
 }

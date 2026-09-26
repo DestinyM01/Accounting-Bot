@@ -23,7 +23,7 @@ const MAIL_ID = '64b0000000000000000000c1';
 describe('IngestionStatusService', () => {
   let service: IngestionStatusService;
   let statusModel: { updateOne: jest.Mock; findOne: jest.Mock };
-  let unreadableModel: { updateOne: jest.Mock; deleteOne: jest.Mock; deleteMany: jest.Mock; find: jest.Mock; findOneAndUpdate: jest.Mock };
+  let unreadableModel: { updateOne: jest.Mock; deleteOne: jest.Mock; deleteMany: jest.Mock; find: jest.Mock; findOne: jest.Mock; findOneAndUpdate: jest.Mock };
   let txModel: { find: jest.Mock };
   let errorSpy: jest.SpyInstance;
 
@@ -37,6 +37,7 @@ describe('IngestionStatusService', () => {
       deleteOne: jest.fn().mockResolvedValue({}),
       deleteMany: jest.fn().mockResolvedValue({}),
       find: jest.fn(() => query([])),
+      findOne: jest.fn(() => query(null)),
       findOneAndUpdate: jest.fn().mockResolvedValue({ _id: MAIL_ID }),
     };
     txModel = { find: jest.fn(() => query([])) };
@@ -54,11 +55,11 @@ describe('IngestionStatusService', () => {
   afterEach(() => errorSpy.mockRestore());
 
   it("records a finished run's counts and clears the last error", async () => {
-    await service.recordRun({ created: 1, alreadyBooked: 2, notTransactions: 3, unreadable: 1, bookingFailed: 0 }, AT);
+    await service.recordRun({ created: 1, alreadyBooked: 2, notTransactions: 3, unreadable: 1, bookingFailed: 0, unverified: 0 }, AT);
     expect(statusModel.updateOne).toHaveBeenCalledWith(
       { userId: 1 },
       {
-        $set: { lastRunAt: AT, created: 1, alreadyBooked: 2, notTransactions: 3, unreadable: 1, bookingFailed: 0, lastError: null },
+        $set: { lastRunAt: AT, created: 1, alreadyBooked: 2, notTransactions: 3, unreadable: 1, bookingFailed: 0, unverified: 0, lastError: null },
         $unset: { skipped: '', failed: '' },
       },
       { upsert: true, strict: false },
@@ -72,7 +73,7 @@ describe('IngestionStatusService', () => {
   });
 
   it('removes the old skipped/failed fields when it records a run', async () => {
-    await service.recordRun({ created: 1, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0 }, AT);
+    await service.recordRun({ created: 1, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, unverified: 0 }, AT);
     expect(statusModel.updateOne).toHaveBeenCalledWith(
       { userId: 1 },
       expect.objectContaining({ $unset: { skipped: '', failed: '' } }),
@@ -94,7 +95,7 @@ describe('IngestionStatusService', () => {
     unreadableModel.updateOne.mockRejectedValue(new Error('db down'));
     unreadableModel.deleteOne.mockRejectedValue(new Error('db down'));
     await expect(
-      service.recordRun({ created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0 }),
+      service.recordRun({ created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, unverified: 0 }),
     ).resolves.toBeUndefined();
     await expect(service.recordFailure(new Error('x'))).resolves.toBeUndefined();
     await expect(service.recordUnreadable({ messageId: 'm1', sender: 's', subject: 'x', receivedAt: AT })).resolves.toBeUndefined();
@@ -109,11 +110,94 @@ describe('IngestionStatusService', () => {
       { userId: 1, messageId: 'm1' },
       {
         $set: { sender: 'alerts@bank.example', subject: 'Alert', receivedAt, lastSeenAt: AT },
+        $unset: { reason: '' },
         $setOnInsert: { firstSeenAt: AT, dismissed: false },
         $inc: { attempts: 1 },
       },
       { upsert: true },
     );
+  });
+
+  it('records the unverified count with the run', async () => {
+    await service.recordRun({ created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, unverified: 2 }, AT);
+    expect(statusModel.updateOne).toHaveBeenCalledWith(
+      { userId: 1 },
+      expect.objectContaining({ $set: expect.objectContaining({ unverified: 2 }) }),
+      expect.anything(),
+    );
+  });
+
+  describe('unreadable reason', () => {
+    const receivedAt = new Date('2026-09-25T01:53:30Z');
+
+    it('stores the reason when one is given', async () => {
+      await service.recordUnreadable({ messageId: 'm1', sender: 's@bank.example', subject: 'x', receivedAt, reason: "Couldn't verify it came from the bank" }, AT);
+      const [, update] = unreadableModel.updateOne.mock.calls[0];
+      expect(update.$set.reason).toBe("Couldn't verify it came from the bank");
+      expect(update.$unset).toBeUndefined();
+    });
+
+    it('clears an old reason when the mail is unreadable for no special reason', async () => {
+      await service.recordUnreadable({ messageId: 'm1', sender: 's@bank.example', subject: 'x', receivedAt }, AT);
+      const [, update] = unreadableModel.updateOne.mock.calls[0];
+      expect(update.$set).not.toHaveProperty('reason');
+      expect(update.$unset).toEqual({ reason: '' });
+    });
+  });
+
+  describe('windowStart', () => {
+    const START = '2026-09-01T12:00:00Z';
+    const withResume = (resumeFrom: Date | undefined) => statusModel.findOne.mockReturnValue(query(resumeFrom ? { resumeFrom } : null));
+
+    it('is null before any run and without a configured start', async () => {
+      withResume(undefined);
+      await expect(service.windowStart()).resolves.toBeNull();
+    });
+
+    it('is the configured start before the first finished run', async () => {
+      process.env.INGEST_START_AT = START;
+      withResume(undefined);
+      await expect(service.windowStart()).resolves.toEqual(new Date(START));
+    });
+
+    it('is the stored resume point without a configured start (after an outage, too)', async () => {
+      const resume = new Date('2026-09-20T00:00:00Z');
+      withResume(resume);
+      await expect(service.windowStart()).resolves.toEqual(resume);
+    });
+
+    it('is never before the configured start', async () => {
+      process.env.INGEST_START_AT = START;
+      withResume(new Date('2026-08-01T00:00:00Z'));
+      await expect(service.windowStart()).resolves.toEqual(new Date(START));
+      withResume(new Date('2026-09-20T00:00:00Z'));
+      await expect(service.windowStart()).resolves.toEqual(new Date('2026-09-20T00:00:00Z'));
+    });
+
+    it('throws when the status cannot be read, so the run fails instead of guessing', async () => {
+      statusModel.findOne.mockReturnValue({ select: () => ({ lean: () => Promise.reject(new Error('db down')) }) });
+      await expect(service.windowStart()).rejects.toThrow('db down');
+    });
+  });
+
+  it('stores the resume point', async () => {
+    const at = new Date('2026-09-23T10:00:00Z');
+    await service.recordResumePoint(at);
+    expect(statusModel.updateOne).toHaveBeenCalledWith({ userId: 1 }, { $set: { resumeFrom: at } }, { upsert: true });
+  });
+
+  it('finds the oldest unreadable mail still waiting (not dismissed)', async () => {
+    const receivedAt = new Date('2026-09-10T00:00:00Z');
+    const q = query({ receivedAt });
+    unreadableModel.findOne.mockReturnValue(q);
+    await expect(service.oldestPendingUnreadable()).resolves.toEqual(receivedAt);
+    expect(unreadableModel.findOne).toHaveBeenCalledWith({ userId: 1, dismissed: { $ne: true } });
+    expect(q.sort).toHaveBeenCalledWith({ receivedAt: 1 });
+  });
+
+  it('has no oldest waiting mail when the list is empty', async () => {
+    unreadableModel.findOne.mockReturnValue(query(null));
+    await expect(service.oldestPendingUnreadable()).resolves.toBeNull();
   });
 
   it('removes a mail from the list once it books', async () => {
@@ -203,10 +287,12 @@ describe('IngestionStatusService', () => {
         // is arbitrary operator input, so this must always be a valid ISO string
         // (or null), never the raw env var passed through.
         startAt: '2026-09-24T14:58:59.000Z',
+        // No stored resume point in this fixture: readingFrom falls back to the configured start.
+        readingFrom: '2026-09-24T14:58:59.000Z',
         running: true,
-        lastRun: { at: AT, created: 1, alreadyBooked: 2, notTransactions: 3, unreadable: 1, bookingFailed: 0 },
+        lastRun: { at: AT, created: 1, alreadyBooked: 2, notTransactions: 3, unreadable: 1, bookingFailed: 0, unverified: 0 },
         lastError: { at: AT, message: 'login refused' },
-        unreadable: [{ id: MAIL_ID, sender: 's@bank.example', subject: 'Alert', receivedAt: AT, attempts: 3, lastSeenAt: AT }],
+        unreadable: [{ id: MAIL_ID, sender: 's@bank.example', subject: 'Alert', receivedAt: AT, attempts: 3, lastSeenAt: AT, reason: null }],
         recent: [
           { id: 't1', name: 'store', amount: 120.5, isExpense: true, category: 'food', timestamp: AT, transferKind: null },
           { id: 't2', name: 'own savings', amount: 500, isExpense: true, category: 'other', timestamp: AT, transferKind: 'internal' },
@@ -231,7 +317,7 @@ describe('IngestionStatusService', () => {
 
     it('shows nothing yet before the first run', async () => {
       const v = await service.view(false);
-      expect(v).toEqual({ startAt: null, running: false, lastRun: null, lastError: null, unreadable: [], recent: [] });
+      expect(v).toEqual({ startAt: null, readingFrom: null, running: false, lastRun: null, lastError: null, unreadable: [], recent: [] });
     });
 
     it('shows no error once a later run succeeded', async () => {
@@ -257,7 +343,7 @@ describe('IngestionStatusService', () => {
     it('reads an old-shaped record (skipped/failed) as all-zero new counts', async () => {
       statusModel.findOne.mockReturnValue(query({ lastRunAt: AT, created: 1, skipped: 5, failed: 2 }));
       const v = await service.view(false);
-      expect(v.lastRun).toEqual({ at: AT, created: 1, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0 });
+      expect(v.lastRun).toEqual({ at: AT, created: 1, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, unverified: 0 });
     });
   });
 });

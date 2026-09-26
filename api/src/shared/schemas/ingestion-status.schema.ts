@@ -12,6 +12,10 @@ export class IngestionStatus extends Document {
   @Prop() notTransactions?: number;
   @Prop() unreadable?: number;
   @Prop() bookingFailed?: number;
+  /** Mails in the last run whose sender Gmail couldn't vouch for (see mail-auth.ts). Not one of the five counts. */
+  @Prop() unverified?: number;
+  /** Where the next run starts reading (never before INGEST_START_AT). Moves only after a run that finished. */
+  @Prop() resumeFrom?: Date;
   /** The last run that failed as a whole (e.g. IMAP login refused); null again after a successful run. */
   @Prop({ type: String, default: null }) lastError?: string | null;
   @Prop() lastErrorAt?: Date;

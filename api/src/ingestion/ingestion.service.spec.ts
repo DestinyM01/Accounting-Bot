@@ -40,8 +40,8 @@ import { MerchantMemoryService } from '../merchants/merchant-memory.service';
 const parserParseMock = popularParser.parse as jest.Mock;
 
 /** A run's counts, zero unless named. */
-const counts = (over: Partial<Record<'created' | 'alreadyBooked' | 'notTransactions' | 'unreadable' | 'bookingFailed', number>> = {}) => ({
-  created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, ...over,
+const counts = (over: Partial<Record<'created' | 'alreadyBooked' | 'notTransactions' | 'unreadable' | 'bookingFailed' | 'unverified', number>> = {}) => ({
+  created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, unverified: 0, ...over,
 });
 
 function makeParsed(overrides: Partial<ParsedTransaction> = {}): ParsedTransaction {

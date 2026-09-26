@@ -17,6 +17,8 @@ export class UnreadableMail extends Document {
   @Prop() lastSeenAt: Date;
   @Prop({ default: 0 }) attempts: number;
   @Prop({ default: false }) dismissed: boolean;
+  /** Why it's listed, when that isn't simply that no parser could read it. */
+  @Prop() reason?: string;
 }
 
 export const UnreadableMailSchema = SchemaFactory.createForClass(UnreadableMail);

@@ -124,7 +124,7 @@ export class IngestionService {
     await this.status.clearUnreadableMany(mails.map((m) => m.messageId).filter((id) => known.has(id)));
     const ctx = await this.loadRunContext();
 
-    const counts: RunCounts = { created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0 };
+    const counts: RunCounts = { created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, unverified: 0 };
     // Saved on the Settings page, else the server's config (see SettingsService).
     const { cash: ownCashAccounts, senders: ownIdentifiers } = await this.settings.accounts();
 
