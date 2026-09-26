@@ -1,0 +1,106 @@
+# Nightly MongoDB backup. Each run writes two files to the mongodb-backups
+# volume: accbot-<UTC time>.archive.gz (mongodump --gzip of every database) and
+# its .counts (each accbot collection's document count), so any backup can be
+# checked with ops/mongo-backup-drill.sh from-pvc <file>. Files older than 14
+# days are deleted.
+#
+# The job runs on a worker, not on the database's node, so the volume (pinned
+# to the node of the first job) keeps the backups off the database's disk. It
+# still guards mainly against mistakes (a bad migration, a deleted collection);
+# off-cluster copies are taken by hand with ops/mongo-backup-drill.sh.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-backups
+  namespace: accounting-bot
+  labels:
+    app: mongodb-backup
+  annotations:
+    # Never let Argo CD delete this claim, whether by pruning or by deleting
+    # the app: local-path deletes a volume's data with its claim, which would
+    # take every backup with it.
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  volumeMode: Filesystem   # Kubernetes default — explicit to prevent ArgoCD drift
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mongodb-backup
+  namespace: accounting-bot
+  labels:
+    app: mongodb-backup
+spec:
+  # 03:35 in Santo Domingo: clear of the api's mail check (every 10 minutes from
+  # :00), its recurring sweep (:05) and its reports (:20).
+  schedule: "35 3 * * *"
+  timeZone: "America/Santo_Domingo"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    metadata:
+      labels:
+        app: mongodb-backup
+    spec:
+      backoffLimit: 2
+      # Room for the first image pull on the worker as well as the backup.
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: mongodb-backup
+        spec:
+          # Never, not OnFailure: a failed attempt's pod and its log are kept.
+          restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/hostname: k3sworker2
+          containers:
+            - name: backup
+              # Same image as the StatefulSet: its mongodump and shell match the server.
+              image: mongo:4.4
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  if command -v mongosh >/dev/null 2>&1; then shell=mongosh; else shell=mongo; fi
+                  count_js='var d = db.getSiblingDB("accbot"); d.getCollectionNames().sort().forEach(function (c) { print(c + " " + d.getCollection(c).countDocuments({})); })'
+                  f="/backups/accbot-$(date -u +%Y%m%dT%H%MZ).archive.gz"
+                  # Only a finished, checked dump gets the final name.
+                  trap 'rm -f "$f.partial" "$f.counts.before"' EXIT
+                  # Counts before and after must agree, or a write landed mid-dump: try again.
+                  for attempt in 1 2 3; do
+                    "$shell" --host mongodb-svc --quiet --eval "$count_js" > "$f.counts.before"
+                    mongodump --host mongodb-svc --port 27017 --quiet --archive="$f.partial" --gzip
+                    "$shell" --host mongodb-svc --quiet --eval "$count_js" > "$f.counts"
+                    if [ "$(cat "$f.counts.before")" = "$(cat "$f.counts")" ]; then
+                      mv "$f.partial" "$f"
+                      break
+                    fi
+                    echo "Writes landed during attempt $attempt; trying again"
+                    rm -f "$f.partial" "$f.counts"
+                    [ "$attempt" -lt 3 ] && sleep 30
+                  done
+                  test -s "$f"
+                  test -s "$f.counts"
+                  find /backups -name 'accbot-*' -mtime +14 -delete
+                  ls -l /backups
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests:
+                  memory: 64Mi
+                  cpu: 50m
+                limits:
+                  memory: 256Mi
+                  cpu: 500m
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: mongodb-backups

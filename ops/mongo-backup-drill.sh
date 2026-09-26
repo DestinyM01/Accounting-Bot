@@ -5,6 +5,10 @@
 #                                         directory, then prove the backup restores
 #   sh mongo-backup-drill.sh drill FILE   prove an existing backup restores
 #                                         (FILE.counts must sit next to FILE)
+#   sh mongo-backup-drill.sh from-pvc NAME
+#                                         copy a nightly backup (and its .counts)
+#                                         out of the mongodb-backups volume, then
+#                                         prove it restores
 #
 # A backup is two files: accbot-<UTC time>.archive.gz (mongodump --gzip of every
 # database) and accbot-<UTC time>.archive.gz.counts (each accbot collection's
@@ -16,6 +20,7 @@ set -eu
 
 NS=accounting-bot
 DRILL=mongo-drill
+FETCH=mongo-backup-fetch
 IMAGE=$(kubectl -n "$NS" get pod mongodb-0 -o jsonpath='{.spec.containers[0].image}')
 
 # Each accbot collection and its document count, one per line, sorted.
@@ -28,6 +33,16 @@ shell_in() {
 
 counts() { # pod shell
   kubectl -n "$NS" exec "$1" -- "$2" --quiet --eval "$COUNT_JS"
+}
+
+# Waits for a helper pod; if it never starts, prints what Kubernetes says and fails.
+wait_ready() { # pod
+  if ! kubectl -n "$NS" wait --for=condition=Ready "pod/$1" --timeout=300s >/dev/null; then
+    echo "The $1 pod didn't start. What Kubernetes says about it:" >&2
+    kubectl -n "$NS" get pod "$1" -o wide >&2 || true
+    kubectl -n "$NS" describe pod "$1" 2>/dev/null | sed -n '/^Events:/,$p' >&2 || true
+    exit 1
+  fi
 }
 
 drill() { # archive
@@ -43,12 +58,7 @@ drill() { # archive
   node=$(kubectl -n "$NS" get pod mongodb-0 -o jsonpath='{.spec.nodeName}')
   kubectl -n "$NS" run "$DRILL" --image="$IMAGE" --restart=Never --labels=app=mongo-drill \
     --overrides="{\"apiVersion\":\"v1\",\"spec\":{\"nodeSelector\":{\"kubernetes.io/hostname\":\"$node\"}}}" >/dev/null
-  if ! kubectl -n "$NS" wait --for=condition=Ready "pod/$DRILL" --timeout=300s >/dev/null; then
-    echo "The drill pod didn't start. What Kubernetes says about it:" >&2
-    kubectl -n "$NS" get pod "$DRILL" -o wide >&2 || true
-    kubectl -n "$NS" describe pod "$DRILL" 2>/dev/null | sed -n '/^Events:/,$p' >&2 || true
-    exit 1
-  fi
+  wait_ready "$DRILL"
 
   sh_bin=$(shell_in "$DRILL")
   tries=0
@@ -94,11 +104,41 @@ backup() {
   drill "$file"
 }
 
+# Copies a nightly backup and its counts out of the mongodb-backups volume through
+# a helper pod that mounts it read-only, then drills it.
+from_pvc() { # file name inside the volume
+  name=$(basename "$1")
+  trap 'kubectl -n "$NS" delete pod "$FETCH" --ignore-not-found --wait=false >/dev/null 2>&1 || true' EXIT
+  kubectl -n "$NS" delete pod "$FETCH" --ignore-not-found --wait=true >/dev/null
+  kubectl -n "$NS" run "$FETCH" --image="$IMAGE" --restart=Never --labels=app=mongo-backup-fetch --overrides="{
+    \"apiVersion\": \"v1\",
+    \"spec\": {
+      \"containers\": [{
+        \"name\": \"$FETCH\", \"image\": \"$IMAGE\", \"command\": [\"sleep\", \"600\"],
+        \"volumeMounts\": [{ \"name\": \"backups\", \"mountPath\": \"/backups\", \"readOnly\": true }]
+      }],
+      \"volumes\": [{ \"name\": \"backups\", \"persistentVolumeClaim\": { \"claimName\": \"mongodb-backups\", \"readOnly\": true } }]
+    }
+  }" >/dev/null
+  wait_ready "$FETCH"
+  kubectl -n "$NS" cp "$FETCH:/backups/$name" "$name"
+  kubectl -n "$NS" cp "$FETCH:/backups/$name.counts" "$name.counts"
+  kubectl -n "$NS" delete pod "$FETCH" --wait=false >/dev/null
+  trap - EXIT
+  echo "Copied $name and $name.counts out of the backup volume"
+
+  drill "$name"
+}
+
 case "${1:-backup}" in
   backup) backup ;;
   drill)
     [ $# -eq 2 ] || { echo "usage: $0 drill FILE" >&2; exit 2; }
     drill "$2"
     ;;
-  *) echo "usage: $0 [backup | drill FILE]" >&2; exit 2 ;;
+  from-pvc)
+    [ $# -eq 2 ] || { echo "usage: $0 from-pvc NAME (as listed in the backup job's log)" >&2; exit 2; }
+    from_pvc "$2"
+    ;;
+  *) echo "usage: $0 [backup | drill FILE | from-pvc NAME]" >&2; exit 2 ;;
 esac
