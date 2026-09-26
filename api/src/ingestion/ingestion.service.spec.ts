@@ -88,6 +88,7 @@ describe('IngestionService', () => {
   let settings: { accounts: jest.Mock };
   let status: {
     dismissedAmong: jest.Mock; recordUnreadable: jest.Mock; clearUnreadable: jest.Mock; clearUnreadableMany: jest.Mock; recordRun: jest.Mock; recordFailure: jest.Mock; forgetUnreadableBefore: jest.Mock;
+    windowStart: jest.Mock; recordResumePoint: jest.Mock; oldestPendingUnreadable: jest.Mock;
   };
   let memory: { all: jest.Mock };
   let loggerErrorSpy: jest.SpyInstance;
@@ -137,6 +138,9 @@ describe('IngestionService', () => {
       recordRun: jest.fn().mockResolvedValue(undefined),
       recordFailure: jest.fn().mockResolvedValue(undefined),
       forgetUnreadableBefore: jest.fn().mockResolvedValue(undefined),
+      windowStart: jest.fn().mockResolvedValue(null),
+      recordResumePoint: jest.fn().mockResolvedValue(undefined),
+      oldestPendingUnreadable: jest.fn().mockResolvedValue(null),
     };
     memory = { all: jest.fn().mockResolvedValue(new Map()) };
 
@@ -989,11 +993,10 @@ describe('IngestionService', () => {
         else process.env.INGEST_START_AT = savedStartAt;
       });
 
-      it('forgets unreadable mail from before the same since given to mail.fetchSince, when a start date is configured', async () => {
+      it('forgets unreadable mail from before the configured start, when one is configured', async () => {
         process.env.INGEST_START_AT = '2026-09-24T14:58:59Z';
         await service.run();
-        const sinceGivenToMail = mail.fetchSince.mock.calls[0][0];
-        expect(status.forgetUnreadableBefore).toHaveBeenCalledWith(sinceGivenToMail);
+        expect(status.forgetUnreadableBefore).toHaveBeenCalledWith(new Date('2026-09-24T14:58:59Z'));
       });
 
       it('does not forget unreadable mail with the rolling 24-hour fallback (no configured start date)', async () => {
@@ -1090,6 +1093,11 @@ describe('IngestionService', () => {
 
       const first = service.poll();
       const second = service.poll();
+      // watermark() now awaits status.windowStart() before calling
+      // fetchSince, so let that pending microtask resolve before asserting.
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
       expect(mail.fetchSince).toHaveBeenCalledTimes(1);
 
       release();
@@ -1100,6 +1108,100 @@ describe('IngestionService', () => {
       mail.fetchSince.mockResolvedValue([]);
       await service.poll();
       expect(mail.fetchSince).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('reading window and verification', () => {
+    const NOW = new Date('2026-09-26T12:00:00Z');
+    const DAY = 24 * 3600_000;
+    const saved = { verify: process.env.MAIL_VERIFY, start: process.env.INGEST_START_AT };
+    afterEach(() => {
+      if (saved.verify === undefined) delete process.env.MAIL_VERIFY; else process.env.MAIL_VERIFY = saved.verify;
+      if (saved.start === undefined) delete process.env.INGEST_START_AT; else process.env.INGEST_START_AT = saved.start;
+    });
+
+    it('reads from the window start the status gives', async () => {
+      const from = new Date('2026-09-24T09:00:00Z');
+      status.windowStart.mockResolvedValue(from);
+      await service.run(NOW);
+      expect(mail.fetchSince).toHaveBeenCalledWith(from, expect.any(Array));
+    });
+
+    it('reads the last 24 hours when there is no window start yet', async () => {
+      await service.run(NOW);
+      expect(mail.fetchSince).toHaveBeenCalledWith(new Date(NOW.getTime() - DAY), expect.any(Array));
+    });
+
+    it('stores the next start two days before this run began', async () => {
+      await service.run(NOW);
+      expect(status.recordResumePoint).toHaveBeenCalledWith(new Date(NOW.getTime() - 2 * DAY));
+    });
+
+    it('does not slide the point back on an empty run', async () => {
+      await service.run(NOW);
+      await service.run(new Date(NOW.getTime() + 10 * 60_000));
+      expect(status.recordResumePoint).toHaveBeenLastCalledWith(new Date(NOW.getTime() + 10 * 60_000 - 2 * DAY));
+    });
+
+    it('pulls the point back to a mail whose booking failed', async () => {
+      mail.fetchSince.mockResolvedValue([makeMail({ receivedAt: new Date(NOW.getTime() - 5 * DAY) })]);
+      parserParseMock.mockReturnValue(makeParsed());
+      txModel.create.mockRejectedValue(new Error('write refused'));
+      const result = await service.run(NOW);
+      expect(result.bookingFailed).toBe(1);
+      expect(status.recordResumePoint).toHaveBeenCalledWith(new Date(NOW.getTime() - 7 * DAY));
+    });
+
+    it('pulls the point back to an unreadable mail still waiting', async () => {
+      status.oldestPendingUnreadable.mockResolvedValue(new Date(NOW.getTime() - 10 * DAY));
+      await service.run(NOW);
+      expect(status.recordResumePoint).toHaveBeenCalledWith(new Date(NOW.getTime() - 12 * DAY));
+    });
+
+    it('leaves the point where it was when the waiting list cannot be read', async () => {
+      status.oldestPendingUnreadable.mockRejectedValue(new Error('db down'));
+      await expect(service.run(NOW)).resolves.toEqual(counts());
+      expect(status.recordResumePoint).not.toHaveBeenCalled();
+      expect(loggerErrorSpy).toHaveBeenCalled();
+    });
+
+    it('does not move the point when the run fails as a whole', async () => {
+      mail.fetchSince.mockRejectedValue(new Error('Cannot open mailbox "Banks"'));
+      await expect(service.runGuarded()).rejects.toThrow();
+      expect(status.recordResumePoint).not.toHaveBeenCalled();
+    });
+
+    it('forgets unreadable mail only before the configured start, never before the moving window', async () => {
+      process.env.INGEST_START_AT = '2026-09-01T00:00:00Z';
+      status.windowStart.mockResolvedValue(new Date('2026-09-24T00:00:00Z'));
+      await service.run(NOW);
+      expect(status.forgetUnreadableBefore).toHaveBeenCalledWith(new Date('2026-09-01T00:00:00Z'));
+    });
+
+    it('in report mode books an unverified mail, counts it and names its sender', async () => {
+      mail.fetchSince.mockResolvedValue([makeMail({ verified: false })]);
+      parserParseMock.mockReturnValue(makeParsed());
+      const result = await service.run(NOW);
+      expect(result).toEqual(counts({ created: 1, unverified: 1 }));
+      expect(loggerWarnSpy).toHaveBeenCalledWith(expect.stringContaining('popular@bank.com'));
+    });
+
+    it('in enforce mode lists a new unverified mail as unreadable, with the reason, without parsing it', async () => {
+      process.env.MAIL_VERIFY = 'enforce';
+      mail.fetchSince.mockResolvedValue([makeMail({ verified: false })]);
+      const result = await service.run(NOW);
+      expect(result).toEqual(counts({ unreadable: 1, unverified: 1 }));
+      expect(parserParseMock).not.toHaveBeenCalled();
+      expect(status.recordUnreadable).toHaveBeenCalledWith(expect.objectContaining({ messageId: 'msg-1', reason: "Couldn't verify it came from the bank" }));
+    });
+
+    it('in enforce mode still counts an already booked unverified mail as booked', async () => {
+      process.env.MAIL_VERIFY = 'enforce';
+      mail.fetchSince.mockResolvedValue([makeMail({ verified: false })]);
+      txModel.find.mockReturnValue({ select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([{ sourceMessageId: 'msg-1' }]) }) });
+      const result = await service.run(NOW);
+      expect(result).toEqual(counts({ alreadyBooked: 1, unverified: 1 }));
+      expect(status.recordUnreadable).not.toHaveBeenCalled();
     });
   });
 

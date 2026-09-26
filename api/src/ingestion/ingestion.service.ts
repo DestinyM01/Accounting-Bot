@@ -37,6 +37,12 @@ interface RunContext {
 /** How far apart the two legs of one internal transfer may be reported by their banks. */
 const LEG_WINDOW_MS = 24 * 3600_000;
 
+/** How far before the last good run the next one starts reading: covers late delivery and clock skew. */
+const RESUME_OVERLAP_MS = 2 * 24 * 3600_000;
+
+/** The Settings page's reason for a mail refused under MAIL_VERIFY=enforce. */
+const UNVERIFIED_REASON = "Couldn't verify it came from the bank";
+
 @Injectable()
 export class IngestionService {
   private readonly logger = new Logger(IngestionService.name);
@@ -99,24 +105,24 @@ export class IngestionService {
     }
   }
 
-  async run(): Promise<RunCounts> {
-    const since = this.watermark();
+  async run(now: Date = new Date()): Promise<RunCounts> {
+    const since = await this.watermark(now);
     const senders = this.parsers.flatMap((p) => p.senders);
     const mails = await this.mail.fetchSince(since, senders);
 
-    // Mails before the window can't come back: don't leave them on the
-    // unreadable list. Only safe when the window's start is a configured date
-    // (the same source watermark() reads) — with the rolling 24-hour
-    // fallback, `since` slides forward every poll, and forgetting would drop
-    // a mail that's still genuinely unread a day after it arrived.
-    if (parseConfiguredInstant(process.env.INGEST_START_AT)) {
-      await this.status.forgetUnreadableBefore(since);
+    // Mails before the configured start can't come back: don't leave them on
+    // the unreadable list. Only the configured start, never the moving window:
+    // an unreadable mail inside the window holds the window open until it
+    // books or is dismissed (see updateResumePoint).
+    const configuredStart = parseConfiguredInstant(process.env.INGEST_START_AT);
+    if (configuredStart) {
+      await this.status.forgetUnreadableBefore(configuredStart);
     }
 
-    // Dedupe BEFORE any work. The watermark never advances, so every poll
-    // re-fetches every mail since the start date; without this, each poll
-    // re-ran FX, categorisation (a model call per unknown merchant) and the
-    // rule lookups for every historical mail, only to hit the unique index.
+    // Dedupe BEFORE any work. Every poll re-reads its whole window (at least
+    // the last two days); without this, each poll re-ran FX, categorisation
+    // (a model call per unknown merchant) and the rule lookups for every
+    // historical mail, only to hit the unique index.
     const known = await this.alreadyIngested(mails.map((m) => m.messageId));
     // Mails the user marked "Not a transaction" on the Settings page.
     const dismissed = await this.status.dismissedAmong(mails.map((m) => m.messageId));
@@ -125,12 +131,27 @@ export class IngestionService {
     const ctx = await this.loadRunContext();
 
     const counts: RunCounts = { created: 0, alreadyBooked: 0, notTransactions: 0, unreadable: 0, bookingFailed: 0, unverified: 0 };
+    const enforce = process.env.MAIL_VERIFY === 'enforce';
+    let oldestFailed: Date | null = null;
     // Saved on the Settings page, else the server's config (see SettingsService).
     const { cash: ownCashAccounts, senders: ownIdentifiers } = await this.settings.accounts();
 
     for (const mail of mails) {
+      if (!mail.verified) {
+        counts.unverified++;
+        this.logger.warn(`Unverified mail from ${mail.sender} (${mail.messageId}): Gmail's checks didn't pass for its domain`);
+      }
+
       if (known.has(mail.messageId)) { counts.alreadyBooked++; continue; }
       if (dismissed.has(mail.messageId)) { counts.notTransactions++; continue; }
+
+      // MAIL_VERIFY=enforce: a forged "bank alert" must not book. Listed on
+      // Settings with the reason, so a real one can still be seen and dismissed.
+      if (enforce && !mail.verified) {
+        await this.status.recordUnreadable({ ...mail, reason: UNVERIFIED_REASON });
+        counts.unreadable++;
+        continue;
+      }
 
       const parser = this.parsers.find((p) => p.senders.includes(mail.sender));
       if (!parser) { counts.notTransactions++; continue; }
@@ -164,19 +185,46 @@ export class IngestionService {
       if (result === 'created' || result === 'duplicate') await this.status.clearUnreadable(mail.messageId);
       if (result === 'created') counts.created++;
       else if (result === 'duplicate') counts.alreadyBooked++;
-      else counts.bookingFailed++;
+      else {
+        counts.bookingFailed++;
+        if (!oldestFailed || mail.receivedAt < oldestFailed) oldestFailed = mail.receivedAt;
+      }
     }
 
     this.logger.log(
       `Ingestion run: created=${counts.created} alreadyBooked=${counts.alreadyBooked} ` +
-        `notTransactions=${counts.notTransactions} unreadable=${counts.unreadable} bookingFailed=${counts.bookingFailed}`,
+        `notTransactions=${counts.notTransactions} unreadable=${counts.unreadable} bookingFailed=${counts.bookingFailed} ` +
+        `unverified=${counts.unverified}`,
     );
+    await this.updateResumePoint(now, oldestFailed);
     return counts;
   }
 
-  /** Forward-only: never ingest mail older than the configured start. */
-  private watermark(): Date {
-    return parseConfiguredInstant(process.env.INGEST_START_AT) ?? new Date(Date.now() - 24 * 3600_000);
+  /** Forward-only: never before the configured start; see IngestionStatusService.windowStart. */
+  private async watermark(now: Date): Promise<Date> {
+    return (await this.status.windowStart()) ?? new Date(now.getTime() - 24 * 3600_000);
+  }
+
+  /**
+   * Where the next run starts: this run's start (every mail delivered before
+   * it has been read), pulled back to the oldest mail still waiting (a
+   * booking that failed, or an unreadable mail not dismissed), less two days.
+   * Measured from the run's start, not the newest mail's, so a quiet inbox
+   * doesn't widen the window and an empty run doesn't slide it back. If the
+   * waiting list can't be read, the point stays where it was.
+   */
+  private async updateResumePoint(runStart: Date, oldestFailed: Date | null): Promise<void> {
+    let oldestUnreadable: Date | null;
+    try {
+      oldestUnreadable = await this.status.oldestPendingUnreadable();
+    } catch (err) {
+      this.logger.error('Could not read the unreadable list; the resume point stays where it was', err instanceof Error ? err.stack : String(err));
+      return;
+    }
+    const oldest = [runStart, oldestFailed, oldestUnreadable]
+      .filter((d): d is Date => d !== null)
+      .reduce((a, b) => (b < a ? b : a));
+    await this.status.recordResumePoint(new Date(oldest.getTime() - RESUME_OVERLAP_MS));
   }
 
   /**
