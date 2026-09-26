@@ -33,7 +33,7 @@ spec:
             - name: PORT
               value: "4000"
             - name: MONGO_URI
-              value: "mongodb://mongodb-svc:27017/accbot"
+              value: "mongodb://mongodb-svc:27017/accbot?directConnection=true"
             - name: BOSS_USER_ID
               valueFrom:
                 secretKeyRef:

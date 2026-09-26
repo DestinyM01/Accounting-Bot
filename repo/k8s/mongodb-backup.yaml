@@ -70,14 +70,17 @@ spec:
                   set -eu
                   if command -v mongosh >/dev/null 2>&1; then shell=mongosh; else shell=mongo; fi
                   count_js='var d = db.getSiblingDB("accbot"); d.getCollectionNames().sort().forEach(function (c) { print(c + " " + d.getCollection(c).countDocuments({})); })'
+                  # Direct to the one server: never ask a replica set for its member list
+                  # (its member host, mongodb-0, only resolves inside that pod).
+                  uri="mongodb://mongodb-svc:27017/?directConnection=true"
                   f="/backups/accbot-$(date -u +%Y%m%dT%H%MZ).archive.gz"
                   # Only a finished, checked dump gets the final name.
                   trap 'rm -f "$f.partial" "$f.counts.before"' EXIT
                   # Counts before and after must agree, or a write landed mid-dump: try again.
                   for attempt in 1 2 3; do
-                    "$shell" --host mongodb-svc --quiet --eval "$count_js" > "$f.counts.before"
-                    mongodump --host mongodb-svc --port 27017 --quiet --archive="$f.partial" --gzip
-                    "$shell" --host mongodb-svc --quiet --eval "$count_js" > "$f.counts"
+                    "$shell" "$uri" --quiet --eval "$count_js" > "$f.counts.before"
+                    mongodump --uri="$uri" --quiet --archive="$f.partial" --gzip
+                    "$shell" "$uri" --quiet --eval "$count_js" > "$f.counts"
                     if [ "$(cat "$f.counts.before")" = "$(cat "$f.counts")" ]; then
                       mv "$f.partial" "$f"
                       break

@@ -23,7 +23,7 @@ import { CalculatorModule } from './calculator/calculator.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forRoot(
-      process.env.MONGO_URI || 'mongodb://mongodb-svc:27017/accbot',
+      process.env.MONGO_URI || 'mongodb://mongodb-svc:27017/accbot?directConnection=true',
     ),
     ScheduleModule.forRoot(),
     AuthModule,
