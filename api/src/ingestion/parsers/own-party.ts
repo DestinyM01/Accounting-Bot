@@ -1,5 +1,4 @@
-/** Escapes regex metacharacters so a fragment is matched literally. */
-const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+import { escapeRegExp } from '../../shared/escape-regexp';
 
 /**
  * True when `value` refers to one of the caller's own identifiers. An

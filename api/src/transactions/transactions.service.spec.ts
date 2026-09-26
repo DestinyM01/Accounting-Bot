@@ -9,6 +9,7 @@ import { MerchantMemoryService } from '../merchants/merchant-memory.service';
 import { CounterRepairService } from '../cash/counter-repair.service';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { encodeTimeCursor } from '../shared/cursor';
 
 const mockTxs = [
   {
@@ -345,6 +346,46 @@ describe('TransactionsService', () => {
       const row = csv.trim().split('\n')[1];
 
       expect(row).toContain('"2026-09-24"');
+    });
+  });
+
+  describe('search', () => {
+    const lastFind = () => mockModel.find.mock.calls[mockModel.find.mock.calls.length - 1][0];
+
+    it('matches names, merchants and categories as literal text, ignoring case', async () => {
+      await service.findAll({ search: '  a.b (c)  ' });
+      expect(lastFind().$or).toEqual([
+        { transactionName: /a\.b \(c\)/i },
+        { merchant: /a\.b \(c\)/i },
+        { category: /a\.b \(c\)/i },
+      ]);
+    });
+
+    it('counts only the matching rows', async () => {
+      await service.findAll({ search: 'coffee' });
+      const [counted] = mockModel.countDocuments.mock.calls[mockModel.countDocuments.mock.calls.length - 1];
+      expect(counted.$or).toHaveLength(3);
+    });
+
+    it('keeps the search when paging with a cursor', async () => {
+      const before = encodeTimeCursor(new Date('2026-05-01T00:00:00Z'), '64b0000000000000000000a1');
+      await service.findAll({ search: 'coffee', before });
+      expect(lastFind().$and[0].$or).toHaveLength(3);
+    });
+
+    it('ignores a blank term', async () => {
+      await service.findAll({ search: '   ' });
+      expect(lastFind()).not.toHaveProperty('$or');
+    });
+
+    it('caps the term at 100 characters', async () => {
+      await service.findAll({ search: 'x'.repeat(150) });
+      expect(lastFind().$or[0].transactionName.source).toBe('x'.repeat(100));
+    });
+
+    it('filters the CSV export the same way', async () => {
+      await service.exportCsv({ search: 'coffee' });
+      expect(lastFind().$or).toHaveLength(3);
     });
   });
 

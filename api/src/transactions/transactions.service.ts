@@ -11,6 +11,7 @@ import { MerchantMemoryService } from '../merchants/merchant-memory.service';
 import { HALF_CENT, money } from '../cash/cash-rules';
 import { CounterRepairService } from '../cash/counter-repair.service';
 import { afterTime, encodeTimeCursor, parseTimeCursor } from '../shared/cursor';
+import { escapeRegExp } from '../shared/escape-regexp';
 
 export interface CreateTransactionBody {
   type: 'income' | 'expense';
@@ -46,6 +47,7 @@ export interface TransactionQuery {
   needsReview?: boolean;
   transferKind?: string;
   unitemized?: boolean;
+  search?: string;
 }
 
 export interface ExportQuery {
@@ -53,6 +55,7 @@ export interface ExportQuery {
   category?: string;
   startDate?: string;
   endDate?: string;
+  search?: string;
 }
 
 export interface TransactionItem {
@@ -135,6 +138,14 @@ export class TransactionsService {
       filter.timestamp = {};
       if (query.startDate) filter.timestamp.$gte = this.day(localDayStart, query.startDate, 'startDate');
       if (query.endDate) filter.timestamp.$lte = this.day(localDayEnd, query.endDate, 'endDate');
+    }
+    // Names, merchants and categories, as the search box always matched. The
+    // term is literal text, never a pattern. The cursor wraps the whole filter
+    // in $and, so this $or can't collide with the cursor's own.
+    const term = query.search?.trim().slice(0, 100);
+    if (term) {
+      const rx = new RegExp(escapeRegExp(term), 'i');
+      filter.$or = [{ transactionName: rx }, { merchant: rx }, { category: rx }];
     }
     return filter;
   }

@@ -28,6 +28,7 @@ export class TransactionsController {
     @Query('needsReview') needsReview?: string,
     @Query('transferKind') transferKind?: string,
     @Query('unitemized') unitemized?: string,
+    @Query('search') search?: string,
   ): Promise<TransactionPage> {
     return this.transactionsService.findAll({
       limit:       limit  ? parseInt(limit, 10)  : undefined,
@@ -40,6 +41,7 @@ export class TransactionsController {
       needsReview: needsReview === 'true',
       transferKind,
       unitemized: unitemized === 'true',
+      search,
     });
   }
 
@@ -78,6 +80,7 @@ export class TransactionsController {
     @Query('category')  category: string,
     @Query('startDate') startDate: string,
     @Query('endDate')   endDate: string,
+    @Query('search') search: string,
     @Res() res: Response,
   ): Promise<void> {
     const csv = await this.transactionsService.exportCsv({
@@ -85,6 +88,7 @@ export class TransactionsController {
       category:  category  || undefined,
       startDate: startDate || undefined,
       endDate:   endDate   || undefined,
+      search: search || undefined,
     });
     const filename = `transactions-${localDateKey(new Date())}.csv`;
     res.setHeader('Content-Type', 'text/csv');
