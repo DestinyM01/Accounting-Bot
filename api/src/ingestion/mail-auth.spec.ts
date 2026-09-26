@@ -49,7 +49,40 @@ describe('verifySender', () => {
     expect(verifySender(header('dkim=pass header.d=evilbank.example'), FROM)).toBe(false);
   });
 
-  it('does not let a comment smuggle a pass in', () => {
-    expect(verifySender(header('dkim=fail (dkim=pass header.d=bank.example) header.d=bank.example'), FROM)).toBe(false);
+  it('unfolds LF and tab folding', () => {
+    expect(
+      verifySender(
+        ['Authentication-Results: mx.google.com;', '\tdkim=pass header.i=@bank.example header.s=s1'].join('\n'),
+        FROM,
+      ),
+    ).toBe(true);
+  });
+
+  it('accepts an authserv-id with a version', () => {
+    expect(verifySender('Authentication-Results: mx.google.com 1; dkim=pass header.i=@bank.example', FROM)).toBe(true);
+  });
+
+  it('fails for a look-alike authserv-id', () => {
+    expect(
+      verifySender('Authentication-Results: mx.google.com.evil.example; dkim=pass header.i=@bank.example', FROM),
+    ).toBe(false);
+  });
+
+  describe("text the sender controls inside Gmail's header", () => {
+    it.each([
+      ['a quoted envelope sender carrying ; and a fake dkim=pass', header('dkim=none', 'spf=softfail (google.com: domain of transitioning "x;dkim=pass header.i=@bank.example"@evil.example does not designate 192.0.2.9 as permitted sender) smtp.mailfrom="x;dkim=pass header.i=@bank.example"@evil.example', 'dmarc=fail (p=REJECT sp=REJECT dis=QUARANTINE) header.from=bank.example')],
+      ['the same without spaces', header('dkim=none', 'spf=neutral smtp.mailfrom="x;dkim=pass.header.i=@bank.example"@evil.example', 'dmarc=fail header.from=bank.example')],
+      ['a quoted local part in the attacker\'s own header.i', header('dkim=pass header.i="@bank.example"@evil.example header.s=s1 header.b=AbCd1234', 'dmarc=fail header.from=bank.example')],
+      ['a second header.i hidden in the selector', header('dkim=pass header.i=@evil.example header.s=x.header.i=@bank.example header.b=AbCd1234', 'dmarc=fail header.from=bank.example')],
+      ['an empty comment splitting the signing domain', header('dkim=pass header.i=@bank.example().evil.example header.s=s1', 'dmarc=fail header.from=bank.example')],
+      ['a quote cutting the signing domain short', header('dkim=pass header.i=@bank.example".evil.example header.s=s1', 'dmarc=fail header.from=bank.example')],
+      ['a nested comment holding ; and a fake pass', header('spf=pass (a (b) ; dkim=pass header.i=@bank.example ; c) smtp.mailfrom=x@evil.example', 'dmarc=fail header.from=bank.example')],
+      ['a comment with ; and a fake pass', header('spf=pass (x; dkim=pass header.i=@bank.example) smtp.mailfrom=x@evil.example', 'dmarc=fail header.from=bank.example')],
+      ['an unclosed comment', header('dkim=pass header.i=@bank.example(.evil.example header.s=s1')],
+      ['header.d for another domain wins over an aligned header.i', header('dkim=pass header.d=evil.example header.i=@bank.example')],
+      ['a single-label parent (a top-level domain) as the signer', header('dkim=pass header.d=example')],
+    ])('refuses %s', (_label, hdr) => {
+      expect(verifySender(hdr, FROM)).toBe(false);
+    });
   });
 });
