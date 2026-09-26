@@ -9,11 +9,10 @@ import { HOVER_COLUMN, axisStyle, chartTheme, moneyLabel, tooltipStyle, withAlph
 Chart.register(...registerables);
 
 @Component({
-  selector: 'app-analytics',
-  standalone: true,
-  imports: [CommonModule, MatIconModule],
-  templateUrl: './analytics.component.html',
-  styleUrls: ['./analytics.component.scss'],
+    selector: 'app-analytics',
+    imports: [CommonModule, MatIconModule],
+    templateUrl: './analytics.component.html',
+    styleUrls: ['./analytics.component.scss']
 })
 export class AnalyticsComponent implements OnInit, OnDestroy {
   @ViewChild('chartCanvas') chartCanvas!: ElementRef<HTMLCanvasElement>;

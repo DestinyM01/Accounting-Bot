@@ -19,11 +19,10 @@ import { CategoryService } from '../../../core/services/category.service';
  * figure until the next reload corrects it (accepted edge).
  */
 @Component({
-  selector: 'app-cash-panel',
-  standalone: true,
-  imports: [CurrencyPipe, TitleCasePipe, FormsModule, MatIconModule],
-  templateUrl: './cash-panel.component.html',
-  styleUrls: ['./cash-panel.component.scss'],
+    selector: 'app-cash-panel',
+    imports: [CurrencyPipe, TitleCasePipe, FormsModule, MatIconModule],
+    templateUrl: './cash-panel.component.html',
+    styleUrls: ['./cash-panel.component.scss']
 })
 export class CashPanelComponent implements OnInit, OnChanges, OnDestroy {
   @Input({ required: true }) tx!: Transaction;

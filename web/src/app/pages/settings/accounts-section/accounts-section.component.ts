@@ -13,11 +13,10 @@ const MAX_ENTRIES = 20;
 
 /** Settings › Your accounts: the identifiers that tell your own transfers from real spending. */
 @Component({
-  selector: 'app-accounts-section',
-  standalone: true,
-  imports: [FormsModule, MatIconModule],
-  templateUrl: './accounts-section.component.html',
-  styleUrls: ['../settings-section.scss'],
+    selector: 'app-accounts-section',
+    imports: [FormsModule, MatIconModule],
+    templateUrl: './accounts-section.component.html',
+    styleUrls: ['../settings-section.scss']
 })
 export class AccountsSectionComponent implements OnInit, OnDestroy {
   view: AccountsView | null = null;

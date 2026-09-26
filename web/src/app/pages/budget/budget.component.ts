@@ -8,11 +8,10 @@ import { BudgetEntry } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
 
 @Component({
-  selector: 'app-budget',
-  standalone: true,
-  imports: [CommonModule, CurrencyPipe, TitleCasePipe, FormsModule, RouterLink, MatIconModule],
-  templateUrl: './budget.component.html',
-  styleUrls: ['./budget.component.scss'],
+    selector: 'app-budget',
+    imports: [CommonModule, CurrencyPipe, TitleCasePipe, FormsModule, RouterLink, MatIconModule],
+    templateUrl: './budget.component.html',
+    styleUrls: ['./budget.component.scss']
 })
 export class BudgetComponent implements OnInit {
   budgets: BudgetEntry[] = [];

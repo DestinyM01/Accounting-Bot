@@ -1,4 +1,4 @@
-import { APP_INITIALIZER, ApplicationConfig } from '@angular/core';
+import { ApplicationConfig, inject, provideAppInitializer } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
@@ -32,11 +32,9 @@ export const appConfig: ApplicationConfig = {
     provideAnimations(),
     provideHttpClient(withInterceptors([authInterceptor])),
     provideOAuthClient(),
-    {
-      provide: APP_INITIALIZER,
-      useFactory: initializeAuth,
-      deps: [OAuthService],
-      multi: true,
-    },
+    provideAppInitializer(() => {
+        const initializerFn = (initializeAuth)(inject(OAuthService));
+        return initializerFn();
+      }),
   ],
 };

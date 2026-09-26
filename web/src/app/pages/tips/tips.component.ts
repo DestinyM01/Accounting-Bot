@@ -6,11 +6,10 @@ import { ApiService } from '../../core/services/api.service';
 import { Tip } from '../../core/services/api.models';
 
 @Component({
-  selector: 'app-tips',
-  standalone: true,
-  imports: [CommonModule, MatIconModule],
-  templateUrl: './tips.component.html',
-  styleUrls: ['./tips.component.scss'],
+    selector: 'app-tips',
+    imports: [CommonModule, MatIconModule],
+    templateUrl: './tips.component.html',
+    styleUrls: ['./tips.component.scss']
 })
 export class TipsComponent implements OnInit {
   tips: Tip[] = [];

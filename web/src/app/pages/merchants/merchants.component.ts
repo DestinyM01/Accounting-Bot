@@ -29,11 +29,10 @@ const title = (s: string) => new TitleCasePipe().transform(s);
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 @Component({
-  selector: 'app-merchants',
-  standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule],
-  templateUrl: './merchants.component.html',
-  styleUrls: ['./merchants.component.scss'],
+    selector: 'app-merchants',
+    imports: [CommonModule, FormsModule, MatIconModule],
+    templateUrl: './merchants.component.html',
+    styleUrls: ['./merchants.component.scss']
 })
 export class MerchantsComponent implements OnInit, OnDestroy {
   merchants: RememberedMerchant[] = [];

@@ -7,11 +7,10 @@ import { CompareResult } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
 
 @Component({
-  selector: 'app-compare',
-  standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule],
-  templateUrl: './compare.component.html',
-  styleUrls: ['./compare.component.scss'],
+    selector: 'app-compare',
+    imports: [CommonModule, FormsModule, MatIconModule],
+    templateUrl: './compare.component.html',
+    styleUrls: ['./compare.component.scss']
 })
 export class CompareComponent implements OnInit {
   availableMonths: string[] = [];

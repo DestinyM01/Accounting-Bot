@@ -13,11 +13,10 @@ Chart.register(...registerables);
 
 /** How savings grow with compound interest; the math runs (and is tested) in the api. */
 @Component({
-  selector: 'app-calculator',
-  standalone: true,
-  imports: [FormsModule, MatIconModule],
-  templateUrl: './calculator.component.html',
-  styleUrls: ['./calculator.component.scss'],
+    selector: 'app-calculator',
+    imports: [FormsModule, MatIconModule],
+    templateUrl: './calculator.component.html',
+    styleUrls: ['./calculator.component.scss']
 })
 export class CalculatorComponent implements OnInit, OnDestroy {
   @ViewChild('chartCanvas') chartCanvas?: ElementRef<HTMLCanvasElement>;

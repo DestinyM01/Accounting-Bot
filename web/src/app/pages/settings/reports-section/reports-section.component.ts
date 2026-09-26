@@ -11,11 +11,10 @@ type ReportsView = SettingsView['reports'];
 
 /** Settings › Email reports: which reports go out, to whom, and a test send. */
 @Component({
-  selector: 'app-reports-section',
-  standalone: true,
-  imports: [DatePipe, FormsModule, MatIconModule],
-  templateUrl: './reports-section.component.html',
-  styleUrls: ['../settings-section.scss'],
+    selector: 'app-reports-section',
+    imports: [DatePipe, FormsModule, MatIconModule],
+    templateUrl: './reports-section.component.html',
+    styleUrls: ['../settings-section.scss']
 })
 export class ReportsSectionComponent implements OnInit, OnDestroy {
   view: ReportsView | null = null;

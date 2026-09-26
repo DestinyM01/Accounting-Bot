@@ -26,11 +26,10 @@ const MINUS = '−';
 const MAX_ABS_BALANCE = 1e12;
 
 @Component({
-  selector: 'app-balance',
-  standalone: true,
-  imports: [CommonModule, DatePipe, FormsModule, MatIconModule],
-  templateUrl: './balance.component.html',
-  styleUrls: ['./balance.component.scss'],
+    selector: 'app-balance',
+    imports: [CommonModule, DatePipe, FormsModule, MatIconModule],
+    templateUrl: './balance.component.html',
+    styleUrls: ['./balance.component.scss']
 })
 export class BalanceComponent implements OnInit, OnDestroy {
   @ViewChild('chartCanvas') chartCanvas?: ElementRef<HTMLCanvasElement>;

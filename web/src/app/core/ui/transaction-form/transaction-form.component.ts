@@ -10,11 +10,10 @@ import { TransactionFormService, FormRequest } from '../../services/transaction-
 import { Transaction } from '../../services/api.models';
 
 @Component({
-  selector: 'app-transaction-form',
-  standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, TitleCasePipe],
-  templateUrl: './transaction-form.component.html',
-  styleUrls: ['./transaction-form.component.scss'],
+    selector: 'app-transaction-form',
+    imports: [CommonModule, FormsModule, MatIconModule, TitleCasePipe],
+    templateUrl: './transaction-form.component.html',
+    styleUrls: ['./transaction-form.component.scss']
 })
 export class TransactionFormComponent implements OnInit, OnDestroy {
   open = false;

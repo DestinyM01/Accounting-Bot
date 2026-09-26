@@ -20,11 +20,10 @@ function ordinal(n: number): string {
 }
 
 @Component({
-  selector: 'app-recurring',
-  standalone: true,
-  imports: [CommonModule, TitleCasePipe, FormsModule, MatIconModule],
-  templateUrl: './recurring.component.html',
-  styleUrls: ['./recurring.component.scss'],
+    selector: 'app-recurring',
+    imports: [CommonModule, TitleCasePipe, FormsModule, MatIconModule],
+    templateUrl: './recurring.component.html',
+    styleUrls: ['./recurring.component.scss']
 })
 export class RecurringComponent implements OnInit, OnDestroy {
   items: RecurringEntry[] = [];

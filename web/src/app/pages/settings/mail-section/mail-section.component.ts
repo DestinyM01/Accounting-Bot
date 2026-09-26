@@ -21,11 +21,10 @@ function countsText(c: RunCounts): string {
 
 /** Settings › Bank mail: how ingestion is doing, a check on demand, and the mails it couldn't read. */
 @Component({
-  selector: 'app-mail-section',
-  standalone: true,
-  imports: [CurrencyPipe, DatePipe, TitleCasePipe, RouterLink],
-  templateUrl: './mail-section.component.html',
-  styleUrls: ['../settings-section.scss'],
+    selector: 'app-mail-section',
+    imports: [CurrencyPipe, DatePipe, TitleCasePipe, RouterLink],
+    templateUrl: './mail-section.component.html',
+    styleUrls: ['../settings-section.scss']
 })
 export class MailSectionComponent implements OnInit, OnDestroy {
   readonly countsText = countsText;

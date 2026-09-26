@@ -13,12 +13,11 @@ import { focusFirst } from '../../core/ui/focus';
 import { CashPanelComponent } from './cash-panel/cash-panel.component';
 
 @Component({
-  selector: 'app-transactions',
-  standalone: true,
-  imports: [CommonModule, CurrencyPipe, DatePipe, TitleCasePipe, FormsModule,
-            MatIconModule, MatSelectModule, CashPanelComponent],
-  templateUrl: './transactions.component.html',
-  styleUrls: ['./transactions.component.scss'],
+    selector: 'app-transactions',
+    imports: [CommonModule, CurrencyPipe, DatePipe, TitleCasePipe, FormsModule,
+        MatIconModule, MatSelectModule, CashPanelComponent],
+    templateUrl: './transactions.component.html',
+    styleUrls: ['./transactions.component.scss']
 })
 export class TransactionsComponent implements OnInit, OnDestroy {
   items:       Transaction[] = [];

@@ -11,11 +11,10 @@ import { FabComponent } from './core/ui/fab/fab.component';
 import { TransactionFormComponent } from './core/ui/transaction-form/transaction-form.component';
 
 @Component({
-  selector: 'app-root',
-  standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, MatIconModule, FabComponent, TransactionFormComponent],
-  templateUrl: './app.component.html',
-  styleUrls: ['./app.component.scss'],
+    selector: 'app-root',
+    imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, MatIconModule, FabComponent, TransactionFormComponent],
+    templateUrl: './app.component.html',
+    styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {
   navItems = [

@@ -19,11 +19,10 @@ interface DistRow {
 }
 
 @Component({
-  selector: 'app-statistics',
-  standalone: true,
-  imports: [CommonModule, CurrencyPipe, DecimalPipe, MatIconModule],
-  templateUrl: './statistics.component.html',
-  styleUrls: ['./statistics.component.scss'],
+    selector: 'app-statistics',
+    imports: [CommonModule, CurrencyPipe, DecimalPipe, MatIconModule],
+    templateUrl: './statistics.component.html',
+    styleUrls: ['./statistics.component.scss']
 })
 export class StatisticsComponent implements OnInit, OnDestroy {
   @ViewChild('areaCanvas') areaCanvas!: ElementRef<HTMLCanvasElement>;

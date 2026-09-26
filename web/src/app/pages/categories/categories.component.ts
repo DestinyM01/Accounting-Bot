@@ -25,11 +25,10 @@ type Mode =
   | { kind: 'delete'; id: string };
 
 @Component({
-  selector: 'app-categories',
-  standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule],
-  templateUrl: './categories.component.html',
-  styleUrls: ['./categories.component.scss'],
+    selector: 'app-categories',
+    imports: [CommonModule, FormsModule, MatIconModule],
+    templateUrl: './categories.component.html',
+    styleUrls: ['./categories.component.scss']
 })
 export class CategoriesComponent implements OnInit, OnDestroy {
   @ViewChild('firstField') firstField?: ElementRef<HTMLElement>;

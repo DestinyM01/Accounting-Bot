@@ -5,10 +5,9 @@ import { AccountsSectionComponent } from './accounts-section/accounts-section.co
 
 /** Bank mail, email reports and the user's own accounts. Each section loads and saves on its own. */
 @Component({
-  selector: 'app-settings',
-  standalone: true,
-  imports: [MailSectionComponent, ReportsSectionComponent, AccountsSectionComponent],
-  templateUrl: './settings.component.html',
-  styleUrls: ['./settings.component.scss'],
+    selector: 'app-settings',
+    imports: [MailSectionComponent, ReportsSectionComponent, AccountsSectionComponent],
+    templateUrl: './settings.component.html',
+    styleUrls: ['./settings.component.scss']
 })
 export class SettingsComponent {}

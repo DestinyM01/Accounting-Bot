@@ -27,11 +27,10 @@ interface StatCard {
 }
 
 @Component({
-  selector: 'app-dashboard',
-  standalone: true,
-  imports: [CommonModule, CurrencyPipe, DatePipe, RouterLink, MatIconModule],
-  templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.scss'],
+    selector: 'app-dashboard',
+    imports: [CommonModule, CurrencyPipe, DatePipe, RouterLink, MatIconModule],
+    templateUrl: './dashboard.component.html',
+    styleUrls: ['./dashboard.component.scss']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   @ViewChild('areaCanvas') areaCanvas!: ElementRef<HTMLCanvasElement>;
