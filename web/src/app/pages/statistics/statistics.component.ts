@@ -1,8 +1,8 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule, CurrencyPipe, DecimalPipe } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { Chart, registerables } from 'chart.js';
-import { forkJoin } from 'rxjs';
+import { forkJoin, Subscription } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { CategoryPoint, MonthlyPoint, MonthlySummary } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
@@ -25,7 +25,7 @@ interface DistRow {
   templateUrl: './statistics.component.html',
   styleUrls: ['./statistics.component.scss'],
 })
-export class StatisticsComponent implements OnInit {
+export class StatisticsComponent implements OnInit, OnDestroy {
   @ViewChild('areaCanvas') areaCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('savingsCanvas') savingsCanvas!: ElementRef<HTMLCanvasElement>;
 
@@ -35,11 +35,13 @@ export class StatisticsComponent implements OnInit {
   loading = true;
   private areaChart: Chart | null = null;
   private savingsChart: Chart | null = null;
+  private sub: Subscription | null = null;
+  private destroyed = false;
 
   constructor(private api: ApiService, private catSvc: CategoryService) {}
 
   ngOnInit() {
-    forkJoin({
+    this.sub = forkJoin({
       summary:    this.api.getStatisticsSummary(),
       monthly:    this.api.getMonthlyStats(),
       byCategory: this.api.getCategoryStats(),
@@ -49,10 +51,22 @@ export class StatisticsComponent implements OnInit {
         this.monthly  = monthly;
         this.buildDistribution(byCategory);
         this.loading  = false;
-        setTimeout(() => { this.buildAreaChart(); this.buildSavingsChart(); }, 0);
+        setTimeout(() => {
+          if (this.destroyed) return;
+          this.buildAreaChart(); this.buildSavingsChart();
+        }, 0);
       },
       error: () => { this.loading = false; },
     });
+  }
+
+  ngOnDestroy() {
+    this.destroyed = true;
+    this.sub?.unsubscribe();
+    this.areaChart?.destroy();
+    this.areaChart = null;
+    this.savingsChart?.destroy();
+    this.savingsChart = null;
   }
 
   catColor(cat: string) { return this.catSvc.color(cat); }

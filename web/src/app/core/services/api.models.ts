@@ -267,6 +267,7 @@ export interface RunCounts {
   notTransactions: number;
   unreadable: number;
   bookingFailed: number;
+  unverified?: number;
 }
 
 export interface UnreadableMailItem {
@@ -276,6 +277,7 @@ export interface UnreadableMailItem {
   receivedAt: string;
   attempts: number;
   lastSeenAt: string;
+  reason?: string | null;
 }
 
 export interface MailBookedItem {
@@ -290,6 +292,7 @@ export interface MailBookedItem {
 
 export interface IngestionStatusView {
   startAt: string | null;
+  readingFrom?: string | null;
   running: boolean;
   lastRun: (RunCounts & { at: string }) | null;
   lastError: { at: string; message: string } | null;

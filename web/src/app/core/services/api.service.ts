@@ -76,6 +76,7 @@ export class ApiService {
     endDate?:     string;
     needsReview?: boolean;
     unitemized?:  boolean;
+    search?:      string;
   } = {}): Observable<TransactionPage> {
     let params = new HttpParams();
     if (opts.limit)       params = params.set('limit',       opts.limit);
@@ -87,6 +88,7 @@ export class ApiService {
     if (opts.endDate)     params = params.set('endDate',     opts.endDate);
     if (opts.needsReview) params = params.set('needsReview', opts.needsReview);
     if (opts.unitemized)  params = params.set('unitemized',  opts.unitemized);
+    if (opts.search)      params = params.set('search',      opts.search);
     return this.http.get<TransactionPage>(`${this.base}/transactions`, { params });
   }
 
@@ -95,12 +97,14 @@ export class ApiService {
     category?:  string;
     startDate?: string;
     endDate?:   string;
+    search?:    string;
   } = {}): Observable<Blob> {
     let params = new HttpParams();
     if (opts.type)      params = params.set('type',      opts.type);
     if (opts.category)  params = params.set('category',  opts.category);
     if (opts.startDate) params = params.set('startDate', opts.startDate);
     if (opts.endDate)   params = params.set('endDate',   opts.endDate);
+    if (opts.search)    params = params.set('search',    opts.search);
     return this.http.get(`${this.base}/transactions/export`, { params, responseType: 'blob' });
   }
 

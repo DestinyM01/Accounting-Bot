@@ -2,8 +2,8 @@ import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/co
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
-import { forkJoin, timer, merge, Subscription } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
+import { forkJoin, timer, merge, Subscription, EMPTY } from 'rxjs';
+import { switchMap, catchError } from 'rxjs/operators';
 import { Chart, registerables } from 'chart.js';
 import { ApiService } from '../../core/services/api.service';
 import {
@@ -43,6 +43,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   monthly: MonthlyPoint[] = [];
   stats: StatCard[] = [];
   loading = true;
+  /** The last refresh failed: the page keeps what it last showed and tries again on the next tick. */
+  refreshError = false;
   private chart: Chart | null = null;
   private sub: Subscription | null = null;
   private destroyed = false;
@@ -57,20 +59,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
         transactions: this.api.getTransactions({ limit: 5 }),
         budget:       this.api.getBudget(),
         monthly:      this.api.getMonthlyStats(),
-      })))
-      .subscribe({
-        next: (d) => {
-          this.balance  = d.balance;
-          this.summary  = d.summary;
-          this.recentTx = d.transactions.items;
-          this.budgets  = d.budget;
-          this.monthly  = d.monthly;
-          this.buildStats(d.monthly);
-          this.loading  = false;
-          // defer one tick so *ngIf renders the canvas before we grab it
-          setTimeout(() => { if (!this.destroyed) this.buildChart(); }, 0);
-        },
-        error: () => { this.loading = false; },
+      }).pipe(
+        // Inside switchMap: a failed refresh ends only itself. Outside, the
+        // first error would complete the stream and the page would never
+        // refresh again.
+        catchError(() => { this.refreshError = true; return EMPTY; }),
+      )))
+      .subscribe((d) => {
+        this.refreshError = false;
+        this.balance  = d.balance;
+        this.summary  = d.summary;
+        this.recentTx = d.transactions.items;
+        this.budgets  = d.budget;
+        this.monthly  = d.monthly;
+        this.buildStats(d.monthly);
+        this.loading  = false;
+        // defer one tick so *ngIf renders the canvas before we grab it
+        setTimeout(() => { if (!this.destroyed) this.buildChart(); }, 0);
       });
   }
 

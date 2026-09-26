@@ -15,6 +15,7 @@ function countsText(c: RunCounts): string {
   if (c.notTransactions > 0) parts.push(`${c.notTransactions} not ${c.notTransactions === 1 ? 'a transaction' : 'transactions'}`);
   if (c.unreadable > 0) parts.push(`${c.unreadable} couldn't read`);
   if (c.bookingFailed > 0) parts.push(`${c.bookingFailed} couldn't book`);
+  if ((c.unverified ?? 0) > 0) parts.push(`${c.unverified} unverified`);
   return parts.join(' · ');
 }
 

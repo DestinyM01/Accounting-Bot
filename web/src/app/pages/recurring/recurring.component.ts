@@ -11,6 +11,14 @@ import { chartTheme, tooltipStyle } from '../../core/ui/chart-theme';
 
 Chart.register(...registerables, SankeyController, Flow);
 
+/** 1st, 2nd, 3rd, 4th … 11th, 12th, 13th … 21st, 22nd, 23rd … 31st. */
+function ordinal(n: number): string {
+  const lastTwo = n % 100;
+  if (lastTwo >= 11 && lastTwo <= 13) return `${n}th`;
+  const suffix = ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
+  return `${n}${suffix}`;
+}
+
 @Component({
   selector: 'app-recurring',
   standalone: true,
@@ -226,8 +234,7 @@ export class RecurringComponent implements OnInit, OnDestroy {
   categoryColor(cat: string): string { return this.catSvc.color(cat); }
 
   scheduleLabel(day: number): string {
-    const s = day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th';
-    return `Every ${day}${s}`;
+    return `Every ${ordinal(day)}`;
   }
 
   trackById(_: number, r: RecurringEntry) { return r.id; }

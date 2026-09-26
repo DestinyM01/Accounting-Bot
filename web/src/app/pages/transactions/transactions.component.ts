@@ -90,6 +90,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       endDate:     this.endDate   || undefined,
       needsReview: this.needsReviewOnly || undefined,
       unitemized:  this.unitemizedOnly || undefined,
+      search:      this.search.trim() || undefined,
     };
   }
 
@@ -261,7 +262,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         }
         // Move focus to the next row still waiting for review, so confirming
         // one guess after another needs no re-aiming at the list.
-        const rows = this.filtered;
+        const rows = this.items;
         const next = rows.slice(rows.indexOf(tx) + 1).find((t) => t.categoryNeedsReview);
         if (next) {
           setTimeout(() => (document.getElementById(`confirm-${next._id}`) ?? document.getElementById(`pick-${next._id}`))?.focus(), 0);
@@ -279,21 +280,13 @@ export class TransactionsComponent implements OnInit, OnDestroy {
 
   get hasMore() { return this.nextCursor !== null; }
 
-  get filtered(): Transaction[] {
-    if (!this.search.trim()) return this.items;
-    const q = this.search.toLowerCase();
-    return this.items.filter(t =>
-      t.transactionName.toLowerCase().includes(q) ||
-      t.category.toLowerCase().includes(q)
-    );
-  }
-
   exportCsv() {
     this.api.exportTransactions({
       type:      (this.typeFilter as 'income' | 'expense') || undefined,
       category:  this.categoryFilter || undefined,
       startDate: this.startDate || undefined,
       endDate:   this.endDate   || undefined,
+      search:    this.search.trim() || undefined,
     }).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
