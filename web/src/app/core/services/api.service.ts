@@ -53,10 +53,11 @@ export class ApiService {
     return this.http.put<SetBalanceResult>(`${this.base}/balance`, note ? { balance, note } : { balance });
   }
 
-  getBalanceHistory(opts: { limit?: number; offset?: number; reason?: BalanceChangeReason } = {}): Observable<BalanceHistoryPage> {
+  getBalanceHistory(opts: { limit?: number; offset?: number; before?: string; reason?: BalanceChangeReason } = {}): Observable<BalanceHistoryPage> {
     let params = new HttpParams();
     if (opts.limit !== undefined) params = params.set('limit', opts.limit);
     if (opts.offset !== undefined) params = params.set('offset', opts.offset);
+    if (opts.before) params = params.set('before', opts.before);
     if (opts.reason) params = params.set('reason', opts.reason);
     return this.http.get<BalanceHistoryPage>(`${this.base}/balance/history`, { params });
   }

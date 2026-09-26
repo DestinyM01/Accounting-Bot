@@ -182,6 +182,7 @@ export interface BalanceHistoryItem {
 export interface BalanceHistoryPage {
   items: BalanceHistoryItem[];
   total: number;
+  nextCursor: string | null;
 }
 
 export interface DailyBalance {

@@ -5,6 +5,7 @@ import { Balance } from '../shared/schemas/balance.schema';
 import { BALANCE_CHANGE_REASONS, BalanceHistory } from '../shared/schemas/balance-history.schema';
 import { LedgerService } from '../shared/ledger/ledger.service';
 import { dailyClosings, DailyPoint, windowStart } from './daily-closings';
+import { afterTime, encodeTimeCursor, parseTimeCursor } from '../shared/cursor';
 
 const MAX_ABS_BALANCE = 1e12;
 const NOTE_MAX = 100;
@@ -54,7 +55,7 @@ export class BalanceService {
     return this.ledger.setTo(Math.round(balance * 100) / 100, trimmed || undefined);
   }
 
-  async history(query: { limit?: string; offset?: string; reason?: string }) {
+  async history(query: { limit?: string; offset?: string; reason?: string; before?: string }) {
     const limit = clampInt(query.limit, 20, 1, 100);
     const offset = clampInt(query.offset, 0, 0, Number.MAX_SAFE_INTEGER);
     const filter: Record<string, unknown> = { userId: this.userId };
@@ -65,10 +66,31 @@ export class BalanceService {
       filter.reason = query.reason;
     }
 
+    // Rows with seq (every change since it existed) come first, newest first; older
+    // rows have no seq and follow, by time. The cursor encodes which kind it stopped on.
+    if (query.before !== undefined && query.before !== '') {
+      const raw = query.before;
+      if (/^s\d+$/.test(raw)) {
+        filter.$or = [{ seq: { $lt: Number(raw.slice(1)) } }, { seq: { $exists: false } }];
+      } else if (raw.startsWith('t') && parseTimeCursor(raw.slice(1))) {
+        filter.seq = { $exists: false };
+        Object.assign(filter, afterTime(parseTimeCursor(raw.slice(1))!));
+      } else {
+        throw new BadRequestException('before must be a cursor from a previous page');
+      }
+    }
+
+    const find = this.historyModel.find(filter).sort({ seq: -1, timestamp: -1, _id: -1 });
     const [rows, total] = await Promise.all([
-      this.historyModel.find(filter).sort({ timestamp: -1, _id: -1 }).skip(offset).limit(limit).lean(),
+      (query.before ? find : find.skip(offset)).limit(limit).lean(),
       this.historyModel.countDocuments(filter),
     ]);
+    const last = rows[rows.length - 1];
+    const nextCursor =
+      rows.length === limit && last
+        ? last.seq != null ? `s${last.seq}` : `t${encodeTimeCursor(last.timestamp, last._id)}`
+        : null;
+
     return {
       items: rows.map((r) => ({
         id: String(r._id),
@@ -79,6 +101,7 @@ export class BalanceService {
         name: r.transactionName ?? null,
       })),
       total,
+      nextCursor,
     };
   }
 
@@ -93,12 +116,12 @@ export class BalanceService {
     const [before, rows] = await Promise.all([
       this.historyModel
         .findOne({ userId: this.userId, timestamp: { $lt: start } })
-        .sort({ timestamp: -1, _id: -1 })
+        .sort({ timestamp: -1, seq: -1, _id: -1 })
         .select('newBalance')
         .lean(),
       this.historyModel
         .find({ userId: this.userId, timestamp: { $gte: start } })
-        .sort({ timestamp: 1, _id: 1 })
+        .sort({ timestamp: 1, seq: 1, _id: 1 })
         .select('timestamp newBalance previousBalance')
         .lean(),
     ]);

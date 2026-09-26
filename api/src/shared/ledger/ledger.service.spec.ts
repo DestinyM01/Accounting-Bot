@@ -31,7 +31,7 @@ describe('LedgerService', () => {
     const r = await service.apply(-250, 'expense', 'uber', 'tx1');
     expect(balanceModel.findOneAndUpdate).toHaveBeenCalledWith(
       { userId: 1 },
-      { $inc: { balance: -250 }, $set: { lastActivity: expect.any(Date) } },
+      { $inc: { balance: -250, seq: 1 }, $set: { lastActivity: expect.any(Date) } },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
     expect(historyModel.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -39,6 +39,12 @@ describe('LedgerService', () => {
       reason: 'expense', transactionName: 'uber', transactionId: 'tx1',
     }));
     expect(r).toEqual({ previousBalance: 1000, newBalance: 750 });
+  });
+
+  it('stamps the history row with the sequence number from the same atomic write', async () => {
+    balanceModel.findOneAndUpdate.mockResolvedValueOnce({ userId: 1, balance: 750, seq: 42 });
+    await service.apply(-250, 'expense', 'coffee', 't1');
+    expect(historyModel.create).toHaveBeenCalledWith(expect.objectContaining({ seq: 42 }));
   });
 
   it('reverse undoes a stored amount regardless of sign', async () => {
@@ -54,7 +60,7 @@ describe('LedgerService', () => {
     balanceModel.findOneAndUpdate.mockResolvedValue({ userId: 1, balance: 100 });
     const r = await service.apply(100, 'income');
     expect(balanceModel.findOneAndUpdate).toHaveBeenCalledWith(
-      { userId: 1 }, expect.objectContaining({ $inc: { balance: 100 } }), expect.objectContaining({ upsert: true }),
+      { userId: 1 }, expect.objectContaining({ $inc: { balance: 100, seq: 1 } }), expect.objectContaining({ upsert: true }),
     );
     expect(r).toEqual({ previousBalance: 0, newBalance: 100 });
   });
@@ -74,7 +80,7 @@ describe('LedgerService', () => {
       const r = await service.setTo(51170, 'cash not tracked');
       expect(balanceModel.findOneAndUpdate).toHaveBeenCalledWith(
         { userId: 1 },
-        { $set: { balance: 51170, lastActivity: expect.any(Date) } },
+        { $set: { balance: 51170, lastActivity: expect.any(Date) }, $inc: { seq: 1 } },
         { upsert: true, new: false, setDefaultsOnInsert: true },
       );
       expect(historyModel.create).toHaveBeenCalledWith({
@@ -84,8 +90,20 @@ describe('LedgerService', () => {
         delta: -1230,
         reason: 'manual',
         transactionName: 'cash not tracked',
+        seq: 1,
       });
       expect(r).toEqual({ previousBalance: 52400, newBalance: 51170, delta: -1230 });
+    });
+
+    it('numbers its row one past the pre-image', async () => {
+      balanceModel.findOneAndUpdate.mockResolvedValueOnce({ userId: 1, balance: 500, seq: 7 });
+      await service.setTo(900, 'fix');
+      expect(balanceModel.findOneAndUpdate).toHaveBeenCalledWith(
+        { userId: 1 },
+        { $set: { balance: 900, lastActivity: expect.any(Date) }, $inc: { seq: 1 } },
+        expect.objectContaining({ new: false }),
+      );
+      expect(historyModel.create).toHaveBeenCalledWith(expect.objectContaining({ seq: 8 }));
     });
 
     it('records nothing when the total is unchanged', async () => {

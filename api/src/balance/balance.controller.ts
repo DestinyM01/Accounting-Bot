@@ -18,8 +18,13 @@ export class BalanceController {
   }
 
   @Get('history')
-  history(@Query('limit') limit?: string, @Query('offset') offset?: string, @Query('reason') reason?: string) {
-    return this.balanceService.history({ limit, offset, reason });
+  history(
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Query('reason') reason?: string,
+    @Query('before') before?: string,
+  ) {
+    return this.balanceService.history({ limit, offset, reason, before });
   }
 
   @Get('daily')

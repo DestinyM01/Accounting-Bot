@@ -11,6 +11,8 @@ export class Balance extends Document {
   @Prop({}) startPayload: string;
   @Prop({ default: Date.now }) lastActivity: Date;
   @Prop({ default: 'en' }) language: string;
+  /** Incremented by every ledger write, in the same atomic update: orders history rows exactly. */
+  @Prop() seq?: number;
 }
 
 export const BalanceSchema = SchemaFactory.createForClass(Balance);

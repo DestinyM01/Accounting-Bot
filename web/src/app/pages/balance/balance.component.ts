@@ -60,6 +60,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
   filter: Filter = 'all';
   items: BalanceHistoryItem[] = [];
   total = 0;
+  nextCursor: string | null = null;
   listLoading = false;
   loadingMore = false;
   listError = '';
@@ -98,7 +99,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
   }
 
   get hasMore(): boolean {
-    return this.items.length < this.total;
+    return this.nextCursor !== null;
   }
 
   /** The adjustment the form would record, or null when the amount is not a usable number. */
@@ -186,7 +187,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
     this.loadingMore = true;
     this.subs.add(
       this.api
-        .getBalanceHistory({ limit: PAGE_SIZE, offset: this.items.length, reason: this.filter === 'all' ? undefined : this.filter })
+        .getBalanceHistory({ limit: PAGE_SIZE, before: this.nextCursor ?? undefined, reason: this.filter === 'all' ? undefined : this.filter })
         .subscribe({
           next: (page) => {
             if (gen !== this.listGen) return;
@@ -194,6 +195,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
             const seen = new Set(this.items.map((i) => i.id));
             this.items = [...this.items, ...page.items.filter((i) => !seen.has(i.id))];
             this.total = page.total;
+            this.nextCursor = page.nextCursor;
             this.moreError = '';
           },
           error: () => {
@@ -269,13 +271,14 @@ export class BalanceComponent implements OnInit, OnDestroy {
     this.loadingMore = false;
     this.subs.add(
       this.api
-        .getBalanceHistory({ limit: PAGE_SIZE, offset: 0, reason: this.filter === 'all' ? undefined : this.filter })
+        .getBalanceHistory({ limit: PAGE_SIZE, reason: this.filter === 'all' ? undefined : this.filter })
         .subscribe({
           next: (page) => {
             if (gen !== this.listGen) return;
             this.listLoading = false;
             this.items = page.items;
             this.total = page.total;
+            this.nextCursor = page.nextCursor;
             this.listError = '';
           },
           error: () => {

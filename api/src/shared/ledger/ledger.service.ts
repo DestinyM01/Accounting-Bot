@@ -8,6 +8,7 @@ import { BalanceChangeReason, BalanceHistory } from '../schemas/balance-history.
  * The only code in api/ that moves the user's balance. Every write path —
  * ingestion, manual create, edit, delete, resolution — must go through here
  * so the balance and its history can never disagree about what happened.
+ * seq numbers every change in the order the balance saw them; history sorts by it.
  */
 @Injectable()
 export class LedgerService {
@@ -27,6 +28,7 @@ export class LedgerService {
     reason: BalanceChangeReason;
     transactionName?: string;
     transactionId?: string;
+    seq?: number;
   }): Promise<void> {
     try {
       await this.historyModel.create({ userId: this.userId, ...row });
@@ -46,13 +48,13 @@ export class LedgerService {
     // can never lose each other's update the way a read-modify-write can.
     const updated = await this.balanceModel.findOneAndUpdate(
       { userId: this.userId },
-      { $inc: { balance: delta }, $set: { lastActivity: new Date() } },
+      { $inc: { balance: delta, seq: 1 }, $set: { lastActivity: new Date() } },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
     const newBalance = updated.balance;
     const previousBalance = newBalance - delta;
 
-    await this.recordHistory({ previousBalance, newBalance, delta, reason, transactionName, transactionId });
+    await this.recordHistory({ previousBalance, newBalance, delta, reason, transactionName, transactionId, seq: updated.seq });
     return { previousBalance, newBalance };
   }
 
@@ -80,14 +82,14 @@ export class LedgerService {
   ): Promise<{ previousBalance: number; newBalance: number; delta: number }> {
     const before = await this.balanceModel.findOneAndUpdate(
       { userId: this.userId },
-      { $set: { balance: target, lastActivity: new Date() } },
+      { $set: { balance: target, lastActivity: new Date() }, $inc: { seq: 1 } },
       { upsert: true, new: false, setDefaultsOnInsert: true },
     );
     const previousBalance = before?.balance ?? 0;
     const delta = Math.round((target - previousBalance) * 100) / 100;
 
     if (delta !== 0) {
-      await this.recordHistory({ previousBalance, newBalance: target, delta, reason: 'manual', transactionName: note });
+      await this.recordHistory({ previousBalance, newBalance: target, delta, reason: 'manual', transactionName: note, seq: (before?.seq ?? 0) + 1 });
     }
     return { previousBalance, newBalance: target, delta };
   }

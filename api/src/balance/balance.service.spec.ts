@@ -109,7 +109,7 @@ describe('BalanceService', () => {
       historyModel.countDocuments.mockResolvedValue(2);
       const page = await service.history({});
       expect(historyModel.find).toHaveBeenCalledWith({ userId: 1 });
-      expect(q.sort).toHaveBeenCalledWith({ timestamp: -1, _id: -1 });
+      expect(q.sort).toHaveBeenCalledWith({ seq: -1, timestamp: -1, _id: -1 });
       expect(q.skip).toHaveBeenCalledWith(0);
       expect(q.limit).toHaveBeenCalledWith(20);
       expect(page).toEqual({
@@ -118,6 +118,7 @@ describe('BalanceService', () => {
           { id: 'h2', timestamp: rows[1].timestamp, reason: 'manual', delta: 500, newBalance: 1000, name: null },
         ],
         total: 2,
+        nextCursor: null,
       });
     });
 
@@ -149,7 +150,7 @@ describe('BalanceService', () => {
       historyModel.findOne.mockReturnValue(before);
       const points = await service.daily({ days: '7' }, NOW);
       expect(historyModel.findOne).toHaveBeenCalledWith({ userId: 1, timestamp: { $lt: windowStart(NOW, 7) } });
-      expect(before.sort).toHaveBeenCalledWith({ timestamp: -1, _id: -1 });
+      expect(before.sort).toHaveBeenCalledWith({ timestamp: -1, seq: -1, _id: -1 });
       expect(before.select).toHaveBeenCalledWith('newBalance');
       expect(points).toHaveLength(7);
       expect(points.every((p) => p.balance === 800)).toBe(true);
@@ -190,8 +191,52 @@ describe('BalanceService', () => {
       historyModel.find.mockReturnValue(rows);
       await service.daily({ days: '7' }, NOW);
       expect(historyModel.find).toHaveBeenCalledWith({ userId: 1, timestamp: { $gte: windowStart(NOW, 7) } });
-      expect(rows.sort).toHaveBeenCalledWith({ timestamp: 1, _id: 1 });
+      expect(rows.sort).toHaveBeenCalledWith({ timestamp: 1, seq: 1, _id: 1 });
       expect(rows.select).toHaveBeenCalledWith('timestamp newBalance previousBalance');
+    });
+  });
+
+  describe('history paging and order', () => {
+    it('orders by sequence, then time, then id', async () => {
+      await service.history({});
+      expect(historyModel.find.mock.results[0].value.sort).toHaveBeenCalledWith({ seq: -1, timestamp: -1, _id: -1 });
+    });
+
+    it('hands back an s-cursor for a numbered row and continues below it, older rows included', async () => {
+      historyModel.find.mockReturnValueOnce(query(Array.from({ length: 2 }, (_, i) => ({
+        _id: `64b0000000000000000000a${i}`, seq: 10 - i, timestamp: new Date('2026-09-20T15:00:00Z'), reason: 'expense', delta: -1, newBalance: 1,
+      }))));
+      const page = await service.history({ limit: '2' });
+      expect(page.nextCursor).toBe('s9');
+      await service.history({ limit: '2', before: 's9' });
+      expect(historyModel.find.mock.calls[1][0]).toEqual({
+        userId: 1,
+        $or: [{ seq: { $lt: 9 } }, { seq: { $exists: false } }],
+      });
+    });
+
+    it('continues among un-numbered rows by time and id, with the reason filter', async () => {
+      await service.history({ before: 't2026-09-01T10:00:00.000Z_64b0000000000000000000a1', reason: 'manual' });
+      expect(historyModel.find.mock.calls[0][0]).toEqual({
+        userId: 1,
+        reason: 'manual',
+        seq: { $exists: false },
+        $or: [
+          { timestamp: { $lt: new Date('2026-09-01T10:00:00.000Z') } },
+          { timestamp: new Date('2026-09-01T10:00:00.000Z'), _id: { $lt: expect.anything() } },
+        ],
+      });
+    });
+
+    it('answers 400 for a malformed cursor', async () => {
+      await expect(service.history({ before: 'x1' })).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('closes each day on its last change by sequence', async () => {
+      await service.daily({});
+      const sorts = historyModel.find.mock.results.map((r: any) => r.value.sort.mock.calls[0]?.[0]);
+      expect(sorts).toContainEqual({ timestamp: 1, seq: 1, _id: 1 });
+      expect(historyModel.findOne.mock.results[0].value.sort).toHaveBeenCalledWith({ timestamp: -1, seq: -1, _id: -1 });
     });
   });
 });
