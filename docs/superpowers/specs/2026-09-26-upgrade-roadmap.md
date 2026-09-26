@@ -34,3 +34,18 @@ It prints `avx` when the CPU supports it, and nothing when it doesn't.
   3. Check that `avx` appears in the MongoDB pod.
   4. Only then upgrade past 4.4.
 - **Other nodes.** If other k3s nodes could run MongoDB, either pin MongoDB to this node or give those VMs the same CPU type.
+
+## Node CPU type: all three k3s VMs (decided 2026-09-26)
+
+Set **all three** k3s VMs (the control node and both workers) to CPU type `host`:
+- the MongoDB StatefulSet isn't pinned to a node;
+- local-path storage ties it to whichever node holds its volume today;
+- all three VMs run on the same Proxmox host, so `host` costs nothing.
+
+**Procedure:** one node at a time, workers first, the control node last.
+1. Drain a worker: `kubectl drain <node> --ignore-daemonsets --delete-emptydir-data`.
+2. In Proxmox: **shut down** the VM, set Hardware → Processors → Type → `host`, then **start** it.
+3. Uncordon it: `kubectl uncordon <node>`.
+4. Check that `grep -m1 -o -w avx /proc/cpuinfo` prints `avx` on the node.
+
+Find MongoDB's node first with `kubectl -n accounting-bot get pod mongodb-0 -o wide`. Restarting that node takes the database down briefly; the app reconnects afterwards.
