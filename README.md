@@ -144,6 +144,8 @@ The web app expects the API at `/api` (proxied in `angular.json` or via nginx in
    - `notificacionestubancoapp@banreservas.com` (Banreservas)
 3. `INGEST_START_AT` should be set to roughly when you switch ingestion on — the forward-only floor that stops historical mail being ingested and double-counting against your current balance. Later checks read from a stored resume point, never before it.
 4. If the sender list is empty (saved on the Settings page, else `OWN_ACCOUNT_IDENTIFIERS`), Banreservas transfers are skipped entirely — the direction can't be determined, and the system refuses to guess.
+5. To re-read bank mail from an earlier date (after a parser fix, say), set `INGEST_START_AT` to that date and restart: the next check reads from it once, then carries on from its resume point. Mail already booked is never booked twice.
+6. Leave `MAIL_VERIFY` at `report` until Settings › Bank mail shows no unverified mail for every bank for a few days, then set it to `enforce`.
 
 ---
 
@@ -175,12 +177,22 @@ The api runs in America/Santo_Domingo (`TZ` is set in `api/Dockerfile`), so mont
 The deployment expects a secret named `accounting-bot-secret` with keys:
 - `BOSID` → your Telegram user ID
 - `MISTRAL_API_KEY` → Mistral API key
+- `OWNER_SUB` → the owner's Authentik user id (the token's `sub`)
 
 ```bash
 kubectl create secret generic accounting-bot-secret \
   --from-literal=BOSID=<your_telegram_id> \
   --from-literal=MISTRAL_API_KEY=<your_mistral_key> \
+  --from-literal=OWNER_SUB=<sub> \
   -n accounting-bot
+```
+
+**First deploy:** until `OWNER_SUB` is set, the api refuses everyone (403) and logs the id of whoever tried. Log in once first so the id appears, then set it and restart — Secret env values are read only at pod start:
+
+```bash
+kubectl -n accounting-bot logs deploy/accounting-api | grep OWNER_SUB
+kubectl -n accounting-bot patch secret accounting-bot-secret --type merge -p '{"stringData":{"OWNER_SUB":"<sub>"}}'
+kubectl -n accounting-bot rollout restart deploy/accounting-api
 ```
 
 ---
@@ -196,7 +208,7 @@ All endpoints require a `Bearer` JWT token (issued by Authentik).
 | `GET` | `/api/balance/history` | Balance history, newest first (`limit`, `offset`, `reason`) |
 | `GET` | `/api/balance/daily` | Daily closing balances for the last `days` days (default 90) |
 | `GET` | `/api/transactions` | Paginated transaction list (filters: `type`, `category`, `startDate`, `endDate`, `needsReview`, `unitemized`, `search`) |
-| `GET` | `/api/transactions/export` | Download filtered transactions as CSV (same filters and `search`) |
+| `GET` | `/api/transactions/export` | Download transactions as CSV (filters: `type`, `category`, `startDate`, `endDate`, `search`) |
 | `GET` | `/api/budget` | Budget progress by category for a given month |
 | `GET` | `/api/statistics/summary` | Income / expense / net for a month |
 | `GET` | `/api/statistics/monthly` | Monthly income+expense chart data |
