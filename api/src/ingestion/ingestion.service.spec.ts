@@ -24,6 +24,8 @@ jest.mock('./parsers/popular.parser', () => ({
 import { IngestionService } from './ingestion.service';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { LedgerService } from '../shared/ledger/ledger.service';
+import { TransactionRunner } from '../shared/ledger/transaction-runner';
+import { FakeTransactionRunner } from '../test-utils/fake-transaction-runner';
 import { CategoriesService } from '../categories/categories.service';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
@@ -92,8 +94,13 @@ describe('IngestionService', () => {
     windowStart: jest.Mock; recordResumePoint: jest.Mock; oldestPendingUnreadable: jest.Mock;
   };
   let memory: { all: jest.Mock };
+  let runner: FakeTransactionRunner;
+  // Populated by the ledger mock below so tests can assert the ledger only
+  // ever runs while TransactionRunner.run is active.
+  let seenActive: boolean[];
   let loggerErrorSpy: jest.SpyInstance;
   let loggerWarnSpy: jest.SpyInstance;
+  let loggerLogSpy: jest.SpyInstance;
 
   beforeEach(async () => {
     jest.resetAllMocks();
@@ -101,7 +108,10 @@ describe('IngestionService', () => {
 
     loggerErrorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     loggerWarnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    loggerLogSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+
+    runner = new FakeTransactionRunner();
+    seenActive = [];
 
     txModel = {
       create: jest.fn().mockImplementation((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc })),
@@ -115,9 +125,14 @@ describe('IngestionService', () => {
     };
     // The ledger is the only thing that moves the balance; ingestion just
     // hands it the signed delta. Its own behaviour is covered in
-    // ledger.service.spec.ts.
+    // ledger.service.spec.ts. The base implementation records whether the
+    // runner is active at call time; a test that needs a rejection overrides
+    // it with mockRejectedValueOnce.
     ledger = {
-      apply: jest.fn().mockResolvedValue({ previousBalance: 0, newBalance: 0 }),
+      apply: jest.fn().mockImplementation(async () => {
+        seenActive.push(runner.active());
+        return { previousBalance: 0, newBalance: 0 };
+      }),
       reverse: jest.fn(),
     };
     categories = {
@@ -158,6 +173,7 @@ describe('IngestionService', () => {
         { provide: SettingsService, useValue: settings },
         { provide: IngestionStatusService, useValue: status },
         { provide: MerchantMemoryService, useValue: memory },
+        { provide: TransactionRunner, useValue: runner },
       ],
     }).compile();
 
@@ -908,12 +924,13 @@ describe('IngestionService', () => {
     expect(txModel.create).not.toHaveBeenCalled();
   });
 
-  // If the balance update fails after create() succeeded, the row exists with
-  // its unique sourceMessageId: every later poll sees 'duplicate' and the
-  // balance is never applied — a permanent drift. The created row must be
-  // rolled back so the next poll can retry the whole thing cleanly.
-  describe('balance failure after create', () => {
-    it('deletes the just-created row and reports failed when the ledger rejects', async () => {
+  // The row, the counter-leg link and the balance move all commit inside one
+  // TransactionRunner.run: a failure anywhere in it aborts the whole thing,
+  // so there is nothing left to roll back — the row itself was never
+  // committed, and the next poll's dedupe check (on sourceMessageId) won't
+  // find it either, so the mail is retried cleanly from scratch.
+  describe('booking failure inside the transaction', () => {
+    it('reports failed without deleting anything when the ledger rejects', async () => {
       mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'msg-1' })]);
       parserParseMock.mockReturnValue(makeParsed({ direction: 'expense', amount: 100 }));
       ledger.apply.mockRejectedValueOnce(new Error('Mongo write concern timeout'));
@@ -922,11 +939,40 @@ describe('IngestionService', () => {
 
       expect(result).toEqual(counts({ bookingFailed: 1 }));
       expect(txModel.create).toHaveBeenCalledTimes(1);
-      expect(txModel.deleteOne).toHaveBeenCalledWith({ _id: 'tx-id' });
-      expect(loggerErrorSpy).toHaveBeenCalled();
+      expect(txModel.deleteOne).not.toHaveBeenCalled();
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('failed; nothing was written'),
+        expect.any(String),
+      );
     });
 
-    it('lets the next poll create the same mail again once the ledger works', async () => {
+    it('reports duplicate when the transaction itself rejects with a duplicate-key error', async () => {
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'msg-1' })]);
+      parserParseMock.mockReturnValue(makeParsed());
+      runner.rejectNext(Object.assign(new Error('dup'), { code: 11000 }));
+
+      const result = await service.run();
+
+      expect(result).toEqual(counts({ alreadyBooked: 1 }));
+      expect(loggerErrorSpy).not.toHaveBeenCalled();
+    });
+
+    it('reports failed when create rejects with a non-duplicate error, and never touches the ledger', async () => {
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'msg-1' })]);
+      parserParseMock.mockReturnValue(makeParsed());
+      txModel.create.mockRejectedValue(new Error('Mongo connection reset'));
+
+      const result = await service.run();
+
+      expect(result).toEqual(counts({ bookingFailed: 1 }));
+      expect(ledger.apply).not.toHaveBeenCalled();
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('failed; nothing was written'),
+        expect.any(String),
+      );
+    });
+
+    it('lets the next poll retry the same mail once the ledger works', async () => {
       mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'msg-1' })]);
       parserParseMock.mockReturnValue(makeParsed({ direction: 'expense', amount: 100 }));
       ledger.apply.mockRejectedValueOnce(new Error('transient'));
@@ -937,10 +983,23 @@ describe('IngestionService', () => {
       expect(first).toEqual(counts({ bookingFailed: 1 }));
       expect(second).toEqual(counts({ created: 1 }));
       expect(txModel.create).toHaveBeenCalledTimes(2);
-      expect(txModel.deleteOne).toHaveBeenCalledTimes(1);
+      expect(txModel.deleteOne).not.toHaveBeenCalled();
       // The retry asks the ledger for the same movement again, and it lands.
       expect(ledger.apply).toHaveBeenCalledTimes(2);
       expect(ledger.apply).toHaveBeenLastCalledWith(-100, 'expense', expect.any(String), expect.any(String));
+    });
+
+    it('runs the row write and the ledger call only while the transaction is active', async () => {
+      mail.fetchSince.mockResolvedValue([makeMail()]);
+      parserParseMock.mockReturnValue(makeParsed());
+      txModel.create.mockImplementationOnce((doc: any) => {
+        seenActive.push(runner.active());
+        return Promise.resolve({ _id: 'tx-id', ...doc });
+      });
+
+      await service.run();
+
+      expect(seenActive).toEqual([true, true]);
     });
   });
 
@@ -1467,6 +1526,31 @@ describe('IngestionService', () => {
       expect(ledger.apply).not.toHaveBeenCalled();
     });
 
+    // The "Matched transfer legs" log is emitted once from the value run()
+    // returns, not from inside fn — so even when the driver retries the whole
+    // transaction (fn runs twice), the log must still appear exactly once.
+    it('logs "Matched transfer legs" exactly once even when the transaction retries', async () => {
+      txModel.create.mockImplementationOnce((doc: any) => Promise.resolve({ _id: 'rx-id', ...doc }));
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'rx-mail' })]);
+      parserParseMock.mockReturnValue(received());
+      await service.run();
+      const rxRow = { _id: 'rx-id', ...txModel.create.mock.calls[0][0] };
+
+      txModel.findOne.mockImplementation(legStore([rxRow]));
+      txModel.create.mockImplementationOnce((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc }));
+      mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'tx-mail' })]);
+      parserParseMock.mockReturnValue(sent());
+      runner.retryOnce();
+
+      const result = await service.run();
+
+      expect(result).toEqual(counts({ created: 1 }));
+      const matchLogs = loggerLogSpy.mock.calls.filter(
+        ([msg]) => typeof msg === 'string' && msg.includes('Matched transfer legs'),
+      );
+      expect(matchLogs).toHaveLength(1);
+    });
+
     // Between findCounterLeg's read and the link write, the received leg may
     // have been resolved by a concurrent request (e.g. resolved to external
     // by the user). The guarded update then matches nothing: this mail is not
@@ -1480,15 +1564,28 @@ describe('IngestionService', () => {
       const rxRow = { _id: 'rx-id', ...txModel.create.mock.calls[0][0] };
 
       txModel.findOne.mockImplementation(legStore([rxRow]));
-      txModel.updateOne.mockResolvedValueOnce({ matchedCount: 0 });
+      // Both the counter-leg link attempt and the lost-race $unset that
+      // follows it must run inside the same transaction as the create above.
+      const linkActive: boolean[] = [];
+      txModel.updateOne.mockImplementationOnce(async () => {
+        linkActive.push(runner.active());
+        return { matchedCount: 0 };
+      });
+      txModel.updateOne.mockImplementationOnce(async () => {
+        linkActive.push(runner.active());
+        return {};
+      });
       txModel.create.mockImplementationOnce((doc: any) => Promise.resolve({ _id: 'tx-id', ...doc }));
       mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'tx-mail' })]);
       parserParseMock.mockReturnValue(sent());
       const result = await service.run();
 
       expect(result).toEqual(counts({ created: 1 }));
+      // Logged once, from the value run() returns after the commit — not from
+      // inside fn, which never logs (see TransactionRunner's rules for fn).
+      expect(loggerWarnSpy).toHaveBeenCalledTimes(1);
       expect(loggerWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Counter leg rx-id no longer unresolved; recording tx-mail unlinked'),
+        expect.stringContaining('Counter leg rx-id no longer unresolved; recorded tx-mail unlinked'),
       );
       // The created row must not end up pointing at a leg it never actually
       // claimed: the optimistic matchedLegId set at create() is corrected by
@@ -1498,6 +1595,7 @@ describe('IngestionService', () => {
         { $unset: { matchedLegId: 1 } },
       );
       expect(ledger.apply).not.toHaveBeenCalled();
+      expect(linkActive).toEqual([true, true]);
     });
 
     it('sent first, then received: the received leg is created internal and linked to the sent leg', async () => {

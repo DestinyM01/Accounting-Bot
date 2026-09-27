@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
@@ -18,4 +19,9 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT || 4000);
 }
-bootstrap();
+// A failed start (for example the transaction startup check) exits non-zero,
+// so Kubernetes restarts the pod and a rollout keeps the old one serving.
+bootstrap().catch((err) => {
+  new Logger('Bootstrap').error('The api failed to start', err instanceof Error ? err.stack : String(err));
+  process.exit(1);
+});

@@ -7,6 +7,8 @@ import { LedgerService } from '../shared/ledger/ledger.service';
 import { CategoriesService } from '../categories/categories.service';
 import { MerchantMemoryService } from '../merchants/merchant-memory.service';
 import { CounterRepairService } from '../cash/counter-repair.service';
+import { TransactionRunner } from '../shared/ledger/transaction-runner';
+import { FakeTransactionRunner } from '../test-utils/fake-transaction-runner';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { encodeTimeCursor } from '../shared/cursor';
@@ -64,19 +66,33 @@ const repair = { repair: jest.fn().mockResolvedValue(false) };
 
 describe('TransactionsService', () => {
   let service: TransactionsService;
+  let runner: FakeTransactionRunner;
+  // Populated by the ledger mocks below so tests can assert the ledger only
+  // ever runs while TransactionRunner.run is active.
+  let seenActive: boolean[];
 
   beforeEach(async () => {
     jest.clearAllMocks();
     // Matches the userId: 1 baked into the update describe's `live()` fixture
     // (same pattern as ledger.service.spec.ts and ingestion.service.spec.ts).
     process.env.BOSS_USER_ID = '1';
+    runner = new FakeTransactionRunner();
+    seenActive = [];
     // clearAllMocks() wipes call history but keeps the resolved values below,
     // so every test starts from this same baseline unless it overrides one.
     mockModel.lean.mockResolvedValue(mockTxs);
     mockModel.countDocuments.mockResolvedValue(mockTxs.length);
     mockModel.findOneAndUpdate.mockResolvedValue(null);
-    ledger.apply.mockResolvedValue({ previousBalance: 0, newBalance: 0 });
-    ledger.reverse.mockResolvedValue({ previousBalance: 0, newBalance: 0 });
+    // The base implementation records whether the runner is active at call
+    // time; a test that needs a rejection overrides it with mockRejectedValueOnce.
+    ledger.apply.mockImplementation(async () => {
+      seenActive.push(runner.active());
+      return { previousBalance: 0, newBalance: 0 };
+    });
+    ledger.reverse.mockImplementation(async () => {
+      seenActive.push(runner.active());
+      return { previousBalance: 0, newBalance: 0 };
+    });
     memory.learn.mockResolvedValue(0);
     repair.repair.mockResolvedValue(false);
 
@@ -88,6 +104,7 @@ describe('TransactionsService', () => {
         { provide: CategoriesService, useValue: categoriesService },
         { provide: MerchantMemoryService, useValue: memory },
         { provide: CounterRepairService, useValue: repair },
+        { provide: TransactionRunner, useValue: runner },
       ],
     }).compile();
     service = module.get<TransactionsService>(TransactionsService);
@@ -510,6 +527,23 @@ describe('TransactionsService', () => {
       await expect(service.create({ type: 'expense', amount: 1, name: 'x', category: 'Gym' })).resolves.toEqual({ id: 'n' });
       await expect(service.create({ type: 'expense', amount: 1, name: 'x', category: 'gym' })).rejects.toThrow(/category/);
     });
+
+    it('runs inside the transaction: the row write and the ledger both see it active', async () => {
+      mockModel.create.mockImplementationOnce((doc: any) => {
+        seenActive.push(runner.active());
+        return Promise.resolve({ _id: 'new1', ...doc });
+      });
+      await service.create({ type: 'expense', amount: 10, name: 'Colmado', category: 'food' });
+      expect(seenActive).toEqual([true, true]);
+    });
+
+    it('returns the second id when the runner retries the transaction', async () => {
+      mockModel.create
+        .mockResolvedValueOnce({ _id: 'a', transactionName: 'colmado' })
+        .mockResolvedValueOnce({ _id: 'b', transactionName: 'colmado' });
+      runner.retryOnce();
+      await expect(service.create({ type: 'expense', amount: 10, name: 'Colmado', category: 'food' })).resolves.toEqual({ id: 'b' });
+    });
   });
 
   describe('update', () => {
@@ -601,15 +635,24 @@ describe('TransactionsService', () => {
       expect(memory.learn).toHaveBeenCalled();
     });
 
-    // Pins the compensate path: if the ledger rejects, update() rethrows before
-    // ever reaching the memory.learn() call at the end of the method.
-    it('teaches nothing when the ledger fails and the edit is rolled back', async () => {
+    // If the ledger rejects, the whole transaction aborts and update() rethrows
+    // before ever reaching the memory.learn() call at the end of the method.
+    it('teaches nothing when the ledger fails', async () => {
       mockModel.findOne.mockResolvedValue(live({ source: 'email', merchant: 'SOME STORE', category: 'food' }));
       mockModel.findOneAndUpdate.mockResolvedValue({});
-      mockModel.updateOne = jest.fn().mockResolvedValue({});
       ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
       await expect(service.update('t1', { amount: 130, category: 'other' })).rejects.toThrow('ledger down');
       expect(memory.learn).not.toHaveBeenCalled();
+    });
+
+    it('runs inside the transaction: the row write and the ledger both see it active when an amount changes', async () => {
+      mockModel.findOne.mockResolvedValue(live());
+      mockModel.findOneAndUpdate.mockImplementationOnce(() => {
+        seenActive.push(runner.active());
+        return Promise.resolve({});
+      });
+      await service.update('t1', { amount: 130 });
+      expect(seenActive).toEqual([true, true]);
     });
 
     it('looks up only live rows and 404s otherwise', async () => {
@@ -648,27 +691,24 @@ describe('TransactionsService', () => {
       expect(ledger.apply).not.toHaveBeenCalled();
     });
 
-    it('restores the stored amount and rethrows when the ledger fails after the write', async () => {
+    it('rejects with the ledger error and writes no restore when the ledger fails after the write', async () => {
       mockModel.findOne.mockResolvedValue(live());
       mockModel.findOneAndUpdate.mockResolvedValue({});
       mockModel.updateOne = jest.fn().mockResolvedValue({});
       ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
       await expect(service.update('t1', { amount: 130 })).rejects.toThrow('ledger down');
-      expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { amount: -100 } });
+      expect(mockModel.updateOne).not.toHaveBeenCalled();
+      expect(runner.calls).toBe(1);
     });
 
-    it('rolls a withdrawal back only while the old amount still covers its items', async () => {
+    it('rejects with the ledger error and writes no restore on a withdrawal amount edit', async () => {
       mockModel.findOne = jest.fn().mockResolvedValue({ _id: 't1', userId: 1, amount: -5000, transactionName: 'atm', isWithdrawal: true, allocatedCash: 4500 });
       mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({});
       mockModel.updateOne = jest.fn().mockResolvedValue({ matchedCount: 0 });
       ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
-      const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
       await expect(service.update('t1', { amount: 6000 })).rejects.toThrow('ledger down');
-      expect(mockModel.updateOne).toHaveBeenCalledWith(
-        { _id: 't1', $expr: { $lte: [{ $ifNull: ['$allocatedCash', 0] }, 5000 + 0.005] } },
-        { $set: { amount: -5000 } },
-      );
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('needs manual repair'), expect.anything());
+      expect(mockModel.updateOne).not.toHaveBeenCalled();
+      expect(runner.calls).toBe(1);
     });
 
     it("refuses to shrink a withdrawal below what's itemized", async () => {
@@ -807,6 +847,15 @@ describe('TransactionsService', () => {
       );
       expect(ledger.reverse).not.toHaveBeenCalled();
     });
+
+    it('runs inside the transaction: the row write and the ledger both see it active', async () => {
+      mockModel.findOneAndUpdate.mockImplementationOnce(() => {
+        seenActive.push(runner.active());
+        return Promise.resolve({ _id: 't1', amount: -100, transactionName: 'uber', transferKind: undefined });
+      });
+      await service.softDelete('t1');
+      expect(seenActive).toEqual([true, true]);
+    });
   });
 
   describe('resolveTransfer', () => {
@@ -855,115 +904,55 @@ describe('TransactionsService', () => {
     it('rejects an unknown kind', async () => {
       await expect(service.resolveTransfer('t1', 'unresolved' as any)).rejects.toThrow(/kind/);
     });
+
+    it('runs inside the transaction: the row write and the ledger both see it active when resolving external', async () => {
+      mockModel.findOneAndUpdate.mockImplementationOnce(() => {
+        seenActive.push(runner.active());
+        return Promise.resolve({ _id: 't1', amount: -20000, transactionName: 'transfer' });
+      });
+      await service.resolveTransfer('t1', 'external');
+      expect(seenActive).toEqual([true, true]);
+    });
   });
 
-  describe('ledger failure rollback', () => {
+  // Each write path runs inside TransactionRunner.run: when the ledger
+  // rejects, the whole transaction aborts and nothing it wrote survives, so
+  // there is nothing left to compensate for. Every test below checks exactly
+  // that — the ledger's error surfaces unchanged, no undo write happens, and
+  // the transaction ran exactly once.
+  describe('ledger failure aborts the transaction, nothing is undone', () => {
     beforeEach(() => { mockModel.updateOne = jest.fn().mockResolvedValue({}); mockModel.deleteOne = jest.fn().mockResolvedValue({}); });
 
-    // A manual row created milliseconds ago with no sourceMessageId may be hard-
-    // deleted: leaving it would invite a DELETE that reverses a movement that never
-    // happened. This is the one permitted hard delete, same as ingestion's rollback.
-    it('create removes the new row when the ledger fails', async () => {
+    it('create rejects with the ledger error and never deletes the row', async () => {
       mockModel.create.mockResolvedValue({ _id: 'new1', transactionName: 'colmado' });
       ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
       await expect(service.create({ type: 'expense', amount: 10, name: 'Colmado', category: 'food' })).rejects.toThrow('ledger down');
-      expect(mockModel.deleteOne).toHaveBeenCalledWith({ _id: 'new1' });
+      expect(mockModel.deleteOne).not.toHaveBeenCalled();
+      expect(runner.calls).toBe(1);
     });
 
-    it('softDelete restores the row, including its recurring link, when the ledger fails', async () => {
+    it('softDelete rejects with the ledger error and never restores a row with a recurring link', async () => {
       mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({ _id: 't1', amount: -100, transactionName: 'rent', recurringId: 'r1', recurringPeriod: '2026-10' });
       ledger.reverse.mockRejectedValueOnce(new Error('ledger down'));
       await expect(service.softDelete('t1')).rejects.toThrow('ledger down');
-      expect(mockModel.updateOne).toHaveBeenCalledWith(
-        { _id: 't1' },
-        { $unset: { deletedAt: 1 }, $set: { recurringId: 'r1', recurringPeriod: '2026-10' } },
-      );
+      expect(mockModel.updateOne).not.toHaveBeenCalled();
+      expect(runner.calls).toBe(1);
     });
 
-    it('softDelete restores a row with no recurring link without a $set', async () => {
+    it('softDelete rejects with the ledger error and never restores a row with no recurring link', async () => {
       mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({ _id: 't1', amount: -100, transactionName: 'x' });
       ledger.reverse.mockRejectedValueOnce(new Error('ledger down'));
       await expect(service.softDelete('t1')).rejects.toThrow('ledger down');
-      expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $unset: { deletedAt: 1 } });
+      expect(mockModel.updateOne).not.toHaveBeenCalled();
+      expect(runner.calls).toBe(1);
     });
 
-    it('resolveTransfer puts the row back to unresolved when the ledger fails', async () => {
+    it('resolveTransfer rejects with the ledger error and never puts the row back to unresolved', async () => {
       mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({ _id: 't1', amount: -100, transactionName: 'transfer' });
       ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
       await expect(service.resolveTransfer('t1', 'external')).rejects.toThrow('ledger down');
-      expect(mockModel.updateOne).toHaveBeenCalledWith({ _id: 't1' }, { $set: { transferKind: 'unresolved' } });
-    });
-  });
-
-  // When the compensation ITSELF fails, the row is left in a state no retry
-  // can repair. The ledger error — not the compensation's — is still what the
-  // caller sees (it is the one worth surfacing), and the failure is logged
-  // loudly, with the id, since nothing else will ever say so again.
-  describe('compensation failure', () => {
-    beforeEach(() => { mockModel.updateOne = jest.fn().mockResolvedValue({}); mockModel.deleteOne = jest.fn().mockResolvedValue({}); });
-
-    it('create: logs and still rejects with the ledger error when the rollback delete also fails', async () => {
-      mockModel.create.mockResolvedValue({ _id: 'new1', transactionName: 'colmado' });
-      mockModel.deleteOne.mockRejectedValueOnce(new Error('db down'));
-      ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
-      const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
-
-      await expect(service.create({ type: 'expense', amount: 10, name: 'Colmado', category: 'food' })).rejects.toThrow('ledger down');
-
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('new1'), expect.anything());
-    });
-
-    it('update: logs and still rejects with the ledger error when the restore also fails', async () => {
-      mockModel.findOne = jest.fn().mockResolvedValue({ _id: 't1', userId: 1, amount: -100, transactionName: 'old', category: 'food', transferKind: undefined });
-      mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({});
-      mockModel.updateOne.mockRejectedValueOnce(new Error('db down'));
-      ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
-      const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
-
-      await expect(service.update('t1', { amount: 130 })).rejects.toThrow('ledger down');
-
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('t1'), expect.anything());
-    });
-
-    it('softDelete: logs and still rejects with the ledger error when the restore also fails', async () => {
-      mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({ _id: 't1', amount: -100, transactionName: 'rent' });
-      mockModel.updateOne.mockRejectedValueOnce(new Error('db down'));
-      ledger.reverse.mockRejectedValueOnce(new Error('ledger down'));
-      const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
-
-      await expect(service.softDelete('t1')).rejects.toThrow('ledger down');
-
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('t1'), expect.anything());
-    });
-
-    it('resolveTransfer: logs and still rejects with the ledger error when the revert also fails', async () => {
-      mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({ _id: 't1', amount: -100, transactionName: 'transfer' });
-      mockModel.updateOne.mockRejectedValueOnce(new Error('db down'));
-      ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
-      const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
-
-      await expect(service.resolveTransfer('t1', 'external')).rejects.toThrow('ledger down');
-
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('t1'), expect.anything());
-    });
-  });
-
-  // update's compensation must restore every field the patch touched, not
-  // just amount: a co-edit of name+amount that rolls back must not leave the
-  // new name stranded on the old amount.
-  describe('update — full pre-image restore on ledger failure', () => {
-    it('restores every patched field, not only amount', async () => {
-      mockModel.findOne = jest.fn().mockResolvedValue({ _id: 't1', userId: 1, amount: -100, transactionName: 'old', category: 'food', transferKind: undefined });
-      mockModel.findOneAndUpdate = jest.fn().mockResolvedValue({});
-      mockModel.updateOne = jest.fn().mockResolvedValue({});
-      ledger.apply.mockRejectedValueOnce(new Error('ledger down'));
-
-      await expect(service.update('t1', { amount: 130, name: 'New' })).rejects.toThrow('ledger down');
-
-      expect(mockModel.updateOne).toHaveBeenCalledWith(
-        { _id: 't1' },
-        { $set: { amount: -100, transactionName: 'old' } },
-      );
+      expect(mockModel.updateOne).not.toHaveBeenCalled();
+      expect(runner.calls).toBe(1);
     });
   });
 });

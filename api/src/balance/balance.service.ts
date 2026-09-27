@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { Balance } from '../shared/schemas/balance.schema';
 import { BALANCE_CHANGE_REASONS, BalanceHistory } from '../shared/schemas/balance-history.schema';
 import { LedgerService } from '../shared/ledger/ledger.service';
+import { TransactionRunner } from '../shared/ledger/transaction-runner';
 import { dailyClosings, DailyPoint, windowStart } from './daily-closings';
 import { afterTime, encodeTimeCursor, parseTimeCursor } from '../shared/cursor';
 
@@ -31,6 +32,7 @@ export class BalanceService {
     @InjectModel(Balance.name) private balanceModel: Model<Balance>,
     @InjectModel(BalanceHistory.name) private historyModel: Model<BalanceHistory>,
     private readonly ledger: LedgerService,
+    private readonly txn: TransactionRunner,
   ) {}
 
   async get() {
@@ -52,7 +54,7 @@ export class BalanceService {
     const trimmed = typeof note === 'string' ? note.trim() : '';
     if (trimmed.length > NOTE_MAX) throw new BadRequestException(`note must be at most ${NOTE_MAX} characters`);
 
-    return this.ledger.setTo(Math.round(balance * 100) / 100, trimmed || undefined);
+    return this.txn.run(() => this.ledger.setTo(Math.round(balance * 100) / 100, trimmed || undefined));
   }
 
   async history(query: { limit?: string; offset?: string; reason?: string; before?: string }) {

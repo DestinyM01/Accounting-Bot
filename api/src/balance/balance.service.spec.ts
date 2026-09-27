@@ -5,6 +5,8 @@ import { BalanceService } from './balance.service';
 import { Balance } from '../shared/schemas/balance.schema';
 import { BalanceHistory } from '../shared/schemas/balance-history.schema';
 import { LedgerService } from '../shared/ledger/ledger.service';
+import { TransactionRunner } from '../shared/ledger/transaction-runner';
+import { FakeTransactionRunner } from '../test-utils/fake-transaction-runner';
 import { windowStart } from './daily-closings';
 import { queryStub as query } from '../test-utils/query-stub';
 
@@ -16,6 +18,7 @@ describe('BalanceService', () => {
   let balanceModel: { findOne: jest.Mock };
   let historyModel: { find: jest.Mock; findOne: jest.Mock; countDocuments: jest.Mock };
   let ledger: { setTo: jest.Mock };
+  let runner: FakeTransactionRunner;
 
   beforeEach(async () => {
     process.env.BOSS_USER_ID = '1';
@@ -25,7 +28,13 @@ describe('BalanceService', () => {
       findOne: jest.fn(() => query(null)),
       countDocuments: jest.fn().mockResolvedValue(0),
     };
-    ledger = { setTo: jest.fn().mockResolvedValue({ previousBalance: 0, newBalance: 0, delta: 0 }) };
+    runner = new FakeTransactionRunner();
+    ledger = {
+      setTo: jest.fn(async () => {
+        expect(runner.active()).toBe(true);
+        return { previousBalance: 0, newBalance: 0, delta: 0 };
+      }),
+    };
 
     const mod = await Test.createTestingModule({
       providers: [
@@ -33,6 +42,7 @@ describe('BalanceService', () => {
         { provide: getModelToken(Balance.name), useValue: balanceModel },
         { provide: getModelToken(BalanceHistory.name), useValue: historyModel },
         { provide: LedgerService, useValue: ledger },
+        { provide: TransactionRunner, useValue: runner },
       ],
     }).compile();
     service = mod.get(BalanceService);
@@ -42,6 +52,7 @@ describe('BalanceService', () => {
     it('sets through the ledger, rounded to cents, with a trimmed note', async () => {
       await service.set({ balance: 51170.456, note: '  cash not tracked  ' });
       expect(ledger.setTo).toHaveBeenCalledWith(51170.46, 'cash not tracked');
+      expect(runner.calls).toBe(1);
     });
 
     it('treats an empty note as none', async () => {
@@ -59,6 +70,7 @@ describe('BalanceService', () => {
     ])('rejects %s', async (_label, bad) => {
       await expect(service.set({ balance: bad as any })).rejects.toBeInstanceOf(BadRequestException);
       expect(ledger.setTo).not.toHaveBeenCalled();
+      expect(runner.calls).toBe(0);
     });
 
     it('accepts exactly ±1e12 and negative totals', async () => {
@@ -75,10 +87,12 @@ describe('BalanceService', () => {
 
     it('rejects a note that is not a string', async () => {
       await expect(service.set({ balance: 1, note: 5 as any })).rejects.toBeInstanceOf(BadRequestException);
+      expect(runner.calls).toBe(0);
     });
 
     it('rejects a note over 100 characters', async () => {
       await expect(service.set({ balance: 1, note: 'x'.repeat(101) })).rejects.toBeInstanceOf(BadRequestException);
+      expect(runner.calls).toBe(0);
     });
 
     it('accepts a 100-character note', async () => {

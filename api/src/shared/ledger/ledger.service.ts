@@ -1,26 +1,35 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Balance } from '../schemas/balance.schema';
 import { BalanceChangeReason, BalanceHistory } from '../schemas/balance-history.schema';
+import { TransactionRunner } from './transaction-runner';
 
 /**
  * The only code in api/ that moves the user's balance. Every write path —
- * ingestion, manual create, edit, delete, resolution — must go through here
- * so the balance and its history can never disagree about what happened.
+ * ingestion, manual create, edit, delete, resolution, recurring, the balance
+ * page — calls it inside TransactionRunner.run, so the balance, its history
+ * and the row that caused the movement commit together or not at all.
  * seq numbers every change in the order the balance saw them; history sorts by it.
  */
 @Injectable()
 export class LedgerService {
-  private readonly logger = new Logger(LedgerService.name);
   private readonly userId = parseInt(process.env.BOSS_USER_ID || '0', 10);
 
   constructor(
     @InjectModel(Balance.name) private readonly balanceModel: Model<Balance>,
     @InjectModel(BalanceHistory.name) private readonly historyModel: Model<BalanceHistory>,
+    private readonly txn: TransactionRunner,
   ) {}
 
-  /** A history failure is logged and never undoes the movement that already happened. */
+  /** The balance only moves inside TransactionRunner.run, with the row that caused it. */
+  private assertInTransaction(): void {
+    if (!this.txn.active()) {
+      throw new Error('LedgerService: the balance moves only inside a transaction (TransactionRunner.run)');
+    }
+  }
+
+  /** Inside the caller's transaction: a history failure aborts the whole movement. */
   private async recordHistory(row: {
     previousBalance: number;
     newBalance: number;
@@ -30,11 +39,7 @@ export class LedgerService {
     transactionId?: string;
     seq?: number;
   }): Promise<void> {
-    try {
-      await this.historyModel.create({ userId: this.userId, ...row });
-    } catch (err) {
-      this.logger.error('Failed to record balance history', String(err));
-    }
+    await this.historyModel.create({ userId: this.userId, ...row });
   }
 
   /** Adds a SIGNED delta (expense negative, income positive) and records history. */
@@ -44,6 +49,7 @@ export class LedgerService {
     transactionName?: string,
     transactionId?: string,
   ): Promise<{ previousBalance: number; newBalance: number }> {
+    this.assertInTransaction();
     // A single atomic $inc: concurrent writers (the ingestion poll and the web)
     // can never lose each other's update the way a read-modify-write can.
     const updated = await this.balanceModel.findOneAndUpdate(
@@ -80,6 +86,7 @@ export class LedgerService {
     target: number,
     note?: string,
   ): Promise<{ previousBalance: number; newBalance: number; delta: number }> {
+    this.assertInTransaction();
     const before = await this.balanceModel.findOneAndUpdate(
       { userId: this.userId },
       { $set: { balance: target, lastActivity: new Date() }, $inc: { seq: 1 } },

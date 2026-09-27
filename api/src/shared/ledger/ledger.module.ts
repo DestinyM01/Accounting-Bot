@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Balance, BalanceSchema } from '../schemas/balance.schema';
 import { BalanceHistory, BalanceHistorySchema } from '../schemas/balance-history.schema';
 import { LedgerService } from './ledger.service';
+import { TransactionRunner } from './transaction-runner';
 
 @Module({
   imports: [
@@ -11,7 +12,7 @@ import { LedgerService } from './ledger.service';
       { name: BalanceHistory.name, schema: BalanceHistorySchema },
     ]),
   ],
-  providers: [LedgerService],
-  exports: [LedgerService],
+  providers: [LedgerService, TransactionRunner],
+  exports: [LedgerService, TransactionRunner],
 })
 export class LedgerModule {}

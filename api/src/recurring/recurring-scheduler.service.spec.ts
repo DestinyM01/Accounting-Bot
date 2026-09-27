@@ -22,6 +22,8 @@ import { Recurring } from '../shared/schemas/recurring.schema';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { LedgerService } from '../shared/ledger/ledger.service';
+import { TransactionRunner } from '../shared/ledger/transaction-runner';
+import { FakeTransactionRunner } from '../test-utils/fake-transaction-runner';
 import { RecurringModule } from './recurring.module';
 import { LedgerModule } from '../shared/ledger/ledger.module';
 
@@ -58,6 +60,7 @@ describe('RecurringSchedulerService', () => {
   let recurringModel: { find: jest.Mock; updateOne: jest.Mock };
   let txModel: { findOne: jest.Mock; create: jest.Mock; deleteOne: jest.Mock };
   let ledger: { apply: jest.Mock };
+  let runner: FakeTransactionRunner;
   let logSpy: jest.SpyInstance;
   let warnSpy: jest.SpyInstance;
   let errorSpy: jest.SpyInstance;
@@ -71,6 +74,7 @@ describe('RecurringSchedulerService', () => {
       deleteOne: jest.fn().mockResolvedValue({}),
     };
     ledger = { apply: jest.fn().mockResolvedValue({ previousBalance: 0, newBalance: 0 }) };
+    runner = new FakeTransactionRunner();
     logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
     warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
@@ -81,6 +85,7 @@ describe('RecurringSchedulerService', () => {
         { provide: getModelToken(Recurring.name), useValue: recurringModel },
         { provide: getModelToken(Transaction.name), useValue: txModel },
         { provide: LedgerService, useValue: ledger },
+        { provide: TransactionRunner, useValue: runner },
       ],
     }).compile();
     service = module.get(RecurringSchedulerService);
@@ -181,27 +186,61 @@ describe('RecurringSchedulerService', () => {
       expect(recurringModel.updateOne).toHaveBeenCalledWith(...markedHandled(rule, '2026-09'));
     });
 
-    it('propagates any other insert error without moving money or the marker', async () => {
+    it('fails without writing when create rejects with a non-duplicate error: it no longer throws', async () => {
+      const rule = makeRule();
       txModel.create.mockRejectedValue(new Error('connection reset'));
-      await expect(service.bookOccurrence(makeRule(), SEP, NOW)).rejects.toThrow('connection reset');
+      await expect(service.bookOccurrence(rule, SEP, NOW)).resolves.toBe('failed');
+      expect(errorSpy).toHaveBeenCalledWith(
+        `Booking recurring ${String(rule._id)} for 2026-09 failed; nothing was written`,
+        expect.any(String),
+      );
       expect(ledger.apply).not.toHaveBeenCalled();
       expect(recurringModel.updateOne).not.toHaveBeenCalled();
     });
 
-    it('rolls the row back when the ledger fails and leaves the marker for the next hour', async () => {
+    it('fails, writing nothing, when the ledger rejects inside the transaction: no manual rollback', async () => {
+      const rule = makeRule();
       ledger.apply.mockRejectedValue(new Error('balance write failed'));
-      await expect(service.bookOccurrence(makeRule(), SEP, NOW)).resolves.toBe('failed');
-      expect(txModel.deleteOne).toHaveBeenCalledWith({ _id: 'tx1' });
+      await expect(service.bookOccurrence(rule, SEP, NOW)).resolves.toBe('failed');
+      expect(txModel.deleteOne).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalledWith(
+        `Booking recurring ${String(rule._id)} for 2026-09 failed; nothing was written`,
+        expect.any(String),
+      );
       expect(recurringModel.updateOne).not.toHaveBeenCalled();
     });
 
-    it('reports a failed rollback as needing repair, and still returns failed', async () => {
-      ledger.apply.mockRejectedValue(new Error('balance write failed'));
-      txModel.deleteOne.mockRejectedValue(new Error('delete failed'));
-      await expect(service.bookOccurrence(makeRule(), SEP, NOW)).resolves.toBe('failed');
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Needs manual repair'), expect.any(String));
-      expect(errorSpy).not.toHaveBeenCalledWith(expect.stringContaining('rolled back'), expect.anything());
-      expect(recurringModel.updateOne).not.toHaveBeenCalled();
+    it('treats a duplicate-key rejection surfacing from the transaction itself as satisfied', async () => {
+      const rule = makeRule();
+      runner.rejectNext({ code: 11000 });
+      await expect(service.bookOccurrence(rule, SEP, NOW)).resolves.toBe('satisfied');
+      expect(txModel.create).not.toHaveBeenCalled();
+      expect(ledger.apply).not.toHaveBeenCalled();
+      expect(recurringModel.updateOne).toHaveBeenCalledWith(...markedHandled(rule, '2026-09'));
+    });
+
+    it('runs the create and the ledger apply inside one transaction, then marks handled once it has committed', async () => {
+      const rule = makeRule();
+      let activeDuringCreate: boolean | undefined;
+      let activeDuringLedger: boolean | undefined;
+      let activeDuringMarkHandled: boolean | undefined;
+      txModel.create.mockImplementationOnce(async (doc: any) => {
+        activeDuringCreate = runner.active();
+        return { _id: 'tx1', ...doc };
+      });
+      ledger.apply.mockImplementationOnce(async () => {
+        activeDuringLedger = runner.active();
+        return { previousBalance: 0, newBalance: 0 };
+      });
+      recurringModel.updateOne.mockImplementationOnce(async () => {
+        activeDuringMarkHandled = runner.active();
+        return {};
+      });
+      await expect(service.bookOccurrence(rule, SEP, NOW)).resolves.toBe('booked');
+      expect(activeDuringCreate).toBe(true);
+      expect(activeDuringLedger).toBe(true);
+      expect(activeDuringMarkHandled).toBe(false);
+      expect(recurringModel.updateOne).toHaveBeenCalledWith(...markedHandled(rule, '2026-09'));
     });
   });
 
@@ -250,7 +289,8 @@ describe('RecurringSchedulerService', () => {
       await service.sweep(new Date('2026-09-26T12:00:00Z'));
       expect(txModel.create).toHaveBeenCalledTimes(1);
       expect(txModel.create).toHaveBeenCalledWith(expect.objectContaining({ recurringPeriod: '2026-08' }));
-      expect(txModel.deleteOne).toHaveBeenCalledWith({ _id: 'tx1' });
+      // The transaction aborts as a whole: there is nothing to roll back manually.
+      expect(txModel.deleteOne).not.toHaveBeenCalled();
       // The marker itself never moves on a failure; the failed month is remembered instead.
       expect(recurringModel.updateOne).toHaveBeenCalledTimes(1);
       expect(recurringModel.updateOne).toHaveBeenCalledWith(...failureRecorded(rule, '2026-08'));

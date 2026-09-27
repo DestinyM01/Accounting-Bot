@@ -6,6 +6,7 @@ import { waitForIdle } from '../shared/wait-for-idle';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { Category } from '../shared/schemas/category.enum';
 import { LedgerService } from '../shared/ledger/ledger.service';
+import { TransactionRunner } from '../shared/ledger/transaction-runner';
 import { CategoriesService } from '../categories/categories.service';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
@@ -64,6 +65,7 @@ export class IngestionService implements BeforeApplicationShutdown, OnModuleDest
     private readonly settings: SettingsService,
     private readonly status: IngestionStatusService,
     private readonly memory: MerchantMemoryService,
+    private readonly txn: TransactionRunner,
   ) {}
 
   /** Set while a run is in flight so a slow run is never overlapped by the next tick. */
@@ -437,90 +439,83 @@ export class IngestionService implements BeforeApplicationShutdown, OnModuleDest
       this.logger.log(`All matching rules already satisfied for this period; recording ${messageId} separately`);
     }
 
-    let doc: { _id: unknown };
+    // One transaction: the row, the link to the other leg of a two-bank
+    // transfer, and the balance movement commit together or not at all. The
+    // duplicate check and every log happen after run() settles: see
+    // TransactionRunner for why fn never catches its own errors.
+    let booked: { id: string; linked: 'matched' | 'lost-race' | 'none' };
     try {
-      doc = await this.txModel.create({
-        userId: this.userId,
-        userName: 'email',
-        transactionName: p.counterparty.toLowerCase(),
-        // MUST go through the enum: its values are the legacy strings 'Доход'/'Расход'.
-        transactionType:
-          p.direction === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
-        amount: signed,
-        timestamp: p.occurredAt,
-        category,
-        categoryNeedsReview: needsReview,
-        sourceMessageId: messageId,
-        source: 'email',
-        merchant: p.counterparty,
-        cardLast4: p.cardLast4,
-        originalAmount,
-        originalCurrency,
-        isWithdrawal: p.isWithdrawal,
-        mailTimeLocal: true,
-        externalRef: p.externalRef,
-        transferKind,
-        matchedLegId: counterLeg ? String(counterLeg._id) : undefined,
-        recurringId,
-        recurringPeriod,
+      booked = await this.txn.run(async () => {
+        const doc = await this.txModel.create({
+          userId: this.userId,
+          userName: 'email',
+          transactionName: p.counterparty.toLowerCase(),
+          // MUST go through the enum: its values are the legacy strings 'Доход'/'Расход'.
+          transactionType:
+            p.direction === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
+          amount: signed,
+          timestamp: p.occurredAt,
+          category,
+          categoryNeedsReview: needsReview,
+          sourceMessageId: messageId,
+          source: 'email',
+          merchant: p.counterparty,
+          cardLast4: p.cardLast4,
+          originalAmount,
+          originalCurrency,
+          isWithdrawal: p.isWithdrawal,
+          mailTimeLocal: true,
+          externalRef: p.externalRef,
+          transferKind,
+          matchedLegId: counterLeg ? String(counterLeg._id) : undefined,
+          recurringId,
+          recurringPeriod,
+        });
+        let linked: 'matched' | 'lost-race' | 'none' = 'none';
+        if (counterLeg) {
+          // Only an unresolved leg may be flipped to internal; a resolved one
+          // already moved the balance. This only applies when the counter leg is
+          // the received (unresolved) half — a matched sent leg is already
+          // internal and was never a resolution target.
+          const link = await this.txModel.updateOne(
+            p.isReceivedTransfer
+              ? { _id: counterLeg._id }
+              : { _id: counterLeg._id, transferKind: 'unresolved', ...NOT_DELETED },
+            { $set: { transferKind: 'internal', matchedLegId: String(doc._id) } },
+          );
+          if (!p.isReceivedTransfer && link.matchedCount === 0) {
+            // Between findCounterLeg's read and this write, the received leg was
+            // resolved by a concurrent request — it is no longer part of this
+            // transfer. Undo the optimistic matchedLegId this row was created
+            // with, rather than leave it pointing at a leg that is not internal.
+            await this.txModel.updateOne({ _id: doc._id }, { $unset: { matchedLegId: 1 } });
+            linked = 'lost-race';
+          } else {
+            linked = 'matched';
+          }
+        }
+        // Only external transfers and ordinary card transactions move money.
+        // An internal transfer nets to zero against the single Balance document,
+        // and an unresolved one has not been asserted yet.
+        if (!isNonSpendingTransfer(transferKind)) {
+          await this.ledger.apply(signed, p.direction, p.counterparty, String(doc._id));
+        }
+        return { id: String(doc._id), linked };
       });
     } catch (err: any) {
       if (err?.code === 11000) {
         // Unique index on sourceMessageId — already ingested. Expected, not an error.
         return 'duplicate';
       }
-      this.logger.error(`Failed to persist ${messageId}`, err instanceof Error ? err.stack : String(err));
+      this.logger.error(`Booking ${messageId} failed; nothing was written`, err instanceof Error ? err.stack : String(err));
       return 'failed';
     }
-
-    // Every step after the create is a side effect the row depends on. If one
-    // fails, the row must not survive it: its unique sourceMessageId would
-    // make every later poll report 'duplicate', and the side effect would
-    // never be retried — a permanent balance drift. Delete the row so the
-    // next poll redoes the whole thing.
-    try {
-      if (counterLeg) {
-        // Only an unresolved leg may be flipped to internal; a resolved one
-        // already moved the balance. This only applies when the counter leg is
-        // the received (unresolved) half — a matched sent leg is already
-        // internal and was never a resolution target.
-        const link = await this.txModel.updateOne(
-          p.isReceivedTransfer
-            ? { _id: counterLeg._id }
-            : { _id: counterLeg._id, transferKind: 'unresolved', ...NOT_DELETED },
-          { $set: { transferKind: 'internal', matchedLegId: String(doc._id) } },
-        );
-        if (!p.isReceivedTransfer && link.matchedCount === 0) {
-          // Between findCounterLeg's read and this write, the received leg was
-          // resolved by a concurrent request — it is no longer part of this
-          // transfer. Undo the optimistic matchedLegId this row was created
-          // with, rather than leave it pointing at a leg that is not internal.
-          this.logger.warn(`Counter leg ${String(counterLeg._id)} no longer unresolved; recording ${messageId} unlinked`);
-          await this.txModel.updateOne({ _id: doc._id }, { $unset: { matchedLegId: 1 } });
-        } else {
-          this.logger.log(`Matched transfer legs ${String(counterLeg._id)} <-> ${String(doc._id)} from mail ${messageId}`);
-        }
-      }
-      // Only external transfers and ordinary card transactions move money.
-      // An internal transfer nets to zero against the single Balance document,
-      // and an unresolved one has not been asserted yet.
-      if (isNonSpendingTransfer(transferKind)) {
-        return 'created';
-      }
-      await this.ledger.apply(signed, p.direction, p.counterparty, String(doc._id));
-      return 'created';
-    } catch (err) {
-      this.logger.error(
-        `Post-create step failed for ${messageId}; rolling back row ${String(doc._id)}`,
-        err instanceof Error ? err.stack : String(err),
-      );
-      try {
-        await this.txModel.deleteOne({ _id: doc._id });
-      } catch (rollbackErr) {
-        this.logger.error(`Rollback of ${String(doc._id)} failed; row is orphaned`, String(rollbackErr));
-      }
-      return 'failed';
+    if (booked.linked === 'lost-race') {
+      this.logger.warn(`Counter leg ${String(counterLeg!._id)} no longer unresolved; recorded ${messageId} unlinked`);
+    } else if (booked.linked === 'matched') {
+      this.logger.log(`Matched transfer legs ${String(counterLeg!._id)} <-> ${booked.id} from mail ${messageId}`);
     }
+    return 'created';
   }
 
   /**

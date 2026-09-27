@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Transaction } from '../shared/schemas/transaction.schema';
@@ -6,6 +6,7 @@ import { localDateKey, localDayEnd, localDayStart } from '../shared/time-zone';
 import { NOT_DELETED, NON_SPENDING_KINDS, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { LedgerService } from '../shared/ledger/ledger.service';
+import { TransactionRunner } from '../shared/ledger/transaction-runner';
 import { CategoriesService } from '../categories/categories.service';
 import { MerchantMemoryService } from '../merchants/merchant-memory.service';
 import { HALF_CENT, money } from '../cash/cash-rules';
@@ -96,7 +97,6 @@ export interface TransactionPage {
 @Injectable()
 export class TransactionsService {
   private readonly userId = parseInt(process.env.BOSS_USER_ID || '0', 10);
-  private readonly logger = new Logger(TransactionsService.name);
 
   constructor(
     @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
@@ -104,21 +104,8 @@ export class TransactionsService {
     private readonly categories: CategoriesService,
     private readonly memory: MerchantMemoryService,
     private readonly counters: CounterRepairService,
+    private readonly txn: TransactionRunner,
   ) {}
-
-  /**
-   * Runs a compensation after a failed ledger call, then rethrows the LEDGER
-   * error — that is the one worth surfacing. If the compensation itself fails
-   * the row is in a state no retry can repair: say so loudly, with the id.
-   */
-  private async compensate({ id, what }: { id: string; what: string }, undo: () => Promise<unknown>, ledgerErr: unknown): Promise<never> {
-    try {
-      await undo();
-    } catch (undoErr) {
-      this.logger.error(`Rollback of ${what} for ${id} failed; row needs manual repair`, String(undoErr));
-    }
-    throw ledgerErr;
-  }
 
   private buildFilter(query: ExportQuery & { needsReview?: boolean; transferKind?: string; unitemized?: boolean }): Record<string, any> {
     const filter: any = { userId: this.userId, ...NOT_DELETED };
@@ -259,27 +246,22 @@ export class TransactionsService {
     if (isNaN(ts.getTime())) throw new BadRequestException(`timestamp is invalid (got ${timestamp})`);
 
     const signed = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
-    const doc = await this.transactionModel.create({
-      userId: this.userId,
-      userName: 'web',
-      // The bot lowercases names; matching keeps search and analytics grouping consistent.
-      transactionName: name.trim().toLowerCase(),
-      transactionType: type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
-      amount: signed,
-      timestamp: ts,
-      category,
-      source: 'manual',
-    });
-    try {
+    const id = await this.txn.run(async () => {
+      const doc = await this.transactionModel.create({
+        userId: this.userId,
+        userName: 'web',
+        // The bot lowercases names; matching keeps search and analytics grouping consistent.
+        transactionName: name.trim().toLowerCase(),
+        transactionType: type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
+        amount: signed,
+        timestamp: ts,
+        category,
+        source: 'manual',
+      });
       await this.ledger.apply(signed, type, doc.transactionName, String(doc._id));
-    } catch (err) {
-      // The row exists but the balance did not move. Remove the row so a retry
-      // starts clean; leaving it would invite a DELETE that reverses a movement
-      // that never happened. Permitted hard delete: a row this call created
-      // milliseconds ago, with no sourceMessageId — the same rule as ingestion's rollback.
-      return this.compensate({ id: String(doc._id), what: 'create' }, () => this.transactionModel.deleteOne({ _id: doc._id }), err);
-    }
-    return { id: String(doc._id) };
+      return String(doc._id);
+    });
+    return { id };
   }
 
   /** The concurrency guard for update(): the row must still carry the amount and
@@ -376,38 +358,15 @@ export class TransactionsService {
 
     if (Object.keys(patch).length === 0) return;
 
-    // Guarded write: the row must still be live and still carry the amount and
-    // kind the delta was computed from. A concurrent delete, edit or resolution
-    // changes one of those; the filter then misses and nothing is applied.
-    // Named `matched`, not `written`: it's only a truthiness check here — `tx`
-    // above still carries the pre-image the delta was computed from.
-    const matched = await this.writeGuarded(id, tx, patch);
-    if (!matched) {
-      // Never repair here — see reportGuardedMiss: a miss can mean a live
-      // reservation from another tab, and repairing would erase it.
-      await this.reportGuardedMiss(id, tx, patch);
-    }
-
-    if (delta !== 0) {
-      try {
-        await this.ledger.apply(delta, 'manual', tx.transactionName, id);
-      } catch (err) {
-        // The row was stored but the balance did not move. Put back every
-        // field the patch touched — not just amount — so a retry starts from
-        // the exact pre-image instead of a hybrid of old and new values.
-        const restore: Record<string, unknown> = {};
-        for (const k of Object.keys(patch)) restore[k] = (tx as any)[k] ?? null;
-        // A withdrawal's rollback must not shrink it below items added since the
-        // edit made room for them: check that inside the same write.
-        const covered = tx.isWithdrawal && patch.amount !== undefined
-          ? { $expr: { $lte: [{ $ifNull: ['$allocatedCash', 0] }, Math.abs(tx.amount) + HALF_CENT] } }
-          : {};
-        return this.compensate({ id, what: 'update' }, async () => {
-          const res = await this.transactionModel.updateOne({ _id: id, ...covered }, { $set: restore });
-          if (res.matchedCount === 0) throw new Error('items were itemized after the edit; the old amount no longer covers them');
-        }, err);
-      }
-    }
+    // One transaction: the guarded write and its balance movement commit
+    // together. The filter still requires the row to be live and to carry the
+    // amount and kind the delta was computed from; a miss throws (400/409),
+    // which aborts the transaction with nothing written.
+    await this.txn.run(async () => {
+      const matched = await this.writeGuarded(id, tx, patch);
+      if (!matched) await this.reportGuardedMiss(id, tx, patch);
+      if (delta !== 0) await this.ledger.apply(delta, 'manual', tx.transactionName, id);
+    });
 
     // Only a real choice teaches: the web edit form always sends `category`,
     // so a name-only fix must not re-teach the category unchanged. A waiting
@@ -428,27 +387,14 @@ export class TransactionsService {
     // and, having no sourceMessageId to dedupe on, is re-parsed on every poll.
     // ($exists: false is not allowed in a partialFilterExpression, so the index
     // itself cannot be taught to ignore deleted rows.)
-    const tx = await this.transactionModel.findOneAndUpdate(
-      { _id: id, userId: this.userId, ...NOT_DELETED },
-      { $set: { deletedAt: new Date() }, $unset: { recurringId: 1, recurringPeriod: 1 } },
-    );
-    if (!tx) throw new NotFoundException();
-    if (!isNonSpendingTransfer(tx.transferKind)) {
-      try {
-        await this.ledger.reverse(tx.amount, tx.transactionName, id);
-      } catch (err) {
-        // Put the row back exactly as it was so the delete can be retried;
-        // otherwise the deletedAt guard 404s forever and the balance never reverses.
-        const restore: Record<string, unknown> = {};
-        if (tx.recurringId) restore.recurringId = tx.recurringId;
-        if (tx.recurringPeriod) restore.recurringPeriod = tx.recurringPeriod;
-        const undo = () => this.transactionModel.updateOne(
-          { _id: id },
-          Object.keys(restore).length ? { $unset: { deletedAt: 1 }, $set: restore } : { $unset: { deletedAt: 1 } },
-        );
-        return this.compensate({ id, what: 'softDelete' }, undo, err);
-      }
-    }
+    await this.txn.run(async () => {
+      const tx = await this.transactionModel.findOneAndUpdate(
+        { _id: id, userId: this.userId, ...NOT_DELETED },
+        { $set: { deletedAt: new Date() }, $unset: { recurringId: 1, recurringPeriod: 1 } },
+      );
+      if (!tx) throw new NotFoundException();
+      if (!isNonSpendingTransfer(tx.transferKind)) await this.ledger.reverse(tx.amount, tx.transactionName, id);
+    });
   }
 
   /**
@@ -458,25 +404,21 @@ export class TransactionsService {
    */
   async resolveTransfer(id: string, kind: 'internal' | 'external'): Promise<void> {
     if (kind !== 'internal' && kind !== 'external') throw new BadRequestException(`kind must be internal or external (got ${kind})`);
-    const tx = await this.transactionModel.findOneAndUpdate(
-      { _id: id, userId: this.userId, transferKind: 'unresolved', ...NOT_DELETED },
-      { $set: { transferKind: kind } },
-    );
-    if (!tx) {
-      // This second query only runs on the failure path, to tell apart WHY the
-      // atomic update above missed: "no live row" (404) from "live but not
-      // unresolved" (409). Either way the balance is unreachable from here —
-      // a row this query would find was never asserted by this call.
-      const live = await this.transactionModel.exists({ _id: id, userId: this.userId, ...NOT_DELETED });
-      if (!live) throw new NotFoundException();
-      throw new ConflictException('only an unresolved transfer can be resolved');
-    }
-    if (kind === 'external') {
-      try {
-        await this.ledger.apply(tx.amount, tx.amount < 0 ? 'expense' : 'income', tx.transactionName, id);
-      } catch (err) {
-        return this.compensate({ id, what: 'resolveTransfer' }, () => this.transactionModel.updateOne({ _id: id }, { $set: { transferKind: 'unresolved' } }), err);
+    await this.txn.run(async () => {
+      const tx = await this.transactionModel.findOneAndUpdate(
+        { _id: id, userId: this.userId, transferKind: 'unresolved', ...NOT_DELETED },
+        { $set: { transferKind: kind } },
+      );
+      if (!tx) {
+        // Only on the failure path, to tell apart WHY the update missed: no live
+        // row (404) or live but not unresolved (409). Either way nothing moves.
+        const live = await this.transactionModel.exists({ _id: id, userId: this.userId, ...NOT_DELETED });
+        if (!live) throw new NotFoundException();
+        throw new ConflictException('only an unresolved transfer can be resolved');
       }
-    }
+      if (kind === 'external') {
+        await this.ledger.apply(tx.amount, tx.amount < 0 ? 'expense' : 'income', tx.transactionName, id);
+      }
+    });
   }
 }

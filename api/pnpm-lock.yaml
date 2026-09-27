@@ -42,7 +42,7 @@ importers:
         specifier: ^3.9.28
         version: 3.9.28
       mongoose:
-        specifier: ^8.0.0
+        specifier: ^8.24.0
         version: 8.24.0(socks@2.8.10)(supports-color@8.1.1)
       nodemailer:
         specifier: ^10.0.10

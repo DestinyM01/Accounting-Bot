@@ -7,6 +7,7 @@ import { Transaction } from '../shared/schemas/transaction.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
 import { NOT_DELETED } from '../shared/schemas/transfer-kind';
 import { LedgerService } from '../shared/ledger/ledger.service';
+import { TransactionRunner } from '../shared/ledger/transaction-runner';
 import { waitForIdle } from '../shared/wait-for-idle';
 import { isSchedulableDay, LOOKBACK_DAYS, Occurrence, planOccurrences, schedulableFrom } from './due-occurrences';
 
@@ -37,6 +38,7 @@ export class RecurringSchedulerService implements BeforeApplicationShutdown, OnM
     @InjectModel(Recurring.name) private readonly recurringModel: Model<Recurring>,
     @InjectModel(Transaction.name) private readonly txModel: Model<Transaction>,
     private readonly ledger: LedgerService,
+    private readonly txn: TransactionRunner,
   ) {}
 
   // Hourly at minute 5, between the ingestion polls (every 10 minutes from :00).
@@ -161,8 +163,8 @@ export class RecurringSchedulerService implements BeforeApplicationShutdown, OnM
   /**
    * Books one occurrence of one rule — at most once, whoever else is writing.
    * 'satisfied' means it was already recorded (by the bank email, or by another
-   * api pod during a rollout) and no money moves. Unexpected database errors
-   * propagate to the caller.
+   * api pod during a rollout) and no money moves. A failed booking returns
+   * 'failed' with nothing written (a failed lookup or marker update still throws).
    */
   async bookOccurrence(rule: Recurring, occurrence: Occurrence, now: Date): Promise<BookingOutcome> {
     const recurringId = String(rule._id);
@@ -185,19 +187,24 @@ export class RecurringSchedulerService implements BeforeApplicationShutdown, OnM
       return 'satisfied';
     }
 
-    let created: { _id: unknown };
+    // One transaction: the row and its balance movement commit together or not
+    // at all, so a failure leaves nothing for the next sweep to mistake for a
+    // booked month. Errors are handled on run()'s promise, never inside it.
     try {
-      created = await this.txModel.create({
-        userId: this.userId,
-        userName: rule.userName,
-        transactionName: rule.transactionName,
-        transactionType: rule.transactionType,
-        amount: signed,
-        timestamp: occurrence.dueAt,
-        category: rule.category,
-        source: 'recurring',
-        recurringId,
-        recurringPeriod: occurrence.period,
+      await this.txn.run(async () => {
+        const created = await this.txModel.create({
+          userId: this.userId,
+          userName: rule.userName,
+          transactionName: rule.transactionName,
+          transactionType: rule.transactionType,
+          amount: signed,
+          timestamp: occurrence.dueAt,
+          category: rule.category,
+          source: 'recurring',
+          recurringId,
+          recurringPeriod: occurrence.period,
+        });
+        await this.ledger.apply(signed, 'recurring', rule.transactionName, String(created._id));
       });
     } catch (err: any) {
       // The partial unique index on (userId, recurringId, recurringPeriod):
@@ -207,32 +214,10 @@ export class RecurringSchedulerService implements BeforeApplicationShutdown, OnM
         this.logger.log(`Recurring ${recurringId} for ${occurrence.period} already recorded`);
         return 'satisfied';
       }
-      throw err;
-    }
-
-    const id = String(created._id);
-    try {
-      await this.ledger.apply(signed, 'recurring', rule.transactionName, id);
-    } catch (err) {
       this.logger.error(
-        `Ledger failed booking recurring ${recurringId} for ${occurrence.period}; rolling back row ${id}`,
+        `Booking recurring ${recurringId} for ${occurrence.period} failed; nothing was written`,
         err instanceof Error ? err.stack : String(err),
       );
-      // A linked row whose money never moved would be found as 'satisfied' next
-      // hour and never retried. Remove it — created milliseconds ago, no
-      // sourceMessageId, not yet returned to any HTTP caller — so the next sweep
-      // redoes both. (A second api pod sweeping at the same instant during a
-      // rollout could still see it and mark the month handled; that needs a
-      // rollout straddling :05 and a ledger failure together, and is accepted.)
-      try {
-        await this.txModel.deleteOne({ _id: created._id });
-      } catch (rollbackErr) {
-        this.logger.error(
-          `Rollback of ${id} (recurring ${recurringId} ${occurrence.period}) failed: the row exists but the ` +
-            `balance did not move, and the next sweep will count it satisfied. Needs manual repair.`,
-          String(rollbackErr),
-        );
-      }
       return 'failed';
     }
 
