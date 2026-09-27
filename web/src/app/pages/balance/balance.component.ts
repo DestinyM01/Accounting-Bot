@@ -15,6 +15,7 @@ import {
 } from '../../core/services/api.models';
 import { HOVER_COLUMN, axisStyle, chartTheme, tooltipStyle } from '../../core/ui/chart-theme';
 import { IconComponent } from '../../core/ui/icon/icon.component';
+import { rovingRadioKeydown } from '../../core/ui/roving-radio';
 import { ThemeService } from '../../core/ui/theme.service';
 
 Chart.register(...registerables);
@@ -136,6 +137,49 @@ export class BalanceComponent implements OnInit, OnDestroy {
   rowName(h: BalanceHistoryItem): string {
     if (h.reason === 'manual') return h.name || 'Balance set';
     return h.name || this.kindLabel[h.reason];
+  }
+
+  /** A daily point's day ('YYYY-MM-DD') as "Mon d", parsed at noon so no timezone shifts it a day. */
+  dayLabel(day: string): string {
+    return new Date(`${day}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  /** The stats tile needs at least two daily points to show a change and a range. */
+  get hasStats(): boolean {
+    return this.daily.length >= 2;
+  }
+
+  /** Last close minus the close 30 days before it (clamped to the oldest point loaded). */
+  get change30(): number {
+    const lastIdx = this.daily.length - 1;
+    const idx = Math.max(0, lastIdx - 30);
+    return Math.round((this.daily[lastIdx].balance - this.daily[idx].balance) * 100) / 100;
+  }
+
+  get highest(): DailyBalance | null {
+    return this.daily.length ? this.daily.reduce((a, b) => (b.balance > a.balance ? b : a)) : null;
+  }
+
+  get lowest(): DailyBalance | null {
+    return this.daily.length ? this.daily.reduce((a, b) => (b.balance < a.balance ? b : a)) : null;
+  }
+
+  // ── History filter: a .seg radiogroup with arrow-key roving (same pattern
+  // as Settings → Appearance and the Transactions type filter). ────────────
+  filterOptionId(f: { value: Filter }): string {
+    return `bal-filter-${f.value}`;
+  }
+
+  filterTabIndex(f: { value: Filter }): number {
+    return f.value === this.filter ? 0 : -1;
+  }
+
+  onFilterKeydown(event: KeyboardEvent, index: number): void {
+    rovingRadioKeydown(
+      event, index, this.filters.length,
+      (i) => this.setFilter(this.filters[i].value),
+      (i) => this.filterOptionId(this.filters[i]),
+    );
   }
 
   openForm(): void {

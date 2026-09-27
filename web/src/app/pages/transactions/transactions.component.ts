@@ -1,15 +1,21 @@
-import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { debounceTime, distinctUntilChanged, map, Subject, Subscription } from 'rxjs';
+import { ActivatedRoute, Router } from '@angular/router';
+import { debounceTime, filter, map, Subject, Subscription } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { Transaction, TransactionPage } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
 import { TransactionEventsService } from '../../core/services/transaction-events.service';
 import { TransactionFormService } from '../../core/services/transaction-form.service';
 import { focusFirst } from '../../core/ui/focus';
+import { rovingRadioKeydown } from '../../core/ui/roving-radio';
 import { CashPanelComponent } from './cash-panel/cash-panel.component';
 import { IconComponent } from '../../core/ui/icon/icon.component';
+
+type TypeFilter = '' | 'income' | 'expense';
+interface TypeOption { value: TypeFilter; label: string; }
 
 @Component({
     selector: 'app-transactions',
@@ -29,12 +35,20 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   error: string | null = null;
 
   search         = '';
+  /** The search term the list currently on screen was loaded for — see ngOnInit/load(). */
+  private loadedSearch = '';
   categoryFilter = '';
-  typeFilter:    '' | 'income' | 'expense' = '';
+  typeFilter:    TypeFilter = '';
   startDate      = '';
   endDate        = '';
   needsReviewOnly = false;
   unitemizedOnly  = false;
+
+  readonly typeOptions: TypeOption[] = [
+    { value: '',        label: 'All' },
+    { value: 'income',  label: 'Income' },
+    { value: 'expense', label: 'Expense' },
+  ];
 
   /** The withdrawal whose itemize panel is open (one at a time). The panel owns its own state. */
   cashFor: string | null = null;
@@ -59,21 +73,36 @@ export class TransactionsComponent implements OnInit, OnDestroy {
    */
   private generation = 0;
 
+  private readonly destroyRef = inject(DestroyRef);
+
   constructor(
     private api: ApiService,
     private catSvc: CategoryService,
     private events: TransactionEventsService,
     private formSvc: TransactionFormService,
+    private route: ActivatedRoute,
+    private router: Router,
   ) {}
 
   ngOnInit() {
-    this.searchSub = this.search$.pipe(map((s) => s.trim()), debounceTime(300), distinctUntilChanged())
+    // The URL is the source of truth for the review/unitemized chips: this fires once
+    // synchronously on subscribe with whatever query params are already there (a link
+    // like /transactions?needsReview=1 from the Dashboard's "Needs review" tile opens
+    // straight into that filtered view — this replaces the old separate initial load),
+    // and again on every later change — a chip click (via syncQueryParams), the browser's
+    // Back/Forward, or the "Transactions" nav link clearing the query string entirely.
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((qp) => {
+      this.needsReviewOnly = qp.get('needsReview') === '1';
+      this.unitemizedOnly  = qp.get('unitemized') === '1';
+      this.load(false);
+    });
+
+    this.searchSub = this.search$.pipe(map((s) => s.trim()), debounceTime(300), filter((s) => s !== this.loadedSearch))
       .subscribe(() => this.load(false));
     this.eventsSub = this.events.changed$.subscribe(() => this.reloadInPlace());
     // The category list is loaded once at app start; refresh it so a category
     // created elsewhere since then isn't shown as a deleted guess (isDeletedGuess).
     this.catSvc.load();
-    this.load(false);
   }
 
   ngOnDestroy() {
@@ -106,6 +135,11 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       gen = ++this.generation;
     }
     this.filedNote = '';
+    // What the list on screen is loaded for, so the search$ pipeline (see ngOnInit) can
+    // tell "the same term, still loaded" apart from "the same term, but cleared since" —
+    // clearFilters() resets this to '' by loading with an empty search, so typing the
+    // same term right back in reloads instead of being swallowed as a no-op.
+    this.loadedSearch = this.search.trim();
 
     this.api.getTransactions({
       limit:  this.limit,
@@ -138,6 +172,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   private reloadInPlace() {
     const count = Math.min(Math.max(this.items.length, this.limit), 200);
     const gen = ++this.generation;
+    this.loadedSearch = this.search.trim();
     this.api.getTransactions({ ...this.currentFilters(), limit: count }).subscribe({
       next: (page: TransactionPage) => {
         if (gen !== this.generation) return;
@@ -158,18 +193,66 @@ export class TransactionsComponent implements OnInit, OnDestroy {
 
   onSearch()         { this.search$.next(this.search); }
   onCategoryChange() { this.load(false); }
-  onTypeChange()     { this.load(false); }
   onDateChange()     { this.load(false); }
 
-  onNeedsReviewToggle() {
-    this.needsReviewOnly = !this.needsReviewOnly;
+  // ── Type filter: a .seg radiogroup with arrow-key roving (same pattern as
+  // Settings → Appearance), replacing the old <select> but keeping the same
+  // underlying typeFilter value. ─────────────────────────────────────────
+  typeOptionId(option: TypeOption): string { return `tx-type-${option.value || 'all'}`; }
+  typeTabIndex(option: TypeOption): number { return option.value === this.typeFilter ? 0 : -1; }
+
+  selectType(value: TypeFilter) {
+    this.typeFilter = value;
     this.load(false);
+  }
+
+  onTypeKeydown(event: KeyboardEvent, index: number) {
+    rovingRadioKeydown(
+      event, index, this.typeOptions.length,
+      (i) => this.selectType(this.typeOptions[i].value),
+      (i) => this.typeOptionId(this.typeOptions[i]),
+    );
+  }
+
+  // The chip only navigates: the queryParamMap subscription in ngOnInit is what actually
+  // applies the flag and reloads, the same path a pasted link or the browser's Back/Forward
+  // takes — so the URL stays the single source of truth instead of two places agreeing to
+  // keep in sync.
+  onNeedsReviewToggle() {
+    this.syncQueryParams({ needsReview: this.needsReviewOnly ? null : '1' });
   }
 
   onUnitemizedToggle() {
-    this.unitemizedOnly = !this.unitemizedOnly;
-    this.load(false);
+    this.syncQueryParams({ unitemized: this.unitemizedOnly ? null : '1' });
   }
+
+  /** Reflects the review/unitemized chips in the URL, so reloading the page keeps the filter. */
+  private syncQueryParams(queryParams: Record<string, string | null>) {
+    this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: 'merge', replaceUrl: true });
+  }
+
+  get hasActiveFilters(): boolean {
+    return !!(this.search.trim() || this.categoryFilter || this.typeFilter
+      || this.startDate || this.endDate || this.needsReviewOnly || this.unitemizedOnly);
+  }
+
+  clearFilters() {
+    this.search = '';
+    this.categoryFilter = '';
+    this.typeFilter = '';
+    this.startDate = '';
+    this.endDate = '';
+    if (this.needsReviewOnly || this.unitemizedOnly) {
+      // Clearing either chip goes through the URL too, same as a single toggle: the
+      // queryParamMap subscription (ngOnInit) applies it and reloads, with the rest of
+      // the filters above already cleared by the time it does.
+      this.syncQueryParams({ needsReview: null, unitemized: null });
+    } else {
+      this.load(false);
+    }
+  }
+
+  addTransaction() { this.formSvc.openCreate(); }
 
   /** Cash of this withdrawal not yet itemized, from the list's counter. */
   unitemized(tx: Transaction): number {

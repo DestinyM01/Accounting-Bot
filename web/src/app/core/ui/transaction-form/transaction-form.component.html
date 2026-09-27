@@ -1,46 +1,56 @@
 @if (open) {
   <div class="tf-scrim" (click)="dismiss()" aria-hidden="true"></div>
-  <div class="tf-panel card" role="dialog" aria-modal="true" [attr.aria-label]="mode === 'edit' ? 'Edit transaction' : 'New transaction'">
+  <div #panel class="tf-panel" role="dialog" aria-modal="true"
+       [attr.aria-label]="mode === 'edit' ? 'Edit transaction' : 'New transaction'"
+       (keydown)="onPanelKeydown($event)">
     <div class="tf-header">
       <h2>{{ mode === 'edit' ? 'Edit transaction' : 'New transaction' }}</h2>
-      <button class="tf-close" type="button" (click)="dismiss()" aria-label="Close"><app-icon name="x" /></button>
+      <button class="btn btn--icon" type="button" (click)="dismiss()" aria-label="Close"><app-icon name="x" /></button>
     </div>
 
-    @if (mode === 'create') {
-      <div class="tf-type" role="radiogroup" aria-label="Type">
-        <button type="button" class="tf-type-btn" role="radio" [attr.aria-checked]="type === 'expense'" [class.active]="type === 'expense'" (click)="type = 'expense'">
-          <app-icon name="arrow-down" /> Expense
-        </button>
-        <button type="button" class="tf-type-btn" role="radio" [attr.aria-checked]="type === 'income'" [class.active]="type === 'income'" (click)="type = 'income'">
-          <app-icon name="arrow-up" /> Income
-        </button>
-      </div>
-    }
+    <div class="tf-body">
+      @if (mode === 'create') {
+        <div class="seg tf-type" role="radiogroup" aria-label="Type">
+          @for (opt of typeOptions; track opt.value; let i = $index) {
+            <button type="button" role="radio" [id]="typeOptionId(opt)" class="seg-opt"
+                    [class.selected]="opt.value === type"
+                    [attr.aria-checked]="opt.value === type"
+                    [tabindex]="typeTabIndex(opt)"
+                    (click)="selectType(opt.value)"
+                    (keydown)="onTypeKeydown($event, i)">
+              <app-icon [name]="opt.icon" [size]="16" /> {{ opt.label }}
+            </button>
+          }
+        </div>
+      }
 
-    <label class="fc-field">
-      <span>Amount</span>
-      <input #firstField class="fc-input" type="number" min="0.01" step="0.01" [(ngModel)]="amount" placeholder="0.00" />
-    </label>
-    <label class="fc-field">
-      <span>Name</span>
-      <input class="fc-input" type="text" [(ngModel)]="name" placeholder="What was it?" />
-    </label>
-    <label class="fc-field">
-      <span>Category</span>
-      <select class="fc-input" [(ngModel)]="category">
-        @for (cat of categories; track cat) { <option [value]="cat">{{ cat | titlecase }}</option> }
-      </select>
-    </label>
-    <label class="fc-field">
-      <span>Date</span>
-      <input class="fc-input" type="date" [(ngModel)]="date" />
-    </label>
+      <label class="field">
+        <span>Amount</span>
+        <input #firstField class="tf-amount" type="number" min="0.01" step="0.01" inputmode="decimal" [(ngModel)]="amount" placeholder="0.00" />
+      </label>
+      <label class="field">
+        <span>Name</span>
+        <input type="text" [(ngModel)]="name" placeholder="What was it?" />
+      </label>
+      <label class="field">
+        <span>Category</span>
+        <select [(ngModel)]="category">
+          @for (cat of categories; track cat) { <option [value]="cat">{{ cat | titlecase }}</option> }
+        </select>
+      </label>
+      <label class="field">
+        <span>Date</span>
+        <input type="date" [(ngModel)]="date" />
+      </label>
 
-    @if (error) { <p class="fc-error" role="alert">{{ error }}</p> }
+      @if (error) {
+        <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+      }
+    </div>
 
-    <div class="tf-actions">
-      <button type="button" class="fc-btn fc-btn--ghost" [disabled]="saving" (click)="dismiss()">Cancel</button>
-      <button type="button" class="fc-btn fc-btn--primary" [disabled]="!valid || saving" (click)="save()">
+    <div class="tf-footer">
+      <button type="button" class="btn btn--ghost" [disabled]="saving" (click)="dismiss()">Cancel</button>
+      <button type="button" class="btn btn--primary" [disabled]="!valid || saving" (click)="save()">
         <app-icon [name]="saving ? 'hourglass' : 'check'" />
         {{ saving ? 'Saving…' : (mode === 'edit' ? 'Save changes' : 'Add') }}
       </button>

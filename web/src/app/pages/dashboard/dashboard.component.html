@@ -1,121 +1,196 @@
-<div class="page-wrap">
-  <!-- Page header -->
-  <div class="dash-header">
-    <h1>Overview</h1>
-    <div class="dash-actions">
-      <div class="live-badge"><span class="live-dot"></span>Live Sync</div>
-    </div>
+<div class="page">
+  <div class="page-title">
+    <h1>Dashboard</h1>
+    @if (updatedAt) {
+      <span class="page-title-meta">Updated {{ updatedAt | date:'h:mm a' }}</span>
+    }
   </div>
 
-  <p class="refresh-error" role="status">{{ refreshError ? (loading ? "Couldn't load the overview. Trying again every minute." : "Couldn't refresh. Showing the last numbers, trying again every minute.") : '' }}</p>
+  <p class="error-inline" role="status">{{ refreshError ? (loading ? "Couldn't load the dashboard. Trying again every minute." : "Couldn't refresh. Showing the last numbers, trying again every minute.") : '' }}</p>
 
   @if (loading) {
     @if (!refreshError) {
-      <p class="loading-state">Loading…</p>
-    }
-  } @else {
-    <!-- Stat cards -->
-    <div class="stat-grid">
-      @for (s of stats; track s.label) {
-        @if (s.link) {
-          <a class="stat-card stat-card--link" [class]="s.cls" [routerLink]="s.link">
-            <ng-container *ngTemplateOutlet="statBody; context: { $implicit: s }" />
-          </a>
-        } @else {
-          <div class="stat-card" [class]="s.cls">
-            <ng-container *ngTemplateOutlet="statBody; context: { $implicit: s }" />
+      <!-- Loading: a skeleton copying the tile layout -->
+      <div class="tiles dash-grid" aria-hidden="true">
+        <div class="tile dash-balance">
+          <div class="skeleton skel-line" style="--w: 70px"></div>
+          <div class="skeleton skel-figure" style="width: 55%; margin-top: 12px;"></div>
+          <div class="skeleton skel-line" style="--w: 45%; margin-top: 10px;"></div>
+          <div class="skeleton" style="height: 72px; margin-top: 18px;"></div>
+        </div>
+        @for (i of [1, 2, 3, 4]; track i) {
+          <div class="tile">
+            <div class="skeleton skel-line" style="--w: 80px"></div>
+            <div class="skeleton skel-figure" style="width: 70%; margin-top: 12px;"></div>
           </div>
         }
-      }
+      </div>
+
+      <div class="dash-row2">
+        <div class="card">
+          <div class="skeleton skel-line" style="--w: 160px"></div>
+          <div class="skeleton" style="height: 220px; margin-top: 16px;"></div>
+        </div>
+        <div class="card">
+          <div class="skeleton skel-line" style="--w: 100px; margin-bottom: 16px;"></div>
+          @for (i of [1, 2, 3]; track i) {
+            <div class="skeleton skel-line" style="--w: 100%; margin-bottom: 10px;"></div>
+          }
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="skeleton skel-line" style="--w: 160px; margin-bottom: 16px;"></div>
+        <div class="rows">
+          @for (i of [1, 2, 3, 4, 5]; track i) {
+            <div class="row">
+              <div class="skeleton" style="width: 32px; height: 32px; border-radius: var(--radius-control); flex-shrink: 0;"></div>
+              <div class="row-info">
+                <div class="skeleton skel-line" style="--w: 140px"></div>
+                <div class="skeleton skel-line" style="--w: 90px; height: 10px; margin-top: 6px;"></div>
+              </div>
+              <div class="skeleton skel-line" style="--w: 64px"></div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  } @else {
+    <!-- Tile grid -->
+    <div class="tiles dash-grid">
+      <a class="tile dash-balance dash-tile-link" routerLink="/balance">
+        <div class="label">Balance</div>
+        <div class="figure-lg">{{ balance?.balance ?? 0 | currency:'USD':'symbol':'1.2-2' }}</div>
+        <div class="dash-net" [class.pos]="netThisMonth >= 0" [class.neg]="netThisMonth < 0">
+          {{ netThisMonth >= 0 ? '+' : '' }}{{ netThisMonth | currency:'USD':'symbol':'1.2-2' }} this month
+        </div>
+        @if (daily.length > 1) {
+          <svg class="sparkline" viewBox="0 0 300 72" preserveAspectRatio="none" aria-hidden="true">
+            <polyline [attr.points]="sparklinePoints" fill="none" stroke-width="2" />
+          </svg>
+        }
+      </a>
+
+      <div class="tile">
+        <div class="label">Income, {{ monthLabel }}</div>
+        <div class="figure-md pos">{{ currentIncome | currency:'USD':'symbol':'1.2-2' }}</div>
+        @if (incomeBadgePct !== null) {
+          <span class="tag" [class.tag--pos]="incomeTone === 'pos'" [class.tag--neg]="incomeTone === 'neg'">
+            {{ badgeLabel(incomeBadgePct) }} vs last month
+          </span>
+        }
+      </div>
+
+      <div class="tile">
+        <div class="label">Spent, {{ monthLabel }}</div>
+        <div class="figure-md neg">{{ currentExpense | currency:'USD':'symbol':'1.2-2' }}</div>
+        @if (expenseBadgePct !== null) {
+          <span class="tag" [class.tag--pos]="expenseTone === 'pos'" [class.tag--neg]="expenseTone === 'neg'">
+            {{ badgeLabel(expenseBadgePct) }} vs last month
+          </span>
+        }
+      </div>
+
+      <a class="tile dash-tile-link" routerLink="/budget">
+        <div class="label">Budget used</div>
+        @if (budgetUsedPct !== null) {
+          <div class="figure-md">{{ budgetUsedPct }}%</div>
+          <div class="dash-bar"><div class="dash-bar-fill" [style.transform]="'scaleX(' + budgetBarScale + ')'"></div></div>
+        } @else {
+          <p class="dash-tile-note">No budgets yet</p>
+        }
+      </a>
+
+      <a class="tile dash-tile-link" [routerLink]="['/transactions']" [queryParams]="{ needsReview: 1 }">
+        <div class="label">Needs review</div>
+        @if (reviewCount > 0) {
+          <div class="figure-md">{{ reviewCount }}</div>
+          <p class="dash-tile-note">bank mails to categorise</p>
+        } @else {
+          <p class="dash-tile-note">All categorised</p>
+        }
+      </a>
     </div>
 
-    <ng-template #statBody let-s>
-      <div class="stat-label">{{ s.label }}</div>
-      <div class="stat-amount">{{ s.amount | currency:'USD':'symbol':'1.0-0' }}</div>
-      @if (s.badgePct !== null) {
-        <span class="stat-badge" [class]="s.badgeDir">
-          {{ badgeLabel(s.badgePct, s.badgeDir) }} vs last month
-        </span>
-      }
-      @if (s.sub) {
-        <div class="stat-sub">{{ s.sub }}</div>
-      }
-      <app-icon class="ghost-icon" [name]="s.icon" />
-    </ng-template>
-
-    <!-- Chart + Categories row -->
-    <div class="mid-row">
-      <!-- Area chart -->
-      <div class="card chart-card">
+    <!-- Chart + budgets row -->
+    <div class="dash-row2">
+      <div class="card">
         <div class="section-header">
           <div>
-            <h2>Income vs Expenses</h2>
-            <p class="chart-sub">Last 12 months</p>
+            <h2>Income vs expenses</h2>
+            <p class="dash-chart-sub">Last 12 months</p>
           </div>
-          <div class="legend">
-            <span class="legend-dot income"></span> Income
-            <span class="legend-dot expense"></span> Expenses
+          <div class="dash-legend">
+            <span class="swatch dash-swatch-pos"></span> Income
+            <span class="swatch dash-swatch-neg"></span> Expenses
           </div>
         </div>
-        <div class="chart-area">
+        <div class="dash-chart-area">
           <canvas #areaCanvas></canvas>
         </div>
       </div>
 
-      <!-- Categories side panel -->
-      <div class="card categories-card">
-        <div class="section-header"><h2>Categories</h2></div>
+      <div class="card">
+        <div class="section-header"><h2>Budgets</h2></div>
         @if (budgets.length) {
-          @for (b of budgets; track b.category) {
-            <div class="cat-row">
-              <div class="cat-header">
-                <span class="cat-name">{{ b.category | titlecase }}</span>
-                <span class="cat-amount">{{ b.spent | currency:'USD':'symbol':'1.0-0' }}</span>
-              </div>
-              <div class="prog-bar">
-                <div class="prog-fill"
-                     [style.transform]="'scaleX(' + b.percentage / 100 + ')'"
-                     [style.background]="categoryColor(b.category)">
+          <div class="rows dash-budgets">
+            @for (b of budgets; track b.category) {
+              <div class="dash-budget-row">
+                <div class="dash-budget-top">
+                  <span class="swatch" [style.background]="categoryColor(b.category)"></span>
+                  <span class="dash-budget-name">{{ b.category | titlecase }}</span>
+                  <span class="dash-budget-figures">
+                    <span class="num" [class.neg]="b.percentage > 100">{{ b.spent | currency:'USD':'symbol':'1.2-2' }}</span>
+                    <span class="dash-budget-of">of <span class="num">{{ b.limit | currency:'USD':'symbol':'1.0-0' }}</span></span>
+                  </span>
+                </div>
+                <div class="dash-budget-bar">
+                  <div class="dash-budget-bar-fill" [style.transform]="'scaleX(' + budgetRowScale(b) + ')'" [style.background]="categoryColor(b.category)"></div>
                 </div>
               </div>
-            </div>
-          }
+            }
+          </div>
         } @else {
-          <p class="empty">No budgets set.</p>
+          <div class="empty">
+            No budgets yet
+            <a routerLink="/budget">Set a budget</a>
+          </div>
         }
       </div>
     </div>
 
-    <!-- Recent Transactions -->
-    <div class="card txs-card">
+    <!-- Recent transactions -->
+    <div class="card">
       <div class="section-header">
-        <h2>Recent Transactions</h2>
-        <a routerLink="/transactions" class="link">View All →</a>
+        <h2>Recent transactions</h2>
+        <a routerLink="/transactions" class="dash-all-link">All transactions <app-icon name="arrow-right" [size]="14" /></a>
       </div>
 
-      @for (tx of recentTx; track tx._id) {
-        <div class="tx-row">
-          <div class="tx-icon" [class]="(tx.transferKind === 'internal' || tx.transferKind === 'unresolved') ? '' : (tx.isExpense ? 'expense-icon' : 'income-icon')">
-            <app-icon [name]="txIcon(tx)" />
+      <div class="rows">
+        @for (tx of recentTx; track tx._id) {
+          <div class="row">
+            <div class="dash-row-icon" [class.pos-wash]="!isTransfer(tx) && !tx.isExpense" [class.neg-wash]="!isTransfer(tx) && tx.isExpense">
+              <app-icon [name]="txIcon(tx)" />
+            </div>
+            <div class="row-info">
+              <span class="dash-row-name">{{ tx.transactionName }}</span>
+              <span class="dash-row-meta">{{ tx.timestamp | date:'MMM d, y' }} · {{ tx.category | titlecase }}</span>
+            </div>
+            @if (isTransfer(tx)) {
+              <span class="dash-row-amount transfer">
+                <span class="tag">{{ tx.transferKind === 'internal' ? 'Internal' : 'Unresolved' }}</span>
+                <span class="num">{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}</span>
+              </span>
+            } @else {
+              <span class="dash-row-amount num" [class.pos]="!tx.isExpense" [class.neg]="tx.isExpense">
+                {{ tx.isExpense ? '-' : '+' }}{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}
+              </span>
+            }
           </div>
-          <div class="tx-info">
-            <span class="tx-name">{{ tx.transactionName }}</span>
-            <span class="tx-meta">
-              {{ tx.timestamp | date:'MMM d, y' }} · {{ tx.category | titlecase }}
-            </span>
-          </div>
-          @if (tx.transferKind === 'internal' || tx.transferKind === 'unresolved') {
-            <span class="tx-amount transfer">{{ tx.transferKind === 'internal' ? 'Internal' : 'Unresolved' }} · {{ tx.amount | currency:'USD':'symbol':'1.2-2' }}</span>
-          } @else {
-            <span class="tx-amount" [class]="tx.isExpense ? 'expense' : 'income'">
-              {{ tx.isExpense ? '-' : '+' }}{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}
-            </span>
-          }
-        </div>
-      } @empty {
-        <p class="empty">No transactions this month.</p>
-      }
+        } @empty {
+          <p class="empty">No transactions this month</p>
+        }
+      </div>
     </div>
-
   }
 </div>

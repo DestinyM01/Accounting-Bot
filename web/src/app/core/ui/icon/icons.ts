@@ -40,6 +40,7 @@ import calendarRepeat from '@tabler/icons/outline/calendar-repeat.svg';
 import download from '@tabler/icons/outline/download.svg';
 import arrowUp from '@tabler/icons/outline/arrow-up.svg';
 import arrowDown from '@tabler/icons/outline/arrow-down.svg';
+import arrowRight from '@tabler/icons/outline/arrow-right.svg';
 import layoutDashboard from '@tabler/icons/outline/layout-dashboard.svg';
 import chartBar from '@tabler/icons/outline/chart-bar.svg';
 import chartDots3 from '@tabler/icons/outline/chart-dots-3.svg';
@@ -98,6 +99,7 @@ export const ICONS: Record<string, string> = {
   download,
   'arrow-up': arrowUp,
   'arrow-down': arrowDown,
+  'arrow-right': arrowRight,
   'layout-dashboard': layoutDashboard,
   'chart-bar': chartBar,
   'chart-dots-3': chartDots3,

@@ -1,168 +1,142 @@
-.bal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-md);
-  margin-bottom: var(--space-lg);
-
-  h1 {
-    margin: 0;
-    font-size: var(--text-page-title);
-  }
+.bal-current {
+  margin: 4px 0 24px;
 }
 
-.bal-amount {
-  margin: var(--space-2xs) 0 0;
-  font-size: var(--text-2xl);
-  font-weight: 700;
-  color: var(--text);
-}
-
-.bal-muted {
-  margin: var(--space-2xs) 0 0;
+.bal-last {
+  margin: 4px 0 0;
   font-size: var(--text-sm);
-  color: var(--text-muted);
+  color: var(--ink-2);
 }
 
-.bal-section {
-  margin-bottom: var(--space-lg);
+// ── Set balance form ─────────────────────────────────────────────────────
+.bal-form {
+  margin-bottom: 16px;
+}
 
-  h2 {
-    margin: 0 0 var(--space-sm);
-    font-size: var(--text-lg);
-  }
+.bal-form-hint {
+  margin: 4px 0 16px;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
 }
 
 .bal-form-row {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-top: var(--space-sm);
+  gap: 12px;
 
-  > .fc-field {
-    flex: 1 1 160px;
-  }
-
-  .bal-note {
-    flex: 1 1 240px;
+  > .field {
+    flex: 1 1 200px;
   }
 }
 
+// The amount is the one field this form measures money with — mono, like every other figure.
+.field input.bal-amount-input {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
 .bal-preview {
-  margin: var(--space-sm) 0 0;
+  margin: 12px 0 0;
   font-size: var(--text-sm);
-  color: var(--text);
+  color: var(--ink-2);
 }
 
 .bal-actions {
   display: flex;
   justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  margin-top: var(--space-md);
+  gap: 10px;
+  margin-top: 16px;
+}
+
+// ── Chart + stats row ────────────────────────────────────────────────────
+.bal-row2 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .bal-chart-box {
   position: relative;
   height: 220px;
-
-  .bal-chart-loading {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    margin: 0;
-    transform: translate(-50%, -50%);
-  }
+  margin-top: 16px;
 }
 
-.bal-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2xs);
-  margin-bottom: var(--space-sm);
+.bal-chart-skel {
+  position: absolute;
+  inset: 0;
 }
 
-.bal-chip {
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--text-muted);
-  border-radius: var(--radius-pill);
-  padding: var(--space-3xs) var(--space-sm);
-  font-size: var(--text-sm);
-  cursor: pointer;
-
-  &:hover:not(.active) {
-    background: var(--color-surface-hover);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-focus);
-    outline-offset: 2px;
-  }
-
-  &.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--color-accent-ink);
-  }
-}
-
-.bal-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.bal-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  padding: var(--space-xs) 0;
-  border-top: 1px solid var(--border);
-
-  &:first-child {
-    border-top: none;
-  }
-}
-
-.bal-row-main {
+.bal-stats {
   display: flex;
   flex-direction: column;
+}
+
+.bal-stat {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+
+  &:first-child { padding-top: 0; }
+  &:last-child { border-bottom: none; padding-bottom: 0; }
+}
+
+.bal-stat-date {
+  margin-top: 4px;
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}
+
+// ── History ──────────────────────────────────────────────────────────────
+.bal-filter {
+  margin-bottom: 16px;
+  max-width: 100%;
+  overflow-x: auto;
+
+  // overflow-x: auto clips an outset ring (the default outline-offset: 2px):
+  // pull it inside the option instead of losing it past the scroll edge.
+  .seg-opt:focus-visible { outline-offset: -2px; }
+}
+
+.bal-row-info {
+  flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .bal-row-name {
-  color: var(--text);
+  font-weight: 500;
+  font-size: 14px;
   overflow-wrap: anywhere;
 }
 
-.bal-row-meta,
-.bal-after {
+.bal-row-meta {
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  color: var(--ink-2);
+  margin-top: 2px;
 }
 
 .bal-row-nums {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  flex-shrink: 0;
 }
 
-.bal-delta {
-  font-weight: 600;
+.bal-delta { font-size: 14px; }
 
-  &.up {
-    color: var(--income);
-  }
-
-  &.down {
-    color: var(--expense);
-  }
+.bal-after {
+  color: var(--ink-2);
+  margin-top: 2px;
+  font-size: 13px;
 }
 
-.bal-more {
-  margin-top: var(--space-sm);
+.bal-more-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
 }

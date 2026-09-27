@@ -1,39 +1,97 @@
 :host { display: contents; }
 
 .tf-scrim {
-  position: fixed; inset: 0;
-  background: var(--overlay-scrim);
-  z-index: 1100;
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-sheet);
+  background: var(--scrim);
 }
+
+// Desktop (>=760px): a full-height panel fixed to the right edge, sliding in from off-screen.
+// Phones (<760px, see the media query below): a bottom sheet instead, sliding up.
+@keyframes tf-slide-in-x { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes tf-slide-in-y { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
 .tf-panel {
-  position: fixed; z-index: 1101;
-  left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: min(440px, calc(100vw - 32px));
+  position: fixed;
+  z-index: var(--z-sheet);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  max-width: 100vw;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-overlay);
+  border-left: 1px solid var(--line);
+  box-shadow: var(--shadow-menu);
+  animation: tf-slide-in-x var(--dur-base) var(--ease-out) both;
+}
+
+.tf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+
+  h2 { margin: 0; font-size: var(--text-lg); font-weight: 600; color: var(--ink); }
+}
+
+.tf-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   padding: 20px;
-  display: flex; flex-direction: column; gap: 12px;
 }
 
-.tf-header { display: flex; align-items: center; justify-content: space-between;
-  h2 { margin: 0; font-size: 1.1rem; }
-}
-.tf-close { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 8px;
-  &:hover { background: var(--color-surface-hover); }
-  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-}
+.tf-type {
+  width: 100%;
 
-.tf-type { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.tf-type-btn {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 9px; border-radius: 10px; cursor: pointer;
-  background: var(--bg-card-alt); border: 1px solid var(--border); color: var(--text-muted);
-  font-family: var(--font-body); font-size: 0.875rem;
-  &.active { border-color: var(--color-accent); color: var(--text); background: var(--color-accent-subtle); }
-  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  .seg-opt {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
 }
 
-.tf-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+// The amount is the one field this form measures money with — mono, like every other figure.
+.field input.tf-amount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
 
-@media (max-width: 480px) {
-  .tf-panel { left: 0; top: auto; bottom: 0; transform: none; width: 100vw; border-radius: 16px 16px 0 0; max-height: 100dvh; overflow-y: auto; }
+.tf-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+@media (max-width: 759px) {
+  .tf-panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 90dvh;
+    border-left: none;
+    border-top: 1px solid var(--line);
+    border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+    animation-name: tf-slide-in-y;
+  }
+
+  .tf-footer { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tf-panel { animation: none; transform: none; }
 }

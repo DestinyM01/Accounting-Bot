@@ -1,275 +1,230 @@
-/* Hallmark · genre: atmospheric · macrostructure: Workbench · design-system: design.md · designed-as-app */
-.filters-card { margin-bottom: 16px; }
+// ── Filter bar ───────────────────────────────────────────────────────────
+.tx-filters { margin-bottom: 16px; }
 
-.filters-row {
+.tx-filters-row1 {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+// basis == min-width (not a bigger basis like 220px): a wrap line is decided
+// from items' pre-shrink sizes, so a bigger basis wrapped a line shrinking
+// would otherwise have fit.
+.tx-search { flex: 1 1 180px; min-width: 180px; }
+.tx-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  color: var(--ink-3);
+
+  app-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+}
+.tx-search-input { width: 100%; padding-left: 34px; }
+
+// Trimmed from 190/150 so all four filters fit on one line at 1024.
+.tx-category { flex: 0 1 170px; min-width: 140px; }
+
+// The From/To pair as one flex item, its label inline instead of stacked
+// above the input (the .field default) — narrower, and reads like a range.
+.tx-dates { flex-direction: row; gap: 8px; flex: 0 0 auto; }
+.tx-date { display: flex; align-items: center; gap: 6px; }
+.tx-date-prefix { font-size: 13px; color: var(--ink-2); }
+.tx-date input { width: 140px; }
+
+.tx-filters-row2 {
+  display: flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.tx-export { margin-left: auto; }
+
+.tx-filed-note { margin: 0 0 8px; min-height: 1em; font-size: var(--text-sm); color: var(--ink-2); }
+
+@media (max-width: 700px) {
+  .tx-search { flex-basis: 100%; }
+  .tx-category, .tx-type { flex: 1 1 calc(50% - 6px); min-width: 0; }
+  .tx-type.seg { width: auto; }
+  .tx-type .seg-opt { flex: 1; text-align: center; padding-left: 4px; padding-right: 4px; }
+
+  // flex-wrap, not a shrink-to-fit input: a native date input has its own
+  // minimum render width (~150px) below the flexbox layer, so `width: 100%`
+  // / `min-width: 0` can't shrink it — forcing two per row just clips the
+  // second one off the phone screen. Wrapping gives each its own full row.
+  .tx-dates { flex: 1 1 100%; flex-wrap: wrap; }
+
+  .tx-filters-row2 { flex-wrap: nowrap; overflow-x: auto; }
+  .tx-export { margin-left: 0; flex-shrink: 0; }
 }
 
-.search-wrap {
-  flex: 1;
-  min-width: 200px;
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.search-icon {
-  position: absolute;
-  left: 12px;
-  color: var(--text-muted);
-}
-.search-input {
-  width: 100%;
-  background: var(--bg-card-alt);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text);
-  font-size: 0.875rem;
-  font-family: var(--font-body);
-  padding: 10px 14px 10px 40px;
-  outline: none;
-  transition: border-color 0.15s;
+// ── The list ─────────────────────────────────────────────────────────────
+// A single-column .tiles list: the 1px gap gives only horizontal hairlines
+// between rows, and each row lays out its own 4-column grid independently,
+// all sharing the same column widths so they still line up like a table.
+// Fixed (not fr-only) amount/tail tracks: an auto-sized tail let its own
+// content (action buttons, which vary per row) push it to a different width
+// than the header's "Status" label, drifting header and rows out of
+// x-alignment.
+//
+// Renamed from the plain .tx-row/.tx-icon/.tx-info this markup used before:
+// those are also global classes (styles.scss, still used by Analytics' own
+// rows) with a different layout and their own border-bottom — colliding
+// here doubled up the row separator (the .tiles gap already draws one).
+.tx-list { grid-template-columns: 1fr; }
 
-  &::placeholder { color: var(--text-muted); }
-  &:focus-visible { border-color: var(--color-accent); outline: 2px solid var(--color-focus); outline-offset: -1px; }
-}
-
-.filter-group {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.filter-label {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 500;
-}
-.filter-select {
-  appearance: none;
-  background: var(--bg-card-alt);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text);
-  font-size: 0.875rem;
-  font-family: var(--font-body);
-  padding: 9px 36px 9px 14px;
-  outline: none;
-  cursor: pointer;
-  min-width: 160px;
-  transition: border-color 0.15s;
-  &:focus-visible { border-color: var(--color-accent); outline: 2px solid var(--color-focus); outline-offset: -1px; }
-}
-.select-chevron {
-  position: absolute;
-  right: 10px;
-  bottom: 8px;
-  color: var(--text-muted);
-  pointer-events: none;
-}
-
-.type-select { min-width: 120px; }
-
-.filter-date {
-  appearance: none;
-  background: var(--bg-card-alt);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text);
-  font-size: 0.875rem;
-  font-family: var(--font-body);
-  padding: 9px 14px;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.15s;
-  &:focus-visible { border-color: var(--color-accent); outline: 2px solid var(--color-focus); outline-offset: -1px; }
-  &::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
-}
-
-.review-toggle-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  align-self: flex-end;
-  background: var(--bg-card-alt);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text);
-  padding: 9px 16px;
-  font-size: 0.875rem;
-  font-family: var(--font-body);
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-  &:hover { background: rgba(255,255,255,0.04); }
-  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-
-  &.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-  }
-}
-
-.export-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  align-self: flex-end;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 10px 18px;
-  font-size: 0.875rem;
-  font-family: var(--font-body);
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: opacity 0.13s;
-  &:hover { opacity: 0.85; }
-  &:focus-visible { opacity: 0.85; outline: 2px solid var(--color-focus); outline-offset: 2px; }
-}
-
-// ── Table ──────────────────────────────────────────────────────────────
-.tx-table { padding: 0; overflow: hidden; }
-
-.tx-table-header {
+.tx-head, .txl-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 120px 80px minmax(0, auto);
-  padding: 12px 24px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  border-bottom: 1px solid var(--border);
-
-  // On a phone each row stacks into its own small card (see .tx-row), so the column labels would label nothing.
-  @media (max-width: 640px) { display: none; }
-}
-
-.tx-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr 120px 80px minmax(0, auto);
-  padding: 14px 24px;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) 150px 250px;
+  column-gap: 16px;
   align-items: center;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.15s;
-
-  &:last-child { border-bottom: none; }
-  &:hover { background: rgba(255,255,255,0.02); }
-
-  // A phone is too narrow for a long name beside the category and the amount
-  // ("cajero automatico" pushed the amount out of the card): the name takes its
-  // own line, then the category and the amount, then the actions.
-  @media (max-width: 640px) {
-    grid-template-columns: minmax(0, 1fr) auto;
-    row-gap: 8px;
-    .tx-main { grid-column: 1 / -1; }
-    .tx-cell:nth-child(4) { display: none; }
-    .tx-actions { grid-column: 1 / -1; justify-content: flex-start; }
-  }
 }
 
-.review-select {
+.tx-head {
+  padding: 10px 22px;
+  font-size: 12px;
+  color: var(--ink-3);
+
+  @media (max-width: 900px) { display: none; }
+}
+.align-right { text-align: right; }
+
+.txl-row {
+  min-height: 56px;
+  padding: 10px 22px;
+  transition: background var(--dur-short) var(--ease-out);
+
+  &:hover { background: var(--surface-raised); }
+}
+
+.tx-row-skel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 10px 22px;
+}
+.tx-row-skel-info { flex: 1; min-width: 0; }
+
+// ── Main cell: icon + name/date ──────────────────────────────────────────
+// grid-area names are assigned only inside the phone media query below (via
+// grid-template-areas): on desktop, .txl-row has no named areas, and setting
+// grid-area unconditionally here made Chrome insert extra zero-width implicit
+// tracks alongside the explicit grid-template-columns, breaking the layout.
+.tx-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+.txl-icon {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-control);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  background: var(--surface-raised);
+  color: var(--ink-2);
+
+  app-icon { width: 16px; height: 16px; }
+  &.pos-wash { background: var(--pos-wash); color: var(--pos); }
+  &.neg-wash { background: var(--neg-wash); color: var(--neg); }
+}
+
+.txl-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tx-name {
+  font-weight: 500; font-size: 14px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tx-meta { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.tx-meta-mobile { display: none; color: var(--ink-2); }
+
+// ── Category cell ────────────────────────────────────────────────────────
+.tx-cat-cell { min-width: 0; }
+.tx-cat {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--ink); font-size: 14px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+
+.tx-review { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tx-guess { font-style: italic; }
+.tx-confirm-btn { color: var(--pos); }
+.tx-review-select {
   appearance: none;
-  background: var(--bg-card-alt);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 0.8rem;
-  font-family: var(--font-body);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  font: 400 13px var(--font-sans);
   padding: 6px 10px;
   outline: none;
   cursor: pointer;
   max-width: 100%;
-  transition: border-color 0.15s;
+  transition: border-color var(--dur-short) var(--ease-out);
 
-  &:focus-visible { border-color: var(--color-accent); outline: 2px solid var(--color-focus); outline-offset: -1px; }
+  &:focus-visible { border-color: var(--focus); outline: 2px solid var(--focus); outline-offset: 1px; }
 }
 
-.tx-cell { display: flex; align-items: center; }
-.tx-main { gap: 14px; }
-.align-right { justify-content: flex-end; }
+// ── Amount cell ──────────────────────────────────────────────────────────
+.tx-amount-cell { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.tx-amount-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.tx-amt { font-size: 15px; font-weight: 600; white-space: nowrap; }
+.tx-transfer-amount { color: var(--ink-2); }
+.tx-unitemized { font-size: 12px; color: var(--ink-2); }
 
-.status-icon.ok {
-  color: var(--income);
+// ── Status + actions ─────────────────────────────────────────────────────
+// flex-start, not flex-end: the tail is now a fixed track (see .tx-head,
+// .txl-row above), so it starts right after the amount, not the row's edge.
+.tx-tail { display: flex; align-items: center; justify-content: flex-start; gap: 14px; }
+.tx-status-cell { display: flex; align-items: center; }
+.tx-status--ok   { color: var(--pos); }
+.tx-status--warn { color: var(--warn); }
+
+.tx-actions-cell {
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end;
+  opacity: 0.8;
+  transition: opacity var(--dur-short) var(--ease-out);
+}
+.txl-row:hover .tx-actions-cell,
+.txl-row:focus-within .tx-actions-cell { opacity: 1; }
+
+.tx-mini-btn { height: 30px; padding: 0 10px; font-size: 12.5px; }
+.tx-danger { color: var(--neg); &:hover:not([disabled]) { background: var(--neg-wash); } }
+
+// Touch target: a finger needs more than this button's 30px desktop height.
+@media (max-width: 760px) {
+  .tx-mini-btn { min-height: 40px; }
 }
 
-// An internal/unresolved transfer is not spending — tag it instead of
-// rendering the expense sign/icon. Reuses .cat-pill (defined in the shared
-// styles and already used above for categories); only existing tokens.
-.cat-pill.transfer-pill {
-  background: var(--color-surface-hover);
-  color: var(--text-muted);
-  margin-right: 8px;
-}
+// ── Cash panel row ───────────────────────────────────────────────────────
+.tx-cash-tile { padding: 12px 22px; }
 
-// ── Load more ──────────────────────────────────────────────────────────
-.load-more-wrap {
-  display: flex;
-  justify-content: center;
-  margin-top: 16px;
-}
+// ── Empty / load more ────────────────────────────────────────────────────
+.tx-load-more { display: flex; justify-content: center; margin-top: 16px; }
 
-.load-more-btn {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text-muted);
-  font-family: var(--font-body);
-  font-size: 0.875rem;
-  padding: 10px 24px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: background 0.15s, color 0.15s;
-
-  &:hover:not(:disabled) { background: rgba(255,255,255,0.04); color: var(--text); }
-  &:focus-visible:not(:disabled) { background: rgba(255,255,255,0.04); color: var(--color-ink); outline: 2px solid var(--color-focus); outline-offset: 2px; }
-  &:disabled { opacity: 0.5; cursor: default; }
+// ── Phones (<900px): each row becomes a 2-line block ────────────────────
+@media (max-width: 900px) {
+  .txl-row {
+    // minmax(120px, 1fr) twice, not 1fr auto: the 2nd column also holds
+    // .tx-tail (status + Internal/Expense/Itemize/edit/delete) — an auto
+    // track sizes to its *unwrapped* max-content width even though the
+    // actions can wrap, so a transfer row's tag+figure+buttons claimed
+    // most of the row, crushing the name to a clipped letter. Two equal,
+    // floored tracks force the tail to actually wrap, at the cost of a
+    // taller row on the busier ones.
+    grid-template-columns: minmax(120px, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "main   amount"
+      "cat    tail";
+    row-gap: 6px;
+    padding: 12px 16px;
+  }
+  .tx-main        { grid-area: main; min-width: 0; }
+  .tx-cat-cell    { grid-area: cat; }
+  // Stacked, not side by side: a transfer row's tag ("Unresolved") and its
+  // figure each keep to their own width, not their combined one.
+  .tx-amount-cell { grid-area: amount; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .tx-tail        { grid-area: tail; }
+  .tx-meta { display: none; }
+  .tx-meta-mobile { display: block; font-size: 12px; }
+  .tx-cat-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 12px; }
+  .tx-cat { font-size: 13px; }
+  .tx-actions-cell { opacity: 1; }
 }
-
-// ── Row actions ────────────────────────────────────────────────────────
-.tx-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
-.act-btn {
-  background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-family: var(--font-body); font-size: 0.75rem; padding: 4px 10px; cursor: pointer;
-  &:hover:not(:disabled) { background: var(--color-surface-hover); }
-  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-  &.danger { border-color: var(--expense); color: var(--expense); }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
-}
-.icon-act {
-  background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 8px;
-  &:hover:not(:disabled) { background: var(--color-surface-hover); color: var(--text); }
-  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-  &.danger { color: var(--expense); }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
-}
-
-// ── Itemize a withdrawal ───────────────────────────────────────────────
-.tx-amount-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.tx-unitemized {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-// ── Review a category guess ────────────────────────────────────────────
-.review-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.guess-pill { font-style: italic; }
-.confirm-guess app-icon { color: var(--income); }
-.filed-note { margin: 0 0 8px; min-height: 1em; font-size: 0.85rem; color: var(--text-muted); }

@@ -1,137 +1,214 @@
-/* Hallmark · genre: atmospheric · macrostructure: Workbench · design-system: design.md · designed-as-app */
-.dash-header {
+// ── Tile grid ────────────────────────────────────────────────────────────
+.dash-grid {
+  grid-template-columns: 2fr 1fr 1fr;
+  margin-bottom: 16px;
+}
+
+.dash-balance {
+  grid-row: span 2;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-
-  h1 {
-    font-size: 1.9rem;
-    font-weight: 700;
-    margin: 0;
-    letter-spacing: -0.5px;
-  }
+  flex-direction: column;
 }
 
-.dash-actions {
+.dash-net {
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+.sparkline {
+  width: 100%;
+  height: 72px;
+  margin-top: auto;
+  padding-top: 18px;
+  display: block;
+
+  polyline { stroke: var(--accent); }
+}
+
+.dash-tile-link {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--space-xs);
+  flex-direction: column;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--dur-short) var(--ease-out);
+
+  &:hover { background: var(--surface-raised); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 }
 
-.live-badge {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--income);
-  background: rgba(16,229,160,0.1);
-  border: 1px solid rgba(16,229,160,0.2);
-  padding: 5px 12px;
-  border-radius: 20px;
+.dash-tile-note {
+  margin: 8px 0 0;
+  color: var(--ink-2);
+  font-size: 14px;
 }
 
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--income);
-  animation: pulse 2s infinite;
+.dash-bar {
+  height: 6px;
+  margin-top: 14px;
+  background: var(--line);
+  border-radius: var(--radius-mark);
+  overflow: hidden;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
+.dash-bar-fill {
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-mark);
+  transform-origin: left;
 }
 
-// ── Mid row: chart + categories ────────────────────────────────────────
-.mid-row {
+@media (max-width: 900px) {
+  .dash-grid { grid-template-columns: 1fr 1fr; }
+  .dash-balance { grid-row: auto; grid-column: span 2; }
+}
+
+@media (max-width: 480px) {
+  .dash-grid { grid-template-columns: 1fr; }
+  .dash-balance { grid-column: span 1; }
+}
+
+// ── Chart + budgets row ──────────────────────────────────────────────────
+.dash-row2 {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: 2fr 1fr;
   gap: 16px;
   margin-bottom: 16px;
 
   @media (max-width: 900px) { grid-template-columns: 1fr; }
 }
 
-.chart-card {
-  .chart-sub {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    margin: 2px 0 0;
-  }
-  .legend {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    font-size: 0.78rem;
-    color: var(--text-muted);
-  }
-  .legend-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    display: inline-block;
-    margin-right: 4px;
-    &.income  { background: var(--income); }
-    &.expense { background: var(--expense); }
-  }
+.dash-chart-sub {
+  font-size: 12px;
+  color: var(--ink-2);
+  margin: 2px 0 0;
 }
 
-.chart-area {
+.dash-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.dash-swatch-pos { background: var(--pos); }
+.dash-swatch-neg { background: var(--neg); }
+
+.dash-chart-area {
   height: 220px;
   margin-top: 16px;
   position: relative;
   canvas { width: 100% !important; height: 100% !important; }
 }
 
-// ── Categories panel ───────────────────────────────────────────────────
-.categories-card { overflow-y: auto; }
-
-.cat-row {
-  margin-bottom: 18px;
-  &:last-child { margin-bottom: 0; }
+// ── Budgets list ─────────────────────────────────────────────────────────
+.dash-budget-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  &:last-child { border-bottom: none; }
 }
 
-.cat-header {
+.dash-budget-top {
   display: flex;
-  justify-content: space-between;
-  font-size: 0.85rem;
-  margin-bottom: 6px;
-
-  .cat-name   { font-weight: 500; }
-  .cat-amount { color: var(--text-muted); }
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
 }
 
-// ── Transactions card ──────────────────────────────────────────────────
-.txs-card { margin-top: 0; }
+.dash-budget-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-// An internal/unresolved transfer is not spending — tag it instead of the
-// expense/income sign (mirrors the transactions page treatment).
-.tx-amount.transfer { color: var(--text-muted); }
+.dash-budget-figures {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-shrink: 0;
+}
 
-.stat-card--link {
-  color: inherit;
+.dash-budget-of { color: var(--ink-3); font-size: 12px; }
+
+.dash-budget-bar {
+  height: 4px;
+  margin-top: 8px;
+  background: var(--line);
+  border-radius: var(--radius-mark);
+  overflow: hidden;
+}
+
+.dash-budget-bar-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: var(--radius-mark);
+  transform-origin: left;
+}
+
+// ── Recent transactions ──────────────────────────────────────────────────
+.row-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-all-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-ink);
   text-decoration: none;
-  cursor: pointer;
+  font-size: 14px;
 
-  &:hover, &:focus-visible {
-    border-color: var(--accent);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-focus);
-    outline-offset: 2px;
-  }
+  &:hover { text-decoration: underline; }
 }
 
-.refresh-error {
-  margin: 0 0 16px;
-  color: var(--color-ink-2);
-  font-size: 0.875rem;
+.dash-row-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-control);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--surface-raised);
+  color: var(--ink-2);
 
-  &:empty { display: none; }
+  app-icon { width: 16px; height: 16px; }
+  &.pos-wash { background: var(--pos-wash); color: var(--pos); }
+  &.neg-wash { background: var(--neg-wash); color: var(--neg); }
+}
+
+.dash-row-name {
+  font-weight: 500;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-row-meta {
+  font-size: 12px;
+  color: var(--ink-2);
+  margin-top: 2px;
+}
+
+.dash-row-amount {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  margin-left: auto;
+
+  &.transfer {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink-2);
+    font-weight: 400;
+  }
 }

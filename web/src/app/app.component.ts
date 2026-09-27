@@ -211,6 +211,12 @@ export class AppComponent implements OnInit {
     // a navigation with no click to trigger it — browser Back chief among them — can leave the
     // sheet open and focus sitting on a link that's about to be hidden; move focus somewhere
     // visible rather than leaving it stranded.
+    //
+    // The body-scroll-lock reset only runs when the sheet itself had it locked: the
+    // transaction form (see TransactionFormComponent) locks the same body.style.overflow
+    // while it's open and closes itself on this same NavigationStart, and unconditionally
+    // clearing it here first would release the form's lock a tick early — letting the page
+    // scroll behind it for that one frame before the form's own close() clears it again.
     this.router.events
       .pipe(filter(e => e instanceof NavigationStart))
       .subscribe(() => {
@@ -218,9 +224,11 @@ export class AppComponent implements OnInit {
         this.sheetOpen = false;
         this.openMenu = null;
         this.openMenuBtn = null;
-        document.body.style.overflow = '';
-        if (wasOpen && (document.activeElement as HTMLElement | null)?.closest('.shell-sheet')) {
-          (this.sheetBtn ?? document.querySelector<HTMLElement>('.shell-main'))?.focus();
+        if (wasOpen) {
+          document.body.style.overflow = '';
+          if ((document.activeElement as HTMLElement | null)?.closest('.shell-sheet')) {
+            (this.sheetBtn ?? document.querySelector<HTMLElement>('.shell-main'))?.focus();
+          }
         }
       });
 

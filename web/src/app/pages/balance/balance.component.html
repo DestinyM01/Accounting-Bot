@@ -1,80 +1,119 @@
-<div class="page-wrap">
-  <div class="bal-header">
-    <div>
-      <h1>Balance</h1>
-      @if (headerLoading) {
-        <p class="bal-muted">Loading…</p>
-      } @else if (headerError) {
-        <p class="fc-error" role="alert">{{ headerError }}</p>
-      } @else {
-        <p class="bal-amount">{{ money(current) }}</p>
-        @if (balance?.lastActivity) {
-          <p class="bal-muted">Last activity {{ balance!.lastActivity | date:'MMM d, h:mm a':'-0400' }}</p>
-        }
-      }
-    </div>
+<div class="page">
+  <div class="page-title">
+    <h1>Balance</h1>
     @if (!formOpen) {
-      <button #setBtn type="button" class="fc-btn fc-btn--primary" [disabled]="headerLoading || !!headerError" (click)="openForm()">
-        <app-icon name="pencil" /> Set balance
+      <button #setBtn type="button" class="btn btn--primary" [disabled]="headerLoading || !!headerError" (click)="openForm()">
+        <app-icon name="pencil" [size]="16" /> Set balance
       </button>
     }
   </div>
 
+  @if (headerLoading) {
+    <div class="skeleton skel-figure" style="width: 200px;"></div>
+    <div class="skeleton skel-line" style="--w: 160px; margin-top: 10px; margin-bottom: 24px;"></div>
+  } @else if (headerError) {
+    <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ headerError }}</p>
+  } @else {
+    <div class="bal-current">
+      <div class="figure-lg">{{ money(current) }}</div>
+      @if (balance?.lastActivity) {
+        <p class="bal-last">Last activity {{ balance!.lastActivity | date:'MMM d, h:mm a':'-0400' }}</p>
+      }
+    </div>
+  }
+
   @if (formOpen) {
-    <section class="card bal-section" aria-labelledby="bal-form-title">
-      <h2 id="bal-form-title">Set balance</h2>
-      <p class="bal-muted">
+    <section class="card bal-form" aria-labelledby="bal-form-title">
+      <div class="section-header"><h2 id="bal-form-title">Set balance</h2></div>
+      <p class="bal-form-hint">
         Type the total your accounts show now. The difference is recorded as an adjustment you made; it never counts as
         income or expense.
       </p>
       <form (ngSubmit)="confirm()">
         <div class="bal-form-row">
-          <label class="fc-field">
+          <label class="field bal-amount-field">
             <span>New balance</span>
-            <input #amountInput class="fc-input" type="number" step="0.01" [(ngModel)]="amount" name="amount" />
+            <input #amountInput class="bal-amount-input" type="number" step="0.01" inputmode="decimal" [(ngModel)]="amount" name="amount" />
           </label>
-          <label class="fc-field bal-note">
-            <span>Note</span>
-            <input class="fc-input" type="text" maxlength="100" placeholder="Why? (optional)" [(ngModel)]="note" name="note" />
+          <label class="field bal-note-field">
+            <span>Note (optional)</span>
+            <input type="text" maxlength="100" placeholder="Why?" [(ngModel)]="note" name="note" />
           </label>
         </div>
         <p class="bal-preview" aria-live="polite">{{ preview }}</p>
         @if (formError) {
-          <p class="fc-error" role="alert">{{ formError }}</p>
+          <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ formError }}</p>
         }
         <div class="bal-actions">
-          <button type="button" class="fc-btn fc-btn--ghost" [disabled]="saving" (click)="cancelForm()">Cancel</button>
-          <button type="submit" class="fc-btn fc-btn--primary" [disabled]="!canConfirm">
-            <app-icon [name]="saving ? 'hourglass' : 'check'" /> {{ saving ? 'Saving…' : 'Confirm' }}
+          <button type="button" class="btn btn--ghost" [disabled]="saving" (click)="cancelForm()">Cancel</button>
+          <button type="submit" class="btn btn--primary" [disabled]="!canConfirm">
+            <app-icon [name]="saving ? 'hourglass' : 'check'" [size]="16" /> {{ saving ? 'Saving…' : 'Save' }}
           </button>
         </div>
       </form>
     </section>
   }
 
-  <section class="card bal-section" aria-labelledby="bal-chart-title">
-    <h2 id="bal-chart-title">Last 90 days</h2>
-    @if (chartError) {
-      <p class="fc-error" role="alert">{{ chartError }}</p>
-    }
-    <div class="bal-chart-box">
-      @if (chartLoading && daily.length === 0) {
-        <p class="bal-muted bal-chart-loading">Loading…</p>
+  <div class="bal-row2">
+    <div class="card">
+      <div class="section-header"><h2>Last 90 days</h2></div>
+      @if (chartError) {
+        <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ chartError }}</p>
       }
-      <canvas #chartCanvas role="img" aria-label="Daily closing balance over the last 90 days"></canvas>
+      <div class="bal-chart-box">
+        @if (chartLoading && daily.length === 0) {
+          <div class="skeleton bal-chart-skel" aria-hidden="true"></div>
+        }
+        <canvas #chartCanvas role="img" aria-label="Daily closing balance over the last 90 days"></canvas>
+      </div>
     </div>
-  </section>
 
-  <section class="card bal-section" aria-labelledby="bal-history-title">
-    <h2 id="bal-history-title">History</h2>
-    <div class="bal-chips" role="group" aria-label="Filter by kind">
-      @for (f of filters; track f.value) {
+    <div class="card bal-stats">
+      @if (chartLoading && daily.length === 0) {
+        @for (i of [1, 2, 3]; track i) {
+          <div class="bal-stat">
+            <div class="skeleton skel-line" style="--w: 110px"></div>
+            <div class="skeleton skel-figure" style="width: 60%; margin-top: 8px;"></div>
+          </div>
+        }
+      } @else if (chartError) {
+        <!-- The failure is already reported next to the chart above; nothing meaningful to show here. -->
+      } @else if (!hasStats) {
+        <p class="empty">Not enough history yet</p>
+      } @else {
+        <div class="bal-stat">
+          <div class="label">Change, 30 days</div>
+          <div class="figure-md" [class.pos]="change30 >= 0" [class.neg]="change30 < 0">{{ signed(change30) }}</div>
+        </div>
+        <div class="bal-stat">
+          <div class="label">Highest, 90 days</div>
+          <div class="figure-md">{{ money(highest!.balance) }}</div>
+          <div class="bal-stat-date">{{ dayLabel(highest!.day) }}</div>
+        </div>
+        <div class="bal-stat">
+          <div class="label">Lowest, 90 days</div>
+          <div class="figure-md">{{ money(lowest!.balance) }}</div>
+          <div class="bal-stat-date">{{ dayLabel(lowest!.day) }}</div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-header"><h2>History</h2></div>
+
+    <div class="seg bal-filter" role="radiogroup" aria-label="Filter by kind">
+      @for (f of filters; track f.value; let i = $index) {
         <button
           type="button"
-          class="bal-chip"
-          [class.active]="filter === f.value"
-          [attr.aria-pressed]="filter === f.value"
+          role="radio"
+          [id]="filterOptionId(f)"
+          class="seg-opt"
+          [class.selected]="filter === f.value"
+          [attr.aria-checked]="filter === f.value"
+          [tabindex]="filterTabIndex(f)"
           (click)="setFilter(f.value)"
+          (keydown)="onFilterKeydown($event, i)"
         >
           {{ f.label }}
         </button>
@@ -82,38 +121,50 @@
     </div>
 
     @if (listError) {
-      <p class="fc-error" role="alert">{{ listError }}</p>
+      <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ listError }}</p>
     }
 
     @if (listLoading && items.length === 0) {
-      <p class="bal-muted">Loading…</p>
+      <div class="rows" aria-hidden="true">
+        @for (i of [1, 2, 3, 4, 5]; track i) {
+          <div class="row">
+            <div class="bal-row-info">
+              <div class="skeleton skel-line" style="--w: 50%"></div>
+              <div class="skeleton skel-line" style="--w: 30%; height: 10px; margin-top: 6px;"></div>
+            </div>
+            <div class="skeleton skel-line" style="--w: 64px; margin-left: auto;"></div>
+          </div>
+        }
+      </div>
     } @else if (items.length === 0 && !listError) {
-      <p class="bal-muted">No history for this kind yet.</p>
+      <p class="empty">No history for this kind yet</p>
     } @else {
-      <ul class="bal-list">
+      <div class="rows">
         @for (h of items; track h.id) {
-          <li class="bal-row">
-            <div class="bal-row-main">
+          <div class="row">
+            <div class="bal-row-info">
               <span class="bal-row-name">{{ rowName(h) }}</span>
               <span class="bal-row-meta">
                 {{ h.timestamp | date:'MMM d, y · h:mm a':'-0400' }} · {{ kindLabel[h.reason] }}
               </span>
             </div>
             <div class="bal-row-nums">
-              <span class="bal-delta" [class.up]="h.delta > 0" [class.down]="h.delta < 0">{{ signed(h.delta) }}</span>
-              <span class="bal-after">{{ money(h.newBalance) }}</span>
+              <span class="num bal-delta" [class.pos]="h.delta > 0" [class.neg]="h.delta < 0">{{ signed(h.delta) }}</span>
+              <span class="num bal-after">{{ money(h.newBalance) }}</span>
             </div>
-          </li>
+          </div>
         }
-      </ul>
+      </div>
       @if (hasMore) {
-        <button type="button" class="fc-btn fc-btn--ghost bal-more" [disabled]="loadingMore" (click)="loadMore()">
-          {{ loadingMore ? 'Loading…' : 'Load more' }}
-        </button>
+        <div class="bal-more-wrap">
+          <button type="button" class="btn" [disabled]="loadingMore" (click)="loadMore()">
+            {{ loadingMore ? 'Loading…' : 'Load more' }}
+          </button>
+        </div>
       }
       @if (moreError) {
-        <p class="fc-error" role="alert">{{ moreError }}</p>
+        <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ moreError }}</p>
       }
     }
-  </section>
+  </div>
 </div>

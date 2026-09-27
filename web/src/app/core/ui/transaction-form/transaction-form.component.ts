@@ -1,13 +1,18 @@
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { NavigationStart, Router } from '@angular/router';
 import { Observable, Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { ApiService } from '../../services/api.service';
 import { CategoryService } from '../../services/category.service';
 import { TransactionEventsService } from '../../services/transaction-events.service';
 import { TransactionFormService, FormRequest } from '../../services/transaction-form.service';
 import { Transaction } from '../../services/api.models';
 import { IconComponent } from '../icon/icon.component';
+import { rovingRadioKeydown } from '../roving-radio';
+
+interface TypeOption { value: 'expense' | 'income'; label: string; icon: string; }
 
 @Component({
     selector: 'app-transaction-form',
@@ -30,8 +35,15 @@ export class TransactionFormComponent implements OnInit, OnDestroy {
   saving = false;
   error = '';
 
+  readonly typeOptions: TypeOption[] = [
+    { value: 'expense', label: 'Expense', icon: 'arrow-down' },
+    { value: 'income',  label: 'Income',  icon: 'arrow-up' },
+  ];
+
   @ViewChild('firstField') firstField?: ElementRef<HTMLInputElement>;
+  @ViewChild('panel') panelRef?: ElementRef<HTMLElement>;
   private sub?: Subscription;
+  private navSub?: Subscription;
   private trigger: HTMLElement | null = null;
 
   /** Local YYYY-MM-DD for a stored ISO timestamp — the day the user actually saw. */
@@ -47,6 +59,7 @@ export class TransactionFormComponent implements OnInit, OnDestroy {
     private catSvc: CategoryService,
     private events: TransactionEventsService,
     private formSvc: TransactionFormService,
+    private router: Router,
   ) {}
 
   get categories(): string[] { return this.catSvc.all.map(c => c.name); }
@@ -54,8 +67,18 @@ export class TransactionFormComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.sub = this.formSvc.requests$.subscribe(r => this.show(r));
+    // Browser Back (or any other navigation) while the form is open must close it: left
+    // open, its body-scroll lock (see show()) would outlive the page that granted it, and
+    // AppComponent's own NavigationStart handler no longer clears body overflow itself
+    // unless the phone sheet was the thing open, precisely so it doesn't clobber this lock.
+    this.navSub = this.router.events
+      .pipe(filter((e): e is NavigationStart => e instanceof NavigationStart))
+      .subscribe(() => { if (this.open) this.dismiss(); });
   }
-  ngOnDestroy() { this.sub?.unsubscribe(); }
+  ngOnDestroy() {
+    this.sub?.unsubscribe();
+    this.navSub?.unsubscribe();
+  }
 
   private show(r: FormRequest) {
     this.trigger = document.activeElement as HTMLElement | null;
@@ -78,12 +101,16 @@ export class TransactionFormComponent implements OnInit, OnDestroy {
       this.date     = TransactionFormComponent.localDateKey(new Date().toISOString());
     }
     this.open = true;
+    // Same body-scroll-lock approach as the phone nav sheet (AppComponent.toggleSheet):
+    // a direct style assignment, restored on close.
+    document.body.style.overflow = 'hidden';
     setTimeout(() => this.firstField?.nativeElement.focus(), 0);
   }
 
   close() {
     this.open = false;
     this.saving = false;
+    document.body.style.overflow = '';
     setTimeout(() => this.trigger?.focus(), 0);
   }
 
@@ -97,6 +124,37 @@ export class TransactionFormComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onEscape() { if (this.open) this.dismiss(); }
+
+  // ── Type: a .seg radiogroup with arrow-key roving (same pattern as
+  // Settings → Appearance and the Transactions type filter). ───────────────
+  typeOptionId(option: TypeOption): string { return `tf-type-${option.value}`; }
+  typeTabIndex(option: TypeOption): number { return option.value === this.type ? 0 : -1; }
+
+  selectType(value: 'expense' | 'income') { this.type = value; }
+
+  onTypeKeydown(event: KeyboardEvent, index: number) {
+    rovingRadioKeydown(
+      event, index, this.typeOptions.length,
+      (i) => this.selectType(this.typeOptions[i].value),
+      (i) => this.typeOptionId(this.typeOptions[i]),
+    );
+  }
+
+  // ── Focus trap: Tab/Shift+Tab cycle within the panel while it's open,
+  // same approach as AppComponent.onSheetKeydown for the phone nav sheet. ──
+  onPanelKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Tab') return;
+    const panel = this.panelRef?.nativeElement;
+    if (!panel) return;
+    const focusables = Array.from(
+      panel.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+    ).filter(el => !el.hasAttribute('disabled') && el.offsetParent !== null);
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
 
   save() {
     if (!this.valid || this.saving) return;

@@ -1,74 +1,46 @@
 :host { display: block; }
 
-// ── Row actions (copied from transactions.component.scss: the remove buttons
-// use it, and component styles are encapsulated) ─────────────────────────
-.icon-act {
-  background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 8px;
-  &:hover:not(:disabled) { background: var(--color-surface-hover); color: var(--text); }
-  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-  &.danger { color: var(--expense); }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
-}
-
-// ── Itemize a withdrawal ───────────────────────────────────────────────
+// ── Itemize a withdrawal: an inset panel under the row ──────────────────
 .cash-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm) 24px var(--space-md);
-  border-bottom: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
+  gap: 14px;
+  background: var(--surface-raised);
+  border-radius: var(--radius-panel);
+  padding: 16px;
 }
 
-.cash-remaining {
-  margin: 0;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.cash-muted {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
-
-.cash-items {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.cash-header {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3xs);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.cash-item {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-xs);
-}
+.cash-header-figure { font-size: 16px; font-weight: 600; }
 
-.cash-item-desc {
-  flex: 1 1 8rem;
-  min-width: 0;
-  color: var(--text-muted);
-  overflow-wrap: anywhere;
-}
+.cash-muted { margin: 0; font-size: var(--text-sm); color: var(--ink-2); }
 
-.cash-item-amount { font-variant-numeric: tabular-nums; }
+.cash-items { list-style: none; margin: 0; padding: 0; }
+.cash-item { padding: 10px 0; }
+.cash-item-cat { color: var(--ink); font-size: 14px; white-space: nowrap; }
+.cash-item-desc { flex: 1 1 8rem; min-width: 0; color: var(--ink-2); font-size: 14px; overflow-wrap: anywhere; }
+.cash-item-amount { flex-shrink: 0; font-size: 14px; }
 
 .cash-form {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: var(--space-xs);
+  gap: 12px;
 
-  .fc-field { flex: 1 1 10rem; min-width: 0; }
-  .cash-desc-field { flex-basis: 14rem; }
+  .cash-field { flex: 1 1 10rem; min-width: 0; }
+  .cash-note-field { flex-basis: 14rem; }
 
   @media (max-width: 640px) {
     flex-direction: column;
     align-items: stretch;
-    .fc-field { flex: 0 0 auto; }
+    .cash-field { flex: 0 0 auto; }
   }
 }
+
+.cash-skel { padding: 4px 0; }

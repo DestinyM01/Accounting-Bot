@@ -1,121 +1,130 @@
-<div class="page-wrap">
-  <div class="page-header">
+<div class="page">
+  <div class="page-title">
     <h1>Transactions</h1>
-    <p>Review and manage your recent financial activity.</p>
   </div>
 
-  <!-- Filters row -->
-  <div class="card filters-card">
-    <div class="filters-row">
-      <div class="search-wrap">
-        <app-icon class="search-icon" name="search" />
-        <input class="search-input"
-               [(ngModel)]="search"
-               (input)="onSearch()"
-               placeholder="Search transactions…" />
-      </div>
+  <!-- Filter bar -->
+  <div class="card tx-filters">
+    <div class="tx-filters-row1">
+      <label class="field tx-search">
+        <span class="sr-only">Search</span>
+        <div class="tx-search-box">
+          <app-icon name="search" [size]="16" />
+          <input class="tx-search-input" type="text" [(ngModel)]="search" (input)="onSearch()"
+                 placeholder="Search name or merchant" />
+        </div>
+      </label>
 
-      <div class="filter-group">
-        <label class="filter-label">Category</label>
-        <select class="filter-select" [(ngModel)]="categoryFilter" (change)="onCategoryChange()">
-          <option value="">All Categories</option>
+      <div class="field tx-category">
+        <select aria-label="Category" [(ngModel)]="categoryFilter" (change)="onCategoryChange()">
+          <option value="">All categories</option>
           @for (cat of categories; track cat) {
             <option [value]="cat">{{ cat | titlecase }}</option>
           }
         </select>
-        <app-icon class="select-chevron" name="chevron-down" />
       </div>
 
-      <div class="filter-group">
-        <label class="filter-label">Type</label>
-        <select class="filter-select type-select" [(ngModel)]="typeFilter" (change)="onTypeChange()">
-          <option value="">All Types</option>
-          <option value="income">Income</option>
-          <option value="expense">Expense</option>
-        </select>
-        <app-icon class="select-chevron" name="chevron-down" />
+      <div class="seg tx-type" role="radiogroup" aria-label="Type">
+        @for (opt of typeOptions; track opt.value; let i = $index) {
+          <button type="button" role="radio" [id]="typeOptionId(opt)" class="seg-opt"
+                  [class.selected]="opt.value === typeFilter"
+                  [attr.aria-checked]="opt.value === typeFilter"
+                  [tabindex]="typeTabIndex(opt)"
+                  (click)="selectType(opt.value)"
+                  (keydown)="onTypeKeydown($event, i)">
+            {{ opt.label }}
+          </button>
+        }
       </div>
 
-      <div class="filter-group">
-        <label class="filter-label">From</label>
-        <input class="filter-date" type="date" [(ngModel)]="startDate" (change)="onDateChange()" />
+      <div class="field tx-dates">
+        <label class="tx-date">
+          <span class="tx-date-prefix" aria-hidden="true">From</span>
+          <input type="date" aria-label="From date" [(ngModel)]="startDate" (change)="onDateChange()" />
+        </label>
+        <label class="tx-date">
+          <span class="tx-date-prefix" aria-hidden="true">To</span>
+          <input type="date" aria-label="To date" [(ngModel)]="endDate" (change)="onDateChange()" />
+        </label>
       </div>
+    </div>
 
-      <div class="filter-group">
-        <label class="filter-label">To</label>
-        <input class="filter-date" type="date" [(ngModel)]="endDate" (change)="onDateChange()" />
-      </div>
-
-      <button class="review-toggle-btn"
-              [class.active]="needsReviewOnly"
-              (click)="onNeedsReviewToggle()">
-        <app-icon name="list-check" />
-        Needs Review
+    <div class="tx-filters-row2">
+      <button type="button" class="chip" [attr.aria-pressed]="needsReviewOnly" (click)="onNeedsReviewToggle()">
+        <app-icon name="list-check" [size]="16" /> Needs review
       </button>
-
-      <button class="review-toggle-btn"
-              [class.active]="unitemizedOnly"
-              [attr.aria-pressed]="unitemizedOnly"
-              (click)="onUnitemizedToggle()">
-        <app-icon name="cash" />
-        Unitemized cash
+      <button type="button" class="chip" [attr.aria-pressed]="unitemizedOnly" (click)="onUnitemizedToggle()">
+        <app-icon name="cash" [size]="16" /> Unitemized cash
       </button>
-
-      <button class="export-btn" (click)="exportCsv()">
-        <app-icon name="download" />
-        Export CSV
+      @if (hasActiveFilters) {
+        <button type="button" class="btn btn--ghost" (click)="clearFilters()">Clear filters</button>
+      }
+      <button type="button" class="btn tx-export" (click)="exportCsv()">
+        <app-icon name="download" [size]="16" /> Export CSV
       </button>
     </div>
   </div>
 
   @if (error) {
-    <p class="fc-error" role="alert">{{ error }}</p>
+    <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
   }
-  <p class="filed-note" aria-live="polite">{{ filedNote }}</p>
+  <p class="tx-filed-note" aria-live="polite">{{ filedNote }}</p>
 
-  <!-- Table -->
+  <ng-template #rowSkel>
+    <div class="tile tx-row-skel" aria-hidden="true">
+      <div class="skeleton" style="width: 32px; height: 32px; border-radius: var(--radius-control); flex-shrink: 0;"></div>
+      <div class="tx-row-skel-info">
+        <div class="skeleton skel-line" style="--w: 45%"></div>
+        <div class="skeleton skel-line" style="--w: 25%; height: 10px; margin-top: 6px;"></div>
+      </div>
+      <div class="skeleton skel-line" style="--w: 64px"></div>
+    </div>
+  </ng-template>
+
   @if (loading) {
-    <p class="loading-state">Loading…</p>
+    <!-- First load: a skeleton copying the list layout -->
+    <div class="tiles tx-list">
+      @for (i of [1,2,3,4,5,6,7,8]; track i) {
+        <ng-container *ngTemplateOutlet="rowSkel" />
+      }
+    </div>
   } @else {
-    <div class="card tx-table">
-      <div class="tx-table-header">
-        <span>TRANSACTION</span>
-        <span>CATEGORY</span>
-        <span class="align-right">AMOUNT</span>
-        <span class="align-right">STATUS</span>
-        <span class="align-right">ACTIONS</span>
+    <div class="tiles tx-list">
+      <div class="tile tx-head">
+        <span>Transaction</span>
+        <span>Category</span>
+        <span class="align-right">Amount</span>
+        <span>Status<span class="sr-only"> and actions</span></span>
       </div>
 
       @for (tx of items; track tx._id) {
-        <div class="tx-row">
+        <div class="tile txl-row">
           <div class="tx-cell tx-main">
-            <div class="tx-icon"
-                 [class]="isTransfer(tx) ? '' : (tx.isExpense ? 'expense-icon' : 'income-icon')">
+            <div class="txl-icon" [class.pos-wash]="!isTransfer(tx) && !tx.isExpense" [class.neg-wash]="!isTransfer(tx) && tx.isExpense">
               <app-icon [name]="catIcon(tx.category)" />
             </div>
-            <div class="tx-info">
+            <div class="txl-info">
               <span class="tx-name">{{ tx.transactionName }}</span>
               <span class="tx-meta">{{ tx.timestamp | date:'MMM d, y · h:mm a' }}</span>
             </div>
           </div>
 
-          <div class="tx-cell">
+          <div class="tx-cell tx-cat-cell">
+            <span class="tx-meta-mobile">{{ tx.timestamp | date:'MMM d · h:mm a' }}</span>
             @if (tx.categoryNeedsReview) {
-              <div class="review-cell">
-                <span [id]="'guess-' + tx._id" class="cat-pill guess-pill"
-                      [style.background]="catColor(tx.category) + '22'">
-                  <span class="dot" [style.background]="catColor(tx.category)"></span>
+              <div class="tx-review">
+                <span [id]="'guess-' + tx._id" class="tag tag--accent tx-guess">
                   {{ tx.category | titlecase }}?{{ isDeletedGuess(tx.category) ? ' (deleted)' : '' }}
                 </span>
                 @if (!isDeletedGuess(tx.category)) {
-                  <button [id]="'confirm-' + tx._id" type="button" class="icon-act confirm-guess"
+                  <button [id]="'confirm-' + tx._id" type="button" class="btn btn--icon tx-confirm-btn"
                           [disabled]="reviewing.has(tx._id)"
                           [attr.aria-label]="'Confirm ' + (tx.category | titlecase) + ' for ' + tx.transactionName"
                           (click)="assignCategory(tx, tx.category)">
-                    <app-icon name="check" />
+                    <app-icon name="check" [size]="16" />
                   </button>
                 }
-                <select [id]="'pick-' + tx._id" class="review-select"
+                <select [id]="'pick-' + tx._id" class="tx-review-select"
                         [attr.aria-label]="'Category for ' + tx.transactionName"
                         [attr.aria-describedby]="'guess-' + tx._id"
                         [disabled]="reviewing.has(tx._id)"
@@ -131,77 +140,101 @@
                 </select>
               </div>
             } @else {
-              <span class="cat-pill"
-                    [style.background]="catColor(tx.category) + '22'">
-                <span class="dot" [style.background]="catColor(tx.category)"></span>
+              <span class="tx-cat">
+                <span class="swatch" [style.background]="catColor(tx.category)"></span>
                 {{ tx.category | titlecase }}
               </span>
             }
           </div>
 
-          <div class="tx-cell align-right">
+          <div class="tx-cell tx-amount-cell">
             @if (isTransfer(tx)) {
-              <span class="cat-pill transfer-pill">
-                {{ tx.transferKind === 'internal' ? 'Internal' : 'Unresolved' }}
-              </span>
-              <span class="tx-amount">{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}</span>
+              <span class="tag">{{ tx.transferKind === 'internal' ? 'Internal' : 'Unresolved' }}</span>
+              <span class="num tx-amt tx-transfer-amount">{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}</span>
             } @else {
-              <span class="tx-amount-wrap">
-                <span class="tx-amount" [class]="tx.isExpense ? 'expense' : 'income'">
+              <div class="tx-amount-wrap">
+                <span class="num tx-amt" [class.pos]="!tx.isExpense" [class.neg]="tx.isExpense">
                   {{ tx.isExpense ? '-' : '+' }}{{ tx.amount | currency:'USD':'symbol':'1.2-2' }}
                 </span>
                 @if (unitemized(tx) > 0) {
                   <span class="tx-unitemized">{{ unitemized(tx) | currency:'USD':'symbol':'1.2-2' }} not itemized</span>
                 }
-              </span>
+              </div>
             }
           </div>
 
-          <div class="tx-cell align-right">
-            <app-icon class="status-icon ok" name="circle-check" />
-          </div>
+          <div class="tx-tail">
+            <div class="tx-status-cell">
+              @if (tx.categoryNeedsReview) {
+                <app-icon class="tx-status tx-status--warn" name="alert-circle" title="Needs review" />
+                <span class="sr-only">Needs review</span>
+              } @else if (tx.transferKind === 'unresolved') {
+                <app-icon class="tx-status tx-status--warn" name="alert-circle" title="Unresolved transfer" />
+                <span class="sr-only">Unresolved transfer</span>
+              } @else {
+                <app-icon class="tx-status tx-status--ok" name="circle-check" />
+              }
+            </div>
 
-          <div class="tx-cell align-right tx-actions">
-            @if (tx.isWithdrawal && tx.isExpense) {
-              <button [id]="'itemize-' + tx._id" type="button" class="act-btn"
-                      [attr.aria-expanded]="cashFor === tx._id"
-                      [attr.aria-controls]="cashFor === tx._id ? 'cash-' + tx._id : null"
-                      (click)="toggleCash(tx)">
-                Itemize
+            <div class="tx-actions-cell">
+              @if (tx.isWithdrawal && tx.isExpense) {
+                <button [id]="'itemize-' + tx._id" type="button" class="btn tx-mini-btn"
+                        [attr.aria-expanded]="cashFor === tx._id"
+                        [attr.aria-controls]="cashFor === tx._id ? 'cash-' + tx._id : null"
+                        (click)="toggleCash(tx)">
+                  Itemize
+                </button>
+              }
+              @if (tx.transferKind === 'unresolved') {
+                <button type="button" class="btn tx-mini-btn" [disabled]="pendingId === tx._id" (click)="resolve(tx, 'internal')" title="Money moved between my own accounts">Internal</button>
+                <button type="button" class="btn tx-mini-btn" [disabled]="pendingId === tx._id" (click)="resolve(tx, 'external')" title="A real payment or income">Expense</button>
+              }
+              @if (confirmingDelete !== tx._id) {
+                <button type="button" class="btn btn--icon" (click)="edit(tx)" aria-label="Edit"><app-icon name="pencil" [size]="16" /></button>
+              }
+              <button #delBtn type="button" class="btn btn--icon" [class.tx-danger]="confirmingDelete === tx._id"
+                      [attr.aria-label]="confirmingDelete === tx._id ? 'Confirm delete' : 'Delete'"
+                      [disabled]="pendingId === tx._id"
+                      (click)="confirmingDelete === tx._id ? confirmDelete(tx) : askDelete(tx)"
+                      (keydown.escape)="cancelDelete(delBtn)">
+                <app-icon [name]="confirmingDelete === tx._id ? 'check' : 'trash'" [size]="16" />
               </button>
-            }
-            @if (tx.transferKind === 'unresolved') {
-              <button class="act-btn" [disabled]="pendingId === tx._id" (click)="resolve(tx, 'internal')" title="Money moved between my own accounts">Internal</button>
-              <button class="act-btn" [disabled]="pendingId === tx._id" (click)="resolve(tx, 'external')" title="A real payment or income">Expense</button>
-            }
-            @if (confirmingDelete !== tx._id) {
-              <button class="icon-act" (click)="edit(tx)" aria-label="Edit"><app-icon name="pencil" /></button>
-            }
-            <button #delBtn class="icon-act" [class.danger]="confirmingDelete === tx._id"
-                    [attr.aria-label]="confirmingDelete === tx._id ? 'Confirm delete' : 'Delete'"
-                    [disabled]="pendingId === tx._id"
-                    (click)="confirmingDelete === tx._id ? confirmDelete(tx) : askDelete(tx)"
-                    (keydown.escape)="cancelDelete(delBtn)">
-              <app-icon [name]="confirmingDelete === tx._id ? 'check' : 'trash'" />
-            </button>
-            @if (confirmingDelete === tx._id) {
-              <button class="icon-act" aria-label="Cancel delete" [disabled]="pendingId === tx._id" (click)="cancelDelete(delBtn)"><app-icon name="x" /></button>
-            }
+              @if (confirmingDelete === tx._id) {
+                <button type="button" class="btn btn--icon" aria-label="Cancel delete" [disabled]="pendingId === tx._id" (click)="cancelDelete(delBtn)"><app-icon name="x" [size]="16" /></button>
+              }
+            </div>
           </div>
         </div>
         @if (cashFor === tx._id) {
-          <app-cash-panel [attr.id]="'cash-' + tx._id" [tx]="tx" />
+          <app-cash-panel class="tile tx-cash-tile" [attr.id]="'cash-' + tx._id" [tx]="tx" />
         }
       } @empty {
-        <p class="empty">No transactions found.</p>
+        @if (!error) {
+          <div class="tile">
+            @if (hasActiveFilters) {
+              <div class="empty">
+                No transactions match these filters
+                <button type="button" class="btn btn--ghost" (click)="clearFilters()">Clear filters</button>
+              </div>
+            } @else {
+              <div class="empty">
+                No transactions yet
+                <button type="button" class="btn btn--primary" (click)="addTransaction()">Add a transaction</button>
+              </div>
+            }
+          </div>
+        }
+      }
+      @if (loadingMore) {
+        <ng-container *ngTemplateOutlet="rowSkel" />
       }
     </div>
 
     @if (hasMore) {
-      <div class="load-more-wrap">
-        <button class="load-more-btn" (click)="loadMore()" [disabled]="loadingMore">
-          {{ loadingMore ? 'Loading…' : 'Load More Transactions' }}
-          @if (!loadingMore) { <app-icon name="chevron-down" /> }
+      <div class="tx-load-more">
+        <button type="button" class="btn" (click)="loadMore()" [disabled]="loadingMore">
+          {{ loadingMore ? 'Loading…' : 'Load more' }}
+          @if (!loadingMore) { <app-icon name="chevron-down" [size]="16" /> }
         </button>
       </div>
     }

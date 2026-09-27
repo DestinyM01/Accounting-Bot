@@ -30,7 +30,7 @@
 
   .page-title-meta {
     color: var(--ink-2);
-    font-size: var(--text-sm);
+    font-size: 13px;
   }
 }
 
@@ -55,6 +55,11 @@
   color: var(--ink-2);
 }
 
+.figure-lg, .figure-md, .figure-sm {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
 .figure-lg { font-size: var(--text-figure-lg); font-weight: 500; }
 .figure-md { font-size: var(--text-2xl); font-weight: 500; }
 .figure-sm { font-size: var(--text-xl); font-weight: 500; }
@@ -122,6 +127,79 @@
   &:hover:not([disabled]) { background: var(--accent-wash); color: var(--ink); }
 }
 
+// ── Touch targets: at phone width, fingers need more than a mouse pointer does ──
+@media (max-width: 760px) {
+  .btn--icon { width: 40px; height: 40px; }
+  .chip, .seg-opt { min-height: 40px; }
+}
+
+// ── Segmented control ────────────────────────────────────────────────────
+// Generalises the appearance section's theme switch: an inline-flex group of
+// radio-semantics options, one visually selected (accent fill).
+.seg {
+  display: inline-flex;
+  width: fit-content;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+}
+
+.seg-opt {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  font: 600 13px var(--font-sans);
+  padding: 7px 14px;
+  border-radius: var(--radius-mark);
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
+
+  &:hover { color: var(--ink); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  &.selected,
+  &[aria-checked='true'] {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+}
+
+// ── Toggle chip ──────────────────────────────────────────────────────────
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink-2);
+  font: 600 13px var(--font-sans);
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background var(--dur-short) var(--ease-out),
+    border-color var(--dur-short) var(--ease-out),
+    color var(--dur-short) var(--ease-out),
+    transform var(--dur-short) var(--ease-out);
+
+  &:hover { background: var(--accent-wash); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  &:active { transform: scale(0.98); }
+
+  &[aria-pressed='true'] {
+    background: var(--accent-wash);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+  }
+}
+
 // ── Fields ───────────────────────────────────────────────────────────────
 .field {
   display: flex;
@@ -129,6 +207,7 @@
   gap: 6px;
 
   > label,
+  > span:not(.sr-only),
   .field-label {
     font-size: var(--text-sm);
     color: var(--ink-2);
@@ -182,6 +261,22 @@
   flex-shrink: 0;
 }
 
+// ── Text-color modifiers ─────────────────────────────────────────────────
+// Was duplicated per-page (Dashboard, Transactions, Balance) with identical
+// rules; kept here once, global on purpose like the rest of this file.
+.pos { color: var(--pos); }
+.neg { color: var(--neg); }
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 // ── Dense rows ───────────────────────────────────────────────────────────
 .rows {
   display: flex;
@@ -223,6 +318,18 @@
 @keyframes skeleton-shimmer {
   from { transform: translateX(-100%); }
   to { transform: translateX(100%); }
+}
+
+// Sizing modifiers for .skeleton — combine as class="skeleton skel-line".
+.skel-line {
+  height: 12px;
+  width: var(--w, 100%);
+  border-radius: var(--radius-mark);
+}
+
+.skel-figure {
+  height: 28px;
+  border-radius: var(--radius-mark);
 }
 
 .empty {

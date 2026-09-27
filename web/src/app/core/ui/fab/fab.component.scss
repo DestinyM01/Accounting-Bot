@@ -3,20 +3,20 @@
   right: max(16px, env(safe-area-inset-right));
   bottom: max(16px, env(safe-area-inset-bottom));
   z-index: 50; /* above the top bar (--z-bar: 20) and dropdown menus (--z-menu: 40); below the phone sheet's scrim/panel (--z-sheet - 1 / --z-sheet: 59/60) */
-  width: 56px; height: 56px; border-radius: 50%;
+  width: 56px; height: 56px; border-radius: var(--radius-panel);
   display: flex; align-items: center; justify-content: center;
-  background: var(--accent); color: var(--color-accent-ink);
+  background: var(--accent); color: var(--on-accent);
   border: none; cursor: pointer;
-  box-shadow: 0 8px 24px var(--overlay-scrim);
+  box-shadow: 0 8px 24px var(--scrim);
   transition: transform 0.12s, filter 0.12s;
 
   &:hover, &.is-hover         { filter: brightness(1.08); }
-  &:focus-visible, &.is-focus { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+  &:focus-visible, &.is-focus { outline: 2px solid var(--focus); outline-offset: 3px; }
   &:active, &.is-active       { transform: scale(0.94); }
   &:disabled, &.is-disabled   { opacity: 0.5; cursor: not-allowed; }
   &[data-state="loading"]     { pointer-events: none; app-icon { animation: fab-spin 1s linear infinite; } }
-  &[data-state="error"]       { background: var(--expense); }
-  &[data-state="success"]     { background: var(--income); }
+  &[data-state="error"]       { background: var(--neg); }
+  &[data-state="success"]     { background: var(--pos); }
 }
 
 @keyframes fab-spin { to { transform: rotate(360deg); } }

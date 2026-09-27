@@ -1,37 +1,16 @@
-// The System / Dark / Light segmented control. Everything else this section
-// needs (heading, helper text) comes from settings-section.scss.
-.theme-switch {
-  display: inline-flex;
-  // Sized to its options, even inside a stretching column.
-  width: fit-content;
-  gap: 2px;
-  padding: 3px;
-  background: var(--surface-raised);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-control);
-}
-
-.theme-switch-opt {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: var(--ink-2);
-  font: 600 13px var(--font-sans);
-  padding: 7px 16px;
-  border-radius: var(--radius-mark);
-  cursor: pointer;
-  transition: background var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
-
-  &:hover { color: var(--ink); }
-  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-
-  &.selected {
-    background: var(--accent);
-    color: var(--on-accent);
-  }
-}
-
+// The theme switch is now the shared .seg/.seg-opt primitive (_primitives.scss),
+// which stays content-sized by default — right for the other pages that reuse
+// it (Balance's history filter, for one, deliberately scrolls instead of
+// stretching). This section's own instance opts back into the full-width,
+// evenly-split reflow it had before that generalisation, scoped here so it
+// doesn't reach those other .seg usages.
 @media (max-width: 480px) {
-  .theme-switch { display: flex; }
-  .theme-switch-opt { flex: 1 1 0; text-align: center; }
+  // width: auto, not just display: flex: .seg's own base rule sets
+  // `width: fit-content` precisely so it *doesn't* stretch inside this
+  // section's column flex layout (.set-section, settings-section.scss) —
+  // an explicit width like that overrides the column's default cross-axis
+  // stretch regardless of display type, so display: flex alone still left
+  // it content-sized. auto hands sizing back to that default stretch.
+  .seg { display: flex; width: auto; }
+  .seg-opt { flex: 1 1 0; text-align: center; }
 }

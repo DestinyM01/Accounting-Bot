@@ -46,10 +46,10 @@ export class CashPanelComponent implements OnInit, OnChanges, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.load(() => this.focus(this.ids.category, this.ids.itemize));
+    this.load(() => this.focus(this.ids.amount, this.ids.itemize));
   }
 
-  /** The list reloads rows as new objects (after an edit, say): reread the breakdown so "of $X" follows it. */
+  /** The list reloads rows as new objects (after an edit, say): reread the breakdown so the "not itemized" figure follows it. */
   ngOnChanges(changes: SimpleChanges) {
     if (changes['tx'] && !changes['tx'].firstChange) this.load();
   }
@@ -104,7 +104,7 @@ export class CashPanelComponent implements OnInit, OnChanges, OnDestroy {
         this.category = '';
         this.amount = null;
         this.description = '';
-        this.load(() => this.focus(this.ids.category, this.ids.itemize));
+        this.load(() => this.focus(this.ids.amount, this.ids.itemize));
       },
       error: (e: HttpErrorResponse) => {
         if (this.destroyed) return;
