@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { CompareResult } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
+import { changeTone } from '../../core/ui/change-tone';
 import { IconComponent } from '../../core/ui/icon/icon.component';
 
 @Component({
@@ -54,4 +55,24 @@ export class CompareComponent implements OnInit {
   }
 
   catColor(cat: string): string { return this.catSvc.color(cat); }
+
+  // ── Difference row: monthB minus monthA ──────────────────────────────────
+  // Same good/bad tone pattern as Dashboard's tone()/badgeLabel(): the sign of
+  // the change is shown as-is, but which sign counts as "good" depends on the
+  // metric — more income or a better net is good, more expense is bad.
+  get diffIncome(): number {
+    return this.result ? this.result.monthB.totalIncome - this.result.monthA.totalIncome : 0;
+  }
+
+  get diffExpenses(): number {
+    return this.result ? this.result.monthB.totalExpenses - this.result.monthA.totalExpenses : 0;
+  }
+
+  get diffNet(): number {
+    return this.result ? this.result.monthB.net - this.result.monthA.net : 0;
+  }
+
+  get incomeDiffTone(): 'pos' | 'neg' | 'neutral' { return changeTone(this.diffIncome, true); }
+  get expenseDiffTone(): 'pos' | 'neg' | 'neutral' { return changeTone(this.diffExpenses, false); }
+  get netDiffTone():     'pos' | 'neg' | 'neutral' { return changeTone(this.diffNet, true); }
 }

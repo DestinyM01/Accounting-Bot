@@ -1,158 +1,94 @@
-/* Hallmark · genre: atmospheric · macrostructure: Workbench · design-system: design.md · designed-as-app */
-.top-row {
+// ── Top tiles ────────────────────────────────────────────────────────────
+.stat-tiles {
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 16px;
+
+  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 480px) { grid-template-columns: 1fr; }
+}
+
+// ── Chart + by-category row ─────────────────────────────────────────────
+.stat-row {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: 2fr 1fr;
   gap: 16px;
   margin-bottom: 16px;
 
-  @media (max-width: 860px) { grid-template-columns: 1fr; }
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
 }
 
-.chart-card {
-  .chart-sub {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    margin: 2px 0 0;
-  }
-}
-
-.legend {
+.stat-legend {
   display: flex;
   align-items: center;
   gap: 14px;
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-.leg-dot {
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-  margin-right: 4px;
-  &.income  { background: var(--income); }
-  &.expense { background: var(--expense); }
+  font-size: 12px;
+  color: var(--ink-2);
 }
 
-.chart-pills {
-  display: flex;
-  gap: 12px;
-  margin: 14px 0;
-  flex-wrap: wrap;
-}
-.pill {
-  background: var(--bg-card-alt);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 16px;
+.stat-swatch-pos { background: var(--pos); }
+.stat-swatch-neg { background: var(--neg); }
+
+// The by-category card's height is set by its row count, which can be taller than a
+// fixed-height chart; letting this card flex and its chart area grow to fill it keeps
+// the two cards from leaving a blank gap under the shorter one.
+.stat-io-card {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-}
-.pill-label { font-size: 0.7rem; color: var(--text-muted); }
-.pill-val {
-  font-variant-numeric: tabular-nums; // finding #6
-  font-size: 1.05rem;
-  font-weight: 700;
-  &.income  { color: var(--income); }
-  &.expense { color: var(--expense); }
-  &.net     { color: var(--net); }
 }
 
-.chart-area {
-  height: 220px;
+.stat-chart-area {
+  flex: 1;
+  min-height: 260px;
   canvas { width: 100% !important; height: 100% !important; }
 }
 
-// ── Distribution ───────────────────────────────────────────────────────
-.dist-card { overflow-y: auto; }
-
-.dist-row {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  margin-bottom: 18px;
-  &:last-child { margin-bottom: 0; }
+// ── By category ──────────────────────────────────────────────────────────
+.stat-cat-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  &:last-child { border-bottom: none; }
 }
 
-.dist-icon-wrap {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+.stat-cat-top {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  app-icon { width: 18px; height: 18px; }
+  gap: 8px;
+  font-size: 14px;
 }
 
-.dist-info { flex: 1; min-width: 0; }
-
-.dist-header {
-  display: flex;
-  justify-content: space-between;
-  .dist-cat    { font-size: 0.875rem; font-weight: 500; }
-  .dist-amount { font-size: 0.875rem; font-weight: 700; }
-}
-
-.dist-sub { font-size: 0.72rem; color: var(--text-muted); margin: 2px 0 5px; }
-
-.dist-bar { height: 4px; }
-
-// ── Bottom row ─────────────────────────────────────────────────────────
-.bottom-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-
-  @media (max-width: 640px) { grid-template-columns: 1fr; }
-}
-
-.savings-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.savings-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  app-icon { width: 16px; height: 16px; }
-}
-
-.savings-rate {
-  font-variant-numeric: tabular-nums; // finding #6
-  font-size: 2.8rem;
-  font-weight: 700;
-  letter-spacing: -1.5px;
-  margin: 4px 0;
-  &.positive { color: var(--income); }
-  &.negative { color: var(--expense); }
-}
-
-.savings-change {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.8rem;
+.stat-cat-name {
+  flex: 1;
+  min-width: 0;
   font-weight: 500;
-  app-icon { width: 15px; height: 15px; }
-  &.up   { color: var(--income); }
-  &.down { color: var(--expense); }
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.savings-chart-area {
-  height: 70px;
-  margin-top: 14px;
+.stat-cat-pct {
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+
+.stat-cat-amount { font-size: var(--text-sm); }
+
+.stat-cat-bar {
+  height: 4px;
+  margin-top: 8px;
+  background: var(--line);
+  border-radius: var(--radius-mark);
+  overflow: hidden;
+}
+
+.stat-cat-bar-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: var(--radius-mark);
+  transform-origin: left;
+}
+
+// ── Savings rate chart ───────────────────────────────────────────────────
+.stat-savings-chart {
+  height: 160px;
   canvas { width: 100% !important; height: 100% !important; }
-}
-
-.near-limit-badge {
-  font-size: 0.72rem;
-  background: var(--color-warning-subtle);
-  color: var(--color-warning);
-  padding: 3px 9px;
-  border-radius: 20px;
-  font-weight: 600;
 }

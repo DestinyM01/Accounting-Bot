@@ -1,216 +1,232 @@
-/* Hallmark · genre: atmospheric · macrostructure: Workbench · design-system: design.md · designed-as-app */
-.budget-page-header {
+// ── Title row ────────────────────────────────────────────────────────────
+// The shared .page-title is a two-child flex row (space-between); wrap it so
+// the title group and the action buttons can each drop to their own line on
+// narrow phones instead of overflowing.
+.page-title {
+  flex-wrap: wrap;
+  row-gap: 10px;
+}
+
+.bud-title-group {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: baseline;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-.new-budget-btn {
-  padding: 10px 20px;
-  white-space: nowrap;
-  app-icon { width: 18px; height: 18px; }
-}
-
-// ── Hero row ───────────────────────────────────────────────────────────
-.hero-row {
-  display: grid;
-  grid-template-columns: 1fr 360px;
-  gap: 16px;
-  margin-bottom: 4px;
-
-  @media (max-width: 860px) { grid-template-columns: 1fr; }
-}
-
-.hero-card {
-  position: relative;
-  overflow: hidden;
-}
-
-.hero-bg-chart {
-  position: absolute;
-  right: 0; top: 0; bottom: 0;
-  width: 160px;
-  background: transparent;
-}
-
-.hero-label  { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px; }
-
-.hero-amount {
-  font-variant-numeric: tabular-nums; // finding #6
-  font-size: 2.6rem;
-  font-weight: 700;
-  letter-spacing: -1.5px;
-  margin-bottom: 14px;
-  .hero-cents { font-size: 1.4rem; font-weight: 400; color: var(--text-muted); }
-}
-
-.hero-progress-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-  .hero-remaining { color: var(--accent-ink); }
-}
-
-.hero-bar {
-  height: 7px;
-  margin-bottom: 10px;
-}
-
-.hero-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.82rem;
-  .hero-pct { color: var(--text-muted); }
-}
-
-.on-track {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--income);
-  font-weight: 500;
-  app-icon { width: 16px; height: 16px; }
-}
-.over-track {
-  @extend .on-track;
-  color: var(--expense);
-}
-
-// ── Insights ───────────────────────────────────────────────────────────
-.insight-text {
-  font-size: 0.9rem;
-  line-height: 1.6;
-  color: var(--text);
-  margin: 0 0 16px;
-}
-.highlight-green { color: var(--income); font-weight: 600; }
-.highlight-red   { color: var(--expense); font-weight: 600; }
-
-.alert-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  background: rgba(248,113,113,0.08);
-  border: 1px solid rgba(248,113,113,0.18);
-  border-radius: 10px;
-  padding: 12px 14px;
-  margin-bottom: 10px;
-}
-.alert-icon { color: var(--expense); font-size: 20px; width: 20px; height: 20px; margin-top: 2px; }
-.alert-title { font-weight: 600; font-size: 0.875rem; }
-.alert-sub   { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
-
-.insight-ok {
+.bud-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--income);
-  font-size: 0.875rem;
-  font-weight: 500;
-  app-icon { width: 18px; height: 18px; }
-}
-
-// ── Budget grid ────────────────────────────────────────────────────────
-.budget-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 16px;
-}
-
-.cat-budget-card {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.cbc-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 6px;
-}
-
-.cbc-icon-wrap {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  app-icon { width: 20px; height: 20px; }
-}
-
-.cbc-budget-label {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  .cbc-budget-text   { font-size: 0.7rem; color: var(--text-muted); }
-  .cbc-budget-amount { font-variant-numeric: tabular-nums; font-size: 0.95rem; font-weight: 600; }
-}
-
-.cbc-name  { font-size: 1rem; font-weight: 600; }
-.cbc-spent { font-size: 0.78rem; color: var(--text-muted); }
-.cbc-bar   { margin: 8px 0 4px; }
-
-.cbc-footer {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.8rem;
-  .cbc-pct  { font-weight: 700; }
-  .cbc-left { color: var(--text-muted); }
-}
-
-// ── Create card ────────────────────────────────────────────────────────
-.create-card {
-  align-items: center;
-  justify-content: center;
-  border: 2px dashed var(--border) !important;
-  background: transparent !important;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 0.875rem;
-  gap: 12px;
-  min-height: 160px;
-  text-decoration: none;
-  transition: color 0.15s, border-color 0.15s;
-
-  &:hover { color: var(--text); border-color: var(--accent) !important; }
-  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-}
-.create-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--color-surface-hover);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  app-icon { width: 22px; height: 22px; }
-}
-
-// Spacing for the category breakdown section header (replaces inline style — finding #9)
-.section-header--budget-gap {
-  margin-top: var(--space-lg);
-}
-
-// ── Inline budget form ─────────────────────────────────────────────────
-.budget-form-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   flex-wrap: wrap;
+
+  // "Manage categories" is a link acting as a button; it shouldn't look like a link.
+  a.btn { text-decoration: none; }
+}
+
+// ── Set-budget form ──────────────────────────────────────────────────────
+.bud-form {
   margin-bottom: 16px;
 }
 
-.bf-select { min-width: 140px; appearance: none; cursor: pointer; }
-.bf-input  { width: 200px; }
+.bud-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 
-.bf-cancel {
-  padding: 9px 10px;
-  app-icon { width: 1.1rem; height: 1.1rem; }
+  > .field { flex: 1 1 200px; }
 }
+
+// The limit is money, so it gets the same mono treatment as every other figure.
+.field input.bud-amount-input {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.bud-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+// ── Load error ───────────────────────────────────────────────────────────
+.bud-load-error {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+// ── Top tiles ────────────────────────────────────────────────────────────
+.bud-tiles {
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 16px;
+
+  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 480px) { grid-template-columns: 1fr; }
+}
+
+.bud-bar-track {
+  height: 6px;
+  margin-top: 14px;
+  background: var(--line);
+  border-radius: var(--radius-mark);
+  overflow: hidden;
+}
+
+.bud-bar-fill {
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-mark);
+  transform-origin: left;
+}
+
+.bud-tile-note {
+  margin: 8px 0 0;
+  font-size: var(--text-sm);
+
+  // Left undecorated when the sibling .neg class is present, so that global
+  // rule (not this one) supplies the color — see the note on .bud-remain below.
+  &:not(.neg) { color: var(--ink-2); }
+}
+
+// ── Category grid ────────────────────────────────────────────────────────
+.bud-grid {
+  grid-template-columns: repeat(4, 1fr);
+
+  @media (max-width: 1199px) { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 899px)  { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 599px)  { grid-template-columns: 1fr; }
+}
+
+.bud-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.bud-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.bud-card-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bud-card-icon { color: var(--ink-2); }
+
+.bud-card-spent {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.bud-card-of {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}
+
+.bud-cat-bar-track {
+  height: 6px;
+  margin: 12px 0 4px;
+  background: var(--line);
+  border-radius: var(--radius-mark);
+  overflow: hidden;
+}
+
+.bud-cat-bar-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: var(--radius-mark);
+  transform-origin: left;
+}
+
+.bud-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.bud-pct {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+
+  // Plain mono text under 75%; from 75% up it also carries .tag/.tag--warn/.tag--neg,
+  // whose own color and background take over (kept separate to avoid a specificity fight).
+  &:not(.tag) {
+    color: var(--ink-2);
+    font-size: var(--text-sm);
+  }
+}
+
+.bud-remain {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+  // No default color here on purpose: the shared .neg class (applied only when over)
+  // supplies it, and the "left" case is left at the inherited ink color.
+}
+
+// ── Add-a-budget cell ────────────────────────────────────────────────────
+// Keeps the grid from ever ending on a dead cell. A dashed outline reads as
+// "add", distinct from the filled data tiles around it.
+.bud-add-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 140px;
+  appearance: none;
+  border: 1px dashed var(--line-strong);
+  border-radius: 0;
+  color: var(--ink-2);
+  font: 500 14px var(--font-sans);
+  cursor: pointer;
+  transition: color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+
+  &:hover { color: var(--ink); border-color: var(--accent); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+  // Always the grid's last child. Depending on how many budgets precede it, it lands
+  // in a different column of its row; span it across whatever's left so the grid
+  // never ends on a dead cell. Each breakpoint below matches .bud-grid's own column
+  // count and resets the span before reapplying its own math (a row exactly filled
+  // by real budgets — nth-child(Nn) — needs no override: the default span of 1 already
+  // sits alone in a fresh row of its own).
+  &:nth-child(4n+1) { grid-column: span 4; }
+  &:nth-child(4n+2) { grid-column: span 3; }
+  &:nth-child(4n+3) { grid-column: span 2; }
+
+  @media (max-width: 1199px) {
+    &:nth-child(n)   { grid-column: auto; }
+    &:nth-child(3n+1) { grid-column: span 3; }
+    &:nth-child(3n+2) { grid-column: span 2; }
+  }
+
+  @media (max-width: 899px) {
+    &:nth-child(n)   { grid-column: auto; }
+    &:nth-child(2n+1) { grid-column: span 2; }
+  }
+
+  @media (max-width: 599px) {
+    &:nth-child(n) { grid-column: auto; }
+  }
+}
+
+// Same fill as a plain .tile: with the nth-child spans above, this tile occupies the
+// rest of its row, so it should read as part of the grid rather than a cut-out void.
+.tile.bud-add-card { background: var(--surface); }

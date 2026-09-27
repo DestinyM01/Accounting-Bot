@@ -8,8 +8,10 @@ import { CategoryService } from '../../core/services/category.service';
 import { Chart, registerables } from 'chart.js';
 import { SankeyController, Flow } from 'chartjs-chart-sankey';
 import { chartTheme, tooltipStyle } from '../../core/ui/chart-theme';
+import { focusFirst } from '../../core/ui/focus';
 import { IconComponent } from '../../core/ui/icon/icon.component';
 import { ThemeService } from '../../core/ui/theme.service';
+import { rovingRadioKeydown } from '../../core/ui/roving-radio';
 
 Chart.register(...registerables, SankeyController, Flow);
 
@@ -20,6 +22,8 @@ function ordinal(n: number): string {
   const suffix = ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
   return `${n}${suffix}`;
 }
+
+interface TypeOption { value: 'expense' | 'income'; label: string; icon: string; }
 
 @Component({
     selector: 'app-recurring',
@@ -32,6 +36,8 @@ export class RecurringComponent implements OnInit, OnDestroy {
   items: RecurringEntry[] = [];
   loading = false;
   error = '';
+  deleteError = '';
+  private destroyed = false;
 
   showForm = false; saving = false;
   fType: 'income' | 'expense' = 'expense'; fAmount: number | null = null; fName = ''; fCategory = 'other'; fDay = 1;
@@ -39,9 +45,27 @@ export class RecurringComponent implements OnInit, OnDestroy {
   get categories(): string[] { return this.catSvc.all.map(c => c.name); }
   get formValid() { return !!this.fAmount && this.fAmount > 0 && !!this.fName.trim() && Number.isInteger(this.fDay) && this.fDay >= 1 && this.fDay <= 28; }
 
+  // ── Type: a .seg radiogroup with arrow-key roving (same pattern as
+  // Settings → Appearance and the transaction form's type toggle). ────────
+  readonly typeOptions: TypeOption[] = [
+    { value: 'expense', label: 'Expense', icon: 'arrow-down' },
+    { value: 'income',  label: 'Income',  icon: 'arrow-up' },
+  ];
+  typeOptionId(option: TypeOption): string { return `rec-type-${option.value}`; }
+  typeTabIndex(option: TypeOption): number { return option.value === this.fType ? 0 : -1; }
+  selectType(value: 'expense' | 'income') { this.fType = value; }
+  onTypeKeydown(event: KeyboardEvent, index: number) {
+    rovingRadioKeydown(
+      event, index, this.typeOptions.length,
+      (i) => this.selectType(this.typeOptions[i].value),
+      (i) => this.typeOptionId(this.typeOptions[i]),
+    );
+  }
+
   toggleForm() {
     this.showForm = !this.showForm;
     this.formError = '';
+    focusFirst(this.showForm ? ['rec-type-expense'] : ['rec-open'], () => !this.destroyed);
   }
 
   submitForm() {
@@ -50,7 +74,14 @@ export class RecurringComponent implements OnInit, OnDestroy {
     this.formError = '';
     this.api.createRecurring({ type: this.fType, amount: this.fAmount!, name: this.fName, category: this.fCategory, dayOfMonth: this.fDay })
       .subscribe({
-        next: () => { this.saving = false; this.showForm = false; this.fAmount = null; this.fName = ''; this.load(); },
+        next: () => {
+          this.saving = false;
+          this.showForm = false;
+          this.fAmount = null;
+          this.fName = '';
+          this.load();
+          focusFirst(['rec-open'], () => !this.destroyed);
+        },
         error: (e: { status?: number; error?: { message?: string } }) => {
           this.saving = false;
           this.formError = e?.error?.message ?? 'Could not create the rule.';
@@ -112,7 +143,7 @@ export class RecurringComponent implements OnInit, OnDestroy {
     const surplus = totalIncome - totalExpense;
 
     const data: { from: string; to: string; flow: number }[] = [];
-    const labels: Record<string, string> = { [this.HUB]: 'Monthly Income', [this.SAV]: 'Savings' };
+    const labels: Record<string, string> = { [this.HUB]: 'Monthly income', [this.SAV]: 'Savings' };
     const t = chartTheme();
     const colors: Record<string, string> = { [this.HUB]: t.accent, [this.SAV]: t.income };
 
@@ -171,6 +202,7 @@ export class RecurringComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.destroyed = true;
     if (this.flowChart) { this.flowChart.destroy(); this.flowChart = null; }
   }
 
@@ -181,6 +213,10 @@ export class RecurringComponent implements OnInit, OnDestroy {
 
   get totalMonthlyExpense(): number {
     return this.items.filter(r => !r.isIncome).reduce((s, r) => s + r.amount, 0);
+  }
+
+  get totalMonthlyNet(): number {
+    return this.totalMonthlyIncome - this.totalMonthlyExpense;
   }
 
   // ── Upcoming next ─────────────────────────────────────────────────────
@@ -207,11 +243,17 @@ export class RecurringComponent implements OnInit, OnDestroy {
     return new Date(today.getFullYear(), today.getMonth() + 1, day);
   }
 
-  monthAbbr(day: number): string {
-    return this.nextBillingDate(day).toLocaleString('en', { month: 'short' }).toUpperCase();
+  /** 'Today' / 'Tomorrow' / 'In n days', for the "Next scheduled" tile's tag. */
+  dueLabel(day: number): string {
+    const d = this.daysUntil(day);
+    if (d === 0) return 'Today';
+    if (d === 1) return 'Tomorrow';
+    return `In ${d} days`;
   }
 
-  // ── Billed this month ─────────────────────────────────────────────────
+  // ── Last billed (per row) ───────────────────────────────────────────────
+  // Same underlying data the old separate "Billed this month" panel read —
+  // it's now shown inline on each row instead of gathered into its own list.
   /** 'YYYY-MM' of a date's month, in the browser's (the user's) time. */
   private periodOf(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -223,22 +265,26 @@ export class RecurringComponent implements OnInit, OnDestroy {
     return r.lastExecutedAt ? this.periodOf(new Date(r.lastExecutedAt)) : null;
   }
 
+  /** "Sep" from the rule's last handled period, or null if it has never run. */
+  lastBilledMonth(r: RecurringEntry): string | null {
+    const period = this.handledPeriod(r);
+    if (!period) return null;
+    const [y, m] = period.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleString('en', { month: 'short' });
+  }
+
+  /** Rules the scheduler has already handled for the current month. */
   get billedThisMonth(): RecurringEntry[] {
     const current = this.periodOf(new Date());
     return this.items.filter(r => this.handledPeriod(r) === current);
   }
 
-  /** The bill's due day this month ("Sep 20"), not when the booking ran. */
-  billedDate(r: RecurringEntry): string {
-    const now = new Date();
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const day = Math.min(r.dayOfMonth, lastDay);
-    return new Date(now.getFullYear(), now.getMonth(), day)
-      .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  /** "{n} rules · {m} billed this month" for the Scheduled card's header. */
+  get scheduledMeta(): string {
+    return `${this.items.length} rule${this.items.length === 1 ? '' : 's'} · ${this.billedThisMonth.length} billed this month`;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────
-  categoryIcon(cat: string): string  { return this.catSvc.icon(cat);  }
   categoryColor(cat: string): string { return this.catSvc.color(cat); }
 
   scheduleLabel(day: number): string {
@@ -249,12 +295,13 @@ export class RecurringComponent implements OnInit, OnDestroy {
 
   deleteItem(item: RecurringEntry) {
     if (!window.confirm(`Delete "${item.transactionName}"? This cannot be undone.`)) return;
+    this.deleteError = '';
     this.api.deleteRecurring(item.id).subscribe({
       next: () => {
         this.items = this.items.filter(r => r.id !== item.id);
         setTimeout(() => this.buildFlowChart(), 0);
       },
-      error: () => { alert('Failed to delete. Please try again.'); },
+      error: () => { this.deleteError = 'Failed to delete. Please try again.'; },
     });
   }
 }

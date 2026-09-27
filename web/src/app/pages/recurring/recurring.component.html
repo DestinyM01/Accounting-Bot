@@ -1,211 +1,199 @@
-<div class="rp-page">
-
-  <!-- Header -->
-  <div class="rp-header">
-    <div>
-      <h1>Recurring Payments</h1>
-      <p class="rp-subtitle">Manage your scheduled income and expenses</p>
-    </div>
-    <button class="fc-btn fc-btn--primary" (click)="toggleForm()"><app-icon name="plus" /> New Rule</button>
+<div class="page">
+  <div class="page-title">
+    <h1>Recurring</h1>
+    @if (!showForm) {
+      <button type="button" id="rec-open" class="btn btn--primary" (click)="toggleForm()">
+        <app-icon name="plus" [size]="16" /> New rule
+      </button>
+    }
   </div>
 
   @if (showForm) {
-    <div class="rp-form-row card">
-      <select class="fc-input" aria-label="Type" [(ngModel)]="fType"><option value="expense">Expense</option><option value="income">Income</option></select>
-      <input class="fc-input" type="number" min="0.01" step="0.01" [(ngModel)]="fAmount" placeholder="Amount" aria-label="Amount" />
-      <input class="fc-input" type="text" [(ngModel)]="fName" placeholder="Name (e.g. salary, rent)" aria-label="Name (e.g. salary, rent)" />
-      <select class="fc-input" aria-label="Category" [(ngModel)]="fCategory">@for (c of categories; track c) { <option [value]="c">{{ c | titlecase }}</option> }</select>
-      <input class="fc-input rf-day" type="number" min="1" max="28" [(ngModel)]="fDay" placeholder="Day" aria-label="Day" />
-      <button class="fc-btn fc-btn--primary" [disabled]="!formValid || saving" (click)="submitForm()">
-        <app-icon [name]="saving ? 'hourglass' : 'check'" /> {{ saving ? 'Saving…' : 'Create' }}
-      </button>
-    </div>
-    @if (formError) { <p class="fc-error" role="alert">{{ formError }}</p> }
+    <section class="card rec-form" aria-labelledby="rec-form-title">
+      <div class="section-header"><h2 id="rec-form-title">New rule</h2></div>
+      <form (ngSubmit)="submitForm()">
+        <div class="seg rec-type" role="radiogroup" aria-label="Type">
+          @for (opt of typeOptions; track opt.value; let i = $index) {
+            <button type="button" role="radio" [id]="typeOptionId(opt)" class="seg-opt"
+                    [class.selected]="opt.value === fType"
+                    [attr.aria-checked]="opt.value === fType"
+                    [tabindex]="typeTabIndex(opt)"
+                    (click)="selectType(opt.value)"
+                    (keydown)="onTypeKeydown($event, i)">
+              <app-icon [name]="opt.icon" [size]="16" /> {{ opt.label }}
+            </button>
+          }
+        </div>
+
+        <div class="rec-form-row">
+          <label class="field rec-form-amount">
+            <span>Amount</span>
+            <input class="rec-amount-input" type="number" min="0.01" step="0.01" inputmode="decimal"
+                   [(ngModel)]="fAmount" name="amount" placeholder="0.00" />
+          </label>
+          <label class="field rec-form-name">
+            <span>Name</span>
+            <input type="text" [(ngModel)]="fName" name="name" placeholder="e.g. salary, rent" />
+          </label>
+          <label class="field rec-form-cat">
+            <span>Category</span>
+            <select [(ngModel)]="fCategory" name="category">
+              @for (c of categories; track c) { <option [value]="c">{{ c | titlecase }}</option> }
+            </select>
+          </label>
+          <label class="field rec-form-day">
+            <span>Day of month</span>
+            <input type="number" min="1" max="28" [(ngModel)]="fDay" name="day" placeholder="1" />
+          </label>
+        </div>
+
+        @if (formError) {
+          <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ formError }}</p>
+        }
+
+        <div class="rec-form-actions">
+          <button type="button" class="btn btn--ghost" [disabled]="saving" (click)="toggleForm()">Cancel</button>
+          <button type="submit" class="btn btn--primary" [disabled]="!formValid || saving">
+            <app-icon [name]="saving ? 'hourglass' : 'check'" [size]="16" /> {{ saving ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      </form>
+    </section>
   }
 
-  <!-- Loading -->
   @if (loading) {
-    <div class="summary-row">
-      <div class="summary-card summary-card--loading"><div class="sk-block"></div></div>
-      <div class="summary-card summary-card--loading"><div class="sk-block"></div></div>
-    </div>
-    <div class="items-panel skeleton-panel">
-      @for (_ of [1,2,3]; track $index) {
-        <div class="sk-row"></div>
+    <div class="tiles rec-tiles" aria-hidden="true">
+      @for (i of [1, 2, 3, 4]; track i) {
+        <div class="tile">
+          <div class="skeleton skel-line" style="--w: 130px"></div>
+          <div class="skeleton skel-figure" style="width: 60%; margin-top: 12px;"></div>
+        </div>
       }
     </div>
-  }
-
-  <!-- Error -->
-  @if (!loading && error) {
-    <div class="empty-state">
-      <app-icon class="empty-icon error-icon" name="alert-circle" />
-      <p>{{ error }}</p>
-      <button class="retry-btn" (click)="load()">Try Again</button>
+    <div class="card rec-flow" aria-hidden="true">
+      <div class="skeleton skel-line" style="--w: 100px; margin-bottom: 16px;"></div>
+      <div class="skeleton" style="height: 260px;"></div>
     </div>
-  }
-
-  @if (!loading && !error) {
-
-    <!-- Summary cards -->
-    <div class="summary-row">
-      <div class="summary-card income-card">
-        <div class="sc-icon income-icon">
-          <app-icon name="trending-up" />
-        </div>
-        <div class="sc-body">
-          <span class="sc-label">Monthly Scheduled Income</span>
-          <span class="sc-amount income">{{ totalMonthlyIncome | currency:'USD':'symbol':'1.2-2' }}</span>
-        </div>
-      </div>
-      <div class="summary-card expense-card">
-        <div class="sc-icon expense-icon">
-          <app-icon name="building-bank" />
-        </div>
-        <div class="sc-body">
-          <span class="sc-label">Monthly Scheduled Expenses</span>
-          <span class="sc-amount expense">{{ totalMonthlyExpense | currency:'USD':'symbol':'1.2-2' }}</span>
-        </div>
-      </div>
-    </div>
-
-    @if (showFlowChart) {
-      <div class="card rp-flow-panel">
-        <div class="rp-flow-head">
-          <span class="rp-flow-title">Cash-flow overview</span>
-          <span class="rp-flow-sub">band width = monthly amount</span>
-        </div>
-        <div class="rp-flow-canvas-wrap">
-          <canvas #flowCanvas></canvas>
-        </div>
-      </div>
-    }
-
-    <!-- Scheduled Items table -->
-    @if (items.length === 0) {
-      <div class="empty-state">
-        <app-icon class="empty-icon" name="calendar-repeat" />
-        <p>No recurring transactions yet.</p>
-        <p class="empty-hint">Use "New Rule" above to add one.</p>
-      </div>
-    } @else {
-      <div class="items-panel">
-        <div class="items-header">
-          <span class="items-title">Scheduled Items</span>
-          <span class="items-count">{{ items.length }} active</span>
-        </div>
-
-        <div class="table-head">
-          <span class="col-tx">Transaction</span>
-          <span class="col-sched">Schedule</span>
-          <span class="col-cat">Category</span>
-          <span class="col-amt">Amount</span>
-          <span class="col-del"></span>
-        </div>
-
-        @for (item of items; track trackById($index, item)) {
-          <div class="table-row">
-            <!-- Icon + name -->
-            <div class="col-tx">
-              <div class="row-icon" [style.background]="categoryColor(item.category) + '22'">
-                <app-icon [style.color]="categoryColor(item.category)" [name]="categoryIcon(item.category)" />
-              </div>
-              <span class="row-name">{{ item.transactionName | titlecase }}</span>
+    <div class="card" aria-hidden="true">
+      <div class="skeleton skel-line" style="--w: 90px; margin-bottom: 16px;"></div>
+      <div class="rows">
+        @for (i of [1, 2, 3]; track i) {
+          <div class="row">
+            <div class="skeleton" style="width: 32px; height: 32px; border-radius: var(--radius-control); flex-shrink: 0;"></div>
+            <div class="rec-row-info">
+              <div class="skeleton skel-line" style="--w: 140px"></div>
+              <div class="skeleton skel-line" style="--w: 90px; height: 10px; margin-top: 6px;"></div>
             </div>
-
-            <!-- Schedule -->
-            <span class="col-sched row-sched">{{ scheduleLabel(item.dayOfMonth) }}</span>
-
-            <!-- Category badge -->
-            <div class="col-cat">
-              <span class="cat-badge">
-                <span class="cat-dot" [style.background]="categoryColor(item.category)"></span>
-                {{ item.category | uppercase }}
-              </span>
-            </div>
-
-            <!-- Amount -->
-            <span class="col-amt row-amount" [class.income]="item.isIncome" [class.expense]="!item.isIncome">
-              {{ item.isIncome ? '+' : '-' }}{{ item.amount | currency:'USD':'symbol':'1.2-2' }}
-            </span>
-
-            <!-- Delete -->
-            <div class="col-del">
-              <button class="rp-delete-btn"
-                      (click)="deleteItem(item)"
-                      [attr.aria-label]="'Delete ' + item.transactionName">
-                <app-icon name="trash" />
-              </button>
-            </div>
+            <div class="skeleton skel-line" style="--w: 64px"></div>
           </div>
         }
       </div>
-    }
-
-    <!-- Bottom row: Upcoming Next + Billed This Month -->
-    @if (items.length > 0) {
-      <div class="bottom-row">
-
-        <!-- Upcoming Next -->
-        <div class="upcoming-panel">
-          <div class="panel-header">
-            <span class="panel-title">Upcoming Next</span>
-            <app-icon class="panel-header-icon" name="clock" />
-          </div>
-          @if (upcomingNext) {
-            <div class="upcoming-body">
-              <div class="date-card">
-                <span class="date-month">{{ monthAbbr(upcomingNext.dayOfMonth) }}</span>
-                <span class="date-day">{{ upcomingNext.dayOfMonth }}</span>
-              </div>
-              <div class="upcoming-info">
-                <span class="upcoming-name">{{ upcomingNext.transactionName | titlecase }}</span>
-                <span class="upcoming-amount" [class.income]="upcomingNext.isIncome" [class.expense]="!upcomingNext.isIncome">
-                  {{ upcomingNext.isIncome ? '+' : '-' }}{{ upcomingNext.amount | currency:'USD':'symbol':'1.2-2' }}
-                </span>
-                @if (daysUntil(upcomingNext.dayOfMonth) === 0) {
-                  <span class="days-badge today">Today</span>
-                } @else {
-                  <span class="days-badge">in {{ daysUntil(upcomingNext.dayOfMonth) }} day{{ daysUntil(upcomingNext.dayOfMonth) === 1 ? '' : 's' }}</span>
-                }
-              </div>
-            </div>
-          }
+    </div>
+  } @else if (error) {
+    <div class="rec-load-error">
+      <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+      <button type="button" class="btn" (click)="load()">Try again</button>
+    </div>
+  } @else if (!items.length) {
+    @if (!showForm) {
+      <div class="card">
+        <div class="empty">
+          No recurring rules yet
+          <button type="button" class="btn btn--primary" (click)="toggleForm()">
+            <app-icon name="plus" [size]="16" /> New rule
+          </button>
         </div>
-
-        <!-- Billed This Month -->
-        <div class="billed-panel">
-          <div class="panel-header">
-            <span class="panel-title">Billed This Month</span>
-            <span class="billed-count">{{ billedThisMonth.length }}</span>
-          </div>
-          @if (billedThisMonth.length === 0) {
-            <div class="billed-empty">
-              <app-icon class="billed-empty-icon" name="circle-check" />
-              <p>Nothing billed yet this month</p>
-            </div>
-          } @else {
-            <div class="billed-list">
-              @for (item of billedThisMonth; track item.id) {
-                <div class="billed-row">
-                  <div class="billed-icon" [style.background]="categoryColor(item.category) + '22'">
-                    <app-icon [style.color]="categoryColor(item.category)" [name]="categoryIcon(item.category)" />
-                  </div>
-                  <div class="billed-info">
-                    <span class="billed-name">{{ item.transactionName | titlecase }}</span>
-                    <span class="billed-date">{{ billedDate(item) }}</span>
-                  </div>
-                  <span class="billed-amount" [class.income]="item.isIncome" [class.expense]="!item.isIncome">
-                    {{ item.isIncome ? '+' : '-' }}{{ item.amount | currency:'USD':'symbol':'1.2-2' }}
-                  </span>
-                </div>
-              }
-            </div>
-          }
-        </div>
-
       </div>
     }
-  }
+  } @else {
+    <!-- Top tiles -->
+    <div class="tiles rec-tiles">
+      <div class="tile">
+        <div class="label">Scheduled income, monthly</div>
+        <div class="figure-md pos">{{ totalMonthlyIncome | currency:'USD':'symbol':'1.2-2' }}</div>
+      </div>
+      <div class="tile">
+        <div class="label">Scheduled expenses, monthly</div>
+        <div class="figure-md neg">{{ totalMonthlyExpense | currency:'USD':'symbol':'1.2-2' }}</div>
+      </div>
+      <div class="tile">
+        <div class="label">Net, monthly</div>
+        <div class="figure-md" [class.pos]="totalMonthlyNet >= 0" [class.neg]="totalMonthlyNet < 0">
+          {{ totalMonthlyNet | currency:'USD':'symbol':'1.2-2' }}
+        </div>
+      </div>
+      <div class="tile">
+        <div class="label">Next scheduled</div>
+        @if (upcomingNext; as next) {
+          <div class="figure-md" [class.pos]="next.isIncome" [class.neg]="!next.isIncome">
+            {{ next.isIncome ? '+' : '-' }}{{ next.amount | currency:'USD':'symbol':'1.2-2' }}
+          </div>
+          <p class="rec-tile-note">
+            {{ next.transactionName | titlecase }} · {{ nextBillingDate(next.dayOfMonth) | date:'MMM d' }}
+            <span class="tag" [class.tag--accent]="daysUntil(next.dayOfMonth) === 0">{{ dueLabel(next.dayOfMonth) }}</span>
+          </p>
+        } @else {
+          <p class="rec-tile-note">Nothing scheduled</p>
+        }
+      </div>
+    </div>
 
+    <!-- Cash flow -->
+    @if (showFlowChart) {
+      <section class="card rec-flow" aria-labelledby="rec-flow-title">
+        <div class="section-header"><h2 id="rec-flow-title">Cash flow</h2></div>
+        <div class="rec-flow-canvas">
+          <canvas #flowCanvas></canvas>
+        </div>
+        <p class="rec-flow-note">Band width is the monthly amount</p>
+      </section>
+    }
+
+    <!-- Scheduled -->
+    <section class="card" aria-labelledby="rec-sched-title">
+      <div class="section-header">
+        <h2 id="rec-sched-title">Scheduled</h2>
+        <span class="rec-count">{{ scheduledMeta }}</span>
+      </div>
+
+      @if (deleteError) {
+        <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ deleteError }}</p>
+      }
+
+      <div class="rec-head" aria-hidden="true">
+        <span></span>
+        <span>Rule</span>
+        <span>Category</span>
+        <span class="rec-head-amt">Amount</span>
+        <span></span>
+      </div>
+
+      <div class="rows">
+        @for (item of items; track trackById($index, item)) {
+          <div class="row rec-row">
+            <div class="rec-row-icon" [class.pos-wash]="item.isIncome" [class.neg-wash]="!item.isIncome">
+              <app-icon [name]="item.isIncome ? 'arrow-up' : 'arrow-down'" [size]="16" />
+            </div>
+            <div class="rec-row-info">
+              <span class="rec-row-name">{{ item.transactionName | titlecase }}</span>
+              <span class="rec-row-meta">
+                {{ scheduleLabel(item.dayOfMonth) }}
+                @if (lastBilledMonth(item); as billed) { · last billed {{ billed }} }
+              </span>
+            </div>
+            <div class="rec-row-cat">
+              <span class="swatch" [style.background]="categoryColor(item.category)"></span>
+              {{ item.category | titlecase }}
+            </div>
+            <span class="rec-row-amount num" [class.pos]="item.isIncome" [class.neg]="!item.isIncome">
+              {{ item.isIncome ? '+' : '-' }}{{ item.amount | currency:'USD':'symbol':'1.2-2' }}
+            </span>
+            <button type="button" class="btn btn--icon" (click)="deleteItem(item)" [attr.aria-label]="'Delete ' + item.transactionName">
+              <app-icon name="trash" [size]="16" />
+            </button>
+          </div>
+        }
+      </div>
+    </section>
+  }
 </div>

@@ -1,106 +1,147 @@
-<div class="cp-page">
-
-  <!-- Header -->
-  <div class="cp-header">
-    <h1>Period Compare</h1>
-    <p class="cp-subtitle">AI-powered comparison of two financial months</p>
+<div class="page">
+  <div class="page-title">
+    <h1>Compare</h1>
+    <span class="page-title-meta">Two months side by side, with an AI summary</span>
   </div>
 
-  <!-- Pickers -->
-  <div class="pickers-card">
-    <div class="pickers-row">
-
-      <div class="picker-group">
-        <label class="picker-label">Period A</label>
-        <select class="picker-select" [(ngModel)]="monthA">
-          <option value="">Select month…</option>
+  <div class="card cp-picker">
+    <div class="cp-picker-row">
+      <label class="field cp-picker-field">
+        <span>First month</span>
+        <select [(ngModel)]="monthA">
+          <option value="">Select a month</option>
           @for (m of availableMonths; track m) {
             <option [value]="m">{{ formatMonth(m) }}</option>
           }
         </select>
-      </div>
+      </label>
 
-      <div class="picker-vs">VS</div>
+      <span class="cp-vs">vs</span>
 
-      <div class="picker-group">
-        <label class="picker-label">Period B</label>
-        <select class="picker-select" [(ngModel)]="monthB">
-          <option value="">Select month…</option>
+      <label class="field cp-picker-field">
+        <span>Second month</span>
+        <select [(ngModel)]="monthB">
+          <option value="">Select a month</option>
           @for (m of availableMonths; track m) {
             <option [value]="m">{{ formatMonth(m) }}</option>
           }
         </select>
-      </div>
+      </label>
 
-      <button class="compare-btn"
+      <button type="button" class="btn btn--primary cp-compare-btn"
               [disabled]="!canCompare || comparing"
               (click)="compare()">
-        <app-icon [class.spin]="comparing" [name]="comparing ? 'refresh' : 'arrows-diff'" />
-        {{ comparing ? 'Analyzing…' : 'Compare' }}
+        <app-icon [name]="comparing ? 'refresh' : 'arrows-diff'" [size]="16" [class.cp-spin]="comparing" />
+        {{ comparing ? 'Comparing…' : 'Compare' }}
       </button>
-
     </div>
   </div>
 
-  <!-- Error -->
-  @if (error) {
-    <div class="empty-state">
-      <app-icon class="empty-icon error-icon" name="alert-circle" />
-      <p>{{ error }}</p>
-      <button class="retry-btn" (click)="compare()">Try Again</button>
+  @if (comparing) {
+    <!-- Comparing: skeletons across the whole results area -->
+    <div class="tiles cp-periods" aria-hidden="true">
+      @for (i of [1, 2]; track i) {
+        <div class="tile">
+          <div class="skeleton skel-line" style="--w: 140px; margin-bottom: 14px;"></div>
+          <div class="skeleton skel-line" style="--w: 100%; margin-bottom: 8px;"></div>
+          <div class="skeleton skel-line" style="--w: 100%; margin-bottom: 8px;"></div>
+          <div class="skeleton skel-line" style="--w: 100%;"></div>
+        </div>
+      }
     </div>
-  }
+    <div class="card cp-ai" aria-hidden="true">
+      <div class="skeleton skel-line" style="--w: 40%; margin-bottom: 16px;"></div>
+      <div class="skeleton skel-line" style="--w: 95%; margin-bottom: 10px;"></div>
+      <div class="skeleton skel-line" style="--w: 88%; margin-bottom: 10px;"></div>
+      <div class="skeleton skel-line" style="--w: 92%; margin-bottom: 10px;"></div>
+      <div class="skeleton skel-line" style="--w: 60%;"></div>
+    </div>
+  } @else if (error) {
+    <div class="cp-error">
+      <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+      <button type="button" class="btn" (click)="compare()">Try again</button>
+    </div>
+  } @else if (result) {
 
-  <!-- Results -->
-  @if (result) {
-    <div class="summary-row">
+    <!-- Period tiles -->
+    <div class="tiles cp-periods">
       @for (period of [result.monthA, result.monthB]; track period.month) {
-        <div class="period-card">
-          <div class="period-month">{{ formatMonth(period.month) }}</div>
+        <div class="tile cp-period">
+          <div class="cp-period-name">{{ formatMonth(period.month) }}</div>
 
-          <div class="period-stats">
-            <div class="stat-row">
-              <span class="stat-label">Income</span>
-              <span class="stat-value income">+{{ period.totalIncome | currency:'USD':'symbol':'1.2-2' }}</span>
+          <div class="cp-period-stats">
+            <div class="cp-stat-row">
+              <span class="label">Income</span>
+              <span class="figure-sm pos">{{ period.totalIncome | currency:'USD':'symbol':'1.2-2' }}</span>
             </div>
-            <div class="stat-row">
-              <span class="stat-label">Expenses</span>
-              <span class="stat-value expense">-{{ period.totalExpenses | currency:'USD':'symbol':'1.2-2' }}</span>
+            <div class="cp-stat-row">
+              <span class="label">Expenses</span>
+              <span class="figure-sm neg">{{ period.totalExpenses | currency:'USD':'symbol':'1.2-2' }}</span>
             </div>
-            <div class="stat-row net-row">
-              <span class="stat-label">Net</span>
-              <span class="stat-value"
-                    [class.income]="period.net >= 0"
-                    [class.expense]="period.net < 0">
+            <div class="cp-stat-row">
+              <span class="label">Net</span>
+              <span class="figure-sm" [class.pos]="period.net >= 0" [class.neg]="period.net < 0">
                 {{ period.net | currency:'USD':'symbol':'1.2-2' }}
               </span>
             </div>
           </div>
 
           @if (period.topCategories.length) {
-            <div class="top-cats">
-              <span class="top-cats-label">Top Categories</span>
-              @for (cat of period.topCategories; track cat.category) {
-                <div class="cat-row">
-                  <span class="cat-dot" [style.background]="catColor(cat.category)"></span>
-                  <span class="cat-name">{{ cat.category | titlecase }}</span>
-                  <span class="cat-amount">{{ cat.amount | currency:'USD':'symbol':'1.0-0' }}</span>
-                </div>
-              }
+            <div class="cp-top-cats">
+              <div class="label cp-top-cats-label">Top categories</div>
+              <div class="rows">
+                @for (cat of period.topCategories.slice(0, 5); track cat.category) {
+                  <div class="row cp-cat-row">
+                    <span class="swatch" [style.background]="catColor(cat.category)"></span>
+                    <span class="cp-cat-name">{{ cat.category | titlecase }}</span>
+                    <span class="cp-cat-amount num">{{ cat.amount | currency:'USD':'symbol':'1.0-0' }}</span>
+                  </div>
+                }
+              </div>
             </div>
           }
         </div>
       }
     </div>
 
-    <!-- AI Analysis -->
-    <div class="analysis-panel">
-      <div class="analysis-header">
-        <app-icon class="analysis-icon" name="brain" />
-        <span class="analysis-title">AI Analysis</span>
+    <!-- Difference -->
+    <section class="card cp-diff" aria-labelledby="cp-diff-title">
+      <div class="section-header">
+        <h2 id="cp-diff-title">Difference</h2>
+        <span class="label">{{ formatMonth(result.monthB.month) }} vs {{ formatMonth(result.monthA.month) }}</span>
       </div>
-      <p class="analysis-text">{{ result.analysis }}</p>
+      <div class="cp-diff-grid">
+        <div class="cp-diff-item">
+          <span class="label">Income</span>
+          <span class="figure-sm" [class.pos]="incomeDiffTone === 'pos'" [class.neg]="incomeDiffTone === 'neg'">
+            {{ diffIncome >= 0 ? '+' : '' }}{{ diffIncome | currency:'USD':'symbol':'1.2-2' }}
+          </span>
+        </div>
+        <div class="cp-diff-item">
+          <span class="label">Expenses</span>
+          <span class="figure-sm" [class.pos]="expenseDiffTone === 'pos'" [class.neg]="expenseDiffTone === 'neg'">
+            {{ diffExpenses >= 0 ? '+' : '' }}{{ diffExpenses | currency:'USD':'symbol':'1.2-2' }}
+          </span>
+        </div>
+        <div class="cp-diff-item">
+          <span class="label">Net</span>
+          <span class="figure-sm" [class.pos]="netDiffTone === 'pos'" [class.neg]="netDiffTone === 'neg'">
+            {{ diffNet >= 0 ? '+' : '' }}{{ diffNet | currency:'USD':'symbol':'1.2-2' }}
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- AI summary -->
+    <section class="card cp-ai" aria-labelledby="cp-ai-title">
+      <div class="section-header"><h2 id="cp-ai-title">AI summary</h2></div>
+      <p class="cp-ai-text">{{ result.analysis }}</p>
+    </section>
+
+  } @else {
+    <div class="empty">
+      <span class="cp-empty-title">Pick two months to compare</span>
+      <span>It compares income, spending and categories, and writes a short summary.</span>
     </div>
   }
-
 </div>

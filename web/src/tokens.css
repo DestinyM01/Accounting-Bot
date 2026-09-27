@@ -155,10 +155,10 @@
 
     --pos:  #1a7049;
     --neg:  #b93a2f;
-    --warn: #9a5b0c;
+    --warn: #8f540b;
     --pos-wash:  rgb(29 122 82 / 10%);
     --neg-wash:  rgb(185 58 47 / 10%);
-    --warn-wash: rgb(154 91 12 / 10%);
+    --warn-wash: rgb(143 84 11 / 10%);
 
     --focus:       #9a5b0c;
     --shadow-menu: 0 18px 40px -18px rgb(20 23 28 / 25%);
@@ -187,10 +187,10 @@
 
   --pos:  #1a7049;
   --neg:  #b93a2f;
-  --warn: #9a5b0c;
+  --warn: #8f540b;
   --pos-wash:  rgb(29 122 82 / 10%);
   --neg-wash:  rgb(185 58 47 / 10%);
-  --warn-wash: rgb(154 91 12 / 10%);
+  --warn-wash: rgb(143 84 11 / 10%);
 
   --focus:       #9a5b0c;
   --shadow-menu: 0 18px 40px -18px rgb(20 23 28 / 25%);

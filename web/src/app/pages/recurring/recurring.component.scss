@@ -1,554 +1,194 @@
-/* Hallmark · genre: atmospheric · macrostructure: Workbench · design-system: design.md · designed-as-app */
-.rp-page {
-  padding: 28px;
-  max-width: 1000px;
-  margin-inline: auto;
+// ── New rule form ──────────────────────────────────────────────────────
+.rec-form {
+  margin-bottom: 16px;
 }
 
-// ── Header ─────────────────────────────────────────────────────────────
-.rp-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 28px;
-  h1 {
-    font-size: var(--text-page-title);
-    font-weight: 700;
-    color: var(--text);
-    margin: 0 0 4px;
+.rec-type {
+  width: 100%;
+  margin-bottom: 14px;
+
+  .seg-opt {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
   }
 }
-.rp-subtitle {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  margin: 0;
-}
 
-// ── New rule form ──────────────────────────────────────────────────────
-.rp-form-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-
-.rf-day { width: 80px; }
-
-// ── Summary cards ──────────────────────────────────────────────────────
-.summary-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.summary-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 24px;
+.rec-form-row {
   display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.sc-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  app-icon { width: 1.5rem; height: 1.5rem; }
-
-  &.income-icon  { background: var(--color-income-subtle-2); app-icon { color: var(--income); } }
-  &.expense-icon { background: var(--color-expense-subtle-2); app-icon { color: var(--expense); } }
-}
-
-.sc-body {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.sc-label {
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  font-weight: 600;
-}
-
-.sc-amount {
-  font-variant-numeric: tabular-nums; // finding #6
-  font-size: 2rem;
-  font-weight: 700;
-  line-height: 1;
-  &.income  { color: var(--income); }
-  &.expense { color: var(--expense); }
-}
-
-// ── Items panel ────────────────────────────────────────────────────────
-.items-panel {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-.items-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 24px;
-  border-bottom: 1px solid var(--border);
-}
-
-.items-title {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.items-count {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  background: rgba(255,255,255,0.06);
-  padding: 2px 10px;
-  border-radius: 20px;
-}
-
-// ── Table ──────────────────────────────────────────────────────────────
-.table-head {
-  display: grid;
-  grid-template-columns: 2fr 1.2fr 1.2fr 1fr 36px;
-  padding: 10px 24px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border);
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: 2fr 1.2fr 1.2fr 1fr 36px;
-  padding: 14px 24px;
-  align-items: center;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.13s;
-
-  &:last-child { border-bottom: none; }
-  &:hover { background: rgba(255,255,255,0.025); }
-}
-
-// ── Row cells ──────────────────────────────────────────────────────────
-.col-tx {
-  display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
+
+  > .field { flex: 1 1 160px; }
+  > .rec-form-amount { flex-basis: 120px; }
+  > .rec-form-day { flex-basis: 110px; }
 }
 
-.row-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  flex-shrink: 0;
+// The amount is money, so it gets the same mono treatment as every other figure.
+.field input.rec-amount-input {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-form-actions {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  app-icon { width: 1.1rem; height: 1.1rem; }
-}
-
-.row-name {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.col-sched { display: flex; align-items: center; }
-.row-sched {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
-
-.col-cat { display: flex; align-items: center; }
-
-.cat-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.06);
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.cat-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.col-amt { display: flex; align-items: center; justify-content: flex-end; }
-
-.row-amount {
-  font-variant-numeric: tabular-nums; // finding #6
-  font-size: 0.95rem;
-  font-weight: 700;
-  &.income  { color: var(--income); }
-  &.expense { color: var(--expense); }
-}
-
-// ── Empty / Error ──────────────────────────────────────────────────────
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 80px 20px;
-  gap: 12px;
-  color: var(--text-muted);
-  text-align: center;
-  p { font-size: 0.92rem; margin: 0; }
-}
-
-.empty-icon {
-  font-size: 3rem;
-  width: 3rem;
-  height: 3rem;
-  opacity: 0.3;
-  color: var(--text);
-}
-
-.error-icon { color: var(--expense); opacity: 0.7; }
-.empty-hint { font-size: 0.8rem !important; opacity: 0.7; }
-
-.retry-btn {
-  margin-top: 4px;
-  padding: 8px 18px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  &:hover { opacity: 0.85; }
-  &:focus-visible { opacity: 0.85; outline: 2px solid var(--color-focus); outline-offset: 2px; }
-}
-
-// ── Skeleton ───────────────────────────────────────────────────────────
-// The loading summary cards carry .summary-card--loading rather than the global .skeleton
-// primitive (see _primitives.scss): that primitive draws its own shimmer ::after, which
-// doubled up with .sk-block's own gradient shimmer below when both were on the same element.
-// .summary-card--loading needs no rules of its own — .summary-card already supplies the
-// layout, and .sk-block supplies the shimmer.
-.skeleton-panel {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px 24px;
-}
-
-.sk-row {
-  height: 48px;
-  border-radius: 8px;
-  margin: 8px 0;
-  background: linear-gradient(90deg, var(--bg-card-alt) 25%, rgba(255,255,255,0.04) 50%, var(--bg-card-alt) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s infinite;
-}
-
-.sk-block {
-  height: 52px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, var(--bg-card-alt) 25%, rgba(255,255,255,0.04) 50%, var(--bg-card-alt) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s infinite;
-}
-
-@keyframes shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-// ── Bottom row ─────────────────────────────────────────────────────────
-.bottom-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  justify-content: flex-end;
+  gap: 10px;
   margin-top: 16px;
 }
 
-// ── Panel shared ───────────────────────────────────────────────────────
-.upcoming-panel,
-.billed-panel {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
+// ── Top tiles ────────────────────────────────────────────────────────────
+.rec-tiles {
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 16px;
+
+  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 480px) { grid-template-columns: 1fr; }
 }
 
-.panel-header {
+.rec-tile-note {
+  margin: 8px 0 0;
+  font-size: var(--text-sm);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-}
-
-.panel-title {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-muted);
-}
-
-.panel-header-icon {
-  font-size: 1rem;
-  width: 1rem;
-  height: 1rem;
-  color: var(--text-muted);
-  opacity: 0.4;
-}
-
-// ── Upcoming Next ──────────────────────────────────────────────────────
-.upcoming-body {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 24px 20px;
-}
-
-.date-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 14px;
-  background: var(--accent);
-  flex-shrink: 0;
-}
-
-.date-month {
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--color-accent-ink-muted);
-  line-height: 1;
-}
-
-.date-day {
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: var(--color-accent-ink);
-  line-height: 1.1;
-}
-
-.upcoming-info {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.upcoming-name {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.upcoming-amount {
-  font-variant-numeric: tabular-nums; // finding #6
-  font-size: 1.15rem;
-  font-weight: 700;
-  &.income  { color: var(--income); }
-  &.expense { color: var(--expense); }
-}
-
-.days-badge {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 20px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  background: rgba(255,255,255,0.07);
-  color: var(--text-muted);
-
-  &.today {
-    background: var(--color-accent-subtle);
-    color: var(--color-accent-light);
-  }
-}
-
-// ── Billed This Month ──────────────────────────────────────────────────
-.billed-count {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  background: rgba(255,255,255,0.06);
-  padding: 2px 10px;
-  border-radius: 20px;
-}
-
-.billed-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 30px 20px;
   gap: 8px;
-  color: var(--text-muted);
-  text-align: center;
-  p { font-size: 0.85rem; margin: 0; }
+
+  // Left undecorated so it inherits --ink-2 from the tile; the .tag beside it carries
+  // its own colour.
+  color: var(--ink-2);
 }
 
-.billed-empty-icon {
-  font-size: 2rem;
-  width: 2rem;
-  height: 2rem;
-  opacity: 0.2;
-  color: var(--income);
-}
-
-.billed-list { padding: 6px 0; }
-
-.billed-row {
+// ── Load error ───────────────────────────────────────────────────────────
+.rec-load-error {
   display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+// ── Cash flow ────────────────────────────────────────────────────────────
+.rec-flow {
+  margin-bottom: 16px;
+}
+
+.rec-flow-canvas {
+  position: relative;
+  height: 280px;
+}
+
+.rec-flow-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+// The sankey's node labels collide once the canvas gets much narrower than this —
+// the top tiles above already carry income, expenses and net on phones.
+@media (max-width: 700px) {
+  .rec-flow { display: none; }
+}
+
+// ── Scheduled ────────────────────────────────────────────────────────────
+.rec-count {
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+
+// The header row and each data row share this grid so their columns line up;
+// the header carries two empty cells matching the row's icon and delete-button
+// columns, rather than reproducing exact widths in two places.
+.rec-head,
+.row.rec-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 2fr) minmax(0, 1fr) 8.5rem 34px;
   align-items: center;
   gap: 12px;
-  padding: 10px 20px;
-  transition: background 0.13s;
-  &:hover { background: rgba(255,255,255,0.025); }
 }
 
-.billed-icon {
+.rec-head {
+  padding: 0 0 8px;
+  font-size: 12px;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+
+.rec-head-amt { text-align: right; }
+
+.rec-row-icon {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-  flex-shrink: 0;
+  border-radius: var(--radius-control);
   display: flex;
   align-items: center;
   justify-content: center;
-  app-icon { width: 1rem; height: 1rem; }
+  flex-shrink: 0;
+  background: var(--surface-raised);
+  color: var(--ink-2);
+
+  &.pos-wash { background: var(--pos-wash); color: var(--pos); }
+  &.neg-wash { background: var(--neg-wash); color: var(--neg); }
 }
 
-.billed-info {
-  flex: 1;
+.rec-row-info {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 0;
 }
 
-.billed-name {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text);
-  white-space: nowrap;
+.rec-row-name {
+  font-weight: 500;
+  font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.billed-date {
-  font-size: 0.72rem;
-  color: var(--text-muted);
+.rec-row-meta {
+  font-size: 12px;
+  color: var(--ink-2);
 }
 
-.billed-amount {
-  font-variant-numeric: tabular-nums; // finding #6
-  font-size: 0.875rem;
-  font-weight: 700;
-  flex-shrink: 0;
-  &.income  { color: var(--income); }
-  &.expense { color: var(--expense); }
-}
-
-// ── Delete button ──────────────────────────────────────────────────────
-.col-del {
+.rec-row-cat {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.rp-delete-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: auto;
-  background: none;
-  border: none;
-  border-radius: 8px;
-  padding: 4px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background 0.13s, color 0.13s;
-  app-icon { width: 1.1rem; height: 1.1rem; }
-
-  &:hover { background: rgba(248,113,113,0.1); color: var(--expense); }
-  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.rec-row-amount {
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
 }
 
-// ── Cash-flow Sankey panel ─────────────────────────────────────────────
-.rp-flow-panel {
-  margin-bottom: 16px;
-  padding: 18px 16px 12px;
-}
-
-.rp-flow-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 6px;
-  padding: 0 4px;
-}
-.rp-flow-title { font-size: 1rem; font-weight: 600; color: var(--text); }
-.rp-flow-sub   { font-size: 0.75rem; color: var(--text-muted); }
-
-.rp-flow-canvas-wrap {
-  position: relative;
-  height: 320px;
-  width: 100%;
-}
-
-// Sankey is unreadable on narrow screens — the summary cards above carry
-// the key numbers on mobile.
-@media (max-width: 700px) {
-  .rp-flow-panel { display: none; }
-}
-
-// A phone is too narrow for the table's five columns and for two panels side by
-// side: everything stacks. The flow chart keeps its own ≤ 700 px hide above.
+// A phone is too narrow for five grid columns: the header goes, and each
+// row stacks into two lines (icon+name+amount, then category+delete).
 @media (max-width: 640px) {
-  .summary-row,
-  .bottom-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  .rec-head { display: none; }
 
-  .table-head {
-    display: none;
-  }
-
-  .table-row {
-    grid-template-columns: minmax(0, 1fr) auto;
+  .row.rec-row {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
     grid-template-areas:
-      'tx del'
-      'sched amt'
-      'cat amt';
+      'icon name amt'
+      'icon cat del';
     row-gap: 6px;
-    padding: 14px 16px;
-
-    .col-tx { grid-area: tx; min-width: 0; }
-    .col-sched { grid-area: sched; }
-    .col-cat { grid-area: cat; }
-    .col-amt { grid-area: amt; align-self: center; text-align: right; }
-    .col-del { grid-area: del; }
+    padding: 12px 0;
   }
 
-  .row-name {
-    overflow-wrap: anywhere;
-  }
+  .rec-row-icon { grid-area: icon; }
+  .rec-row-info { grid-area: name; }
+  .rec-row-cat { grid-area: cat; }
+  .rec-row-amount { grid-area: amt; }
+  .rec-row-amount, .rec-row-cat { align-self: center; }
+  .btn.btn--icon { grid-area: del; justify-self: end; }
 }

@@ -12,6 +12,7 @@ import {
 import { TransactionEventsService } from '../../core/services/transaction-events.service';
 import { CategoryService } from '../../core/services/category.service';
 import { HOVER_COLUMN, axisStyle, chartTheme, moneyLabel, tooltipStyle, withAlpha } from '../../core/ui/chart-theme';
+import { changeArrow, changeTone } from '../../core/ui/change-tone';
 import { IconComponent } from '../../core/ui/icon/icon.component';
 import { ThemeService } from '../../core/ui/theme.service';
 
@@ -118,7 +119,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const pct = (a: number, b: number): number =>
       b === 0 ? 0 : Math.round(((a - b) / Math.abs(b)) * 100 * 10) / 10;
 
-    this.monthLabel = curr?.label ?? '';
+    // The API's monthly label is like "Sep 26" (short month, 2-digit year); the tiles
+    // want a plain month name, taken from the current date rather than that label.
+    this.monthLabel = new Date().toLocaleString('en', { month: 'long' });
     this.currentIncome = curr?.income ?? 0;
     this.currentExpense = curr?.expense ?? 0;
     this.netThisMonth = this.currentIncome - this.currentExpense;
@@ -127,17 +130,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     // tone is which way is "good" for that figure — more income is positive, more
     // expense is negative — so they can and do point in different directions.
     this.incomeBadgePct = prev ? pct(this.currentIncome, prev.income) : null;
-    this.incomeTone = this.tone(this.incomeBadgePct, 'pos');
+    this.incomeTone = this.incomeBadgePct === null ? 'neutral' : changeTone(this.incomeBadgePct, true);
 
     this.expenseBadgePct = prev ? pct(this.currentExpense, prev.expense) : null;
-    this.expenseTone = this.tone(this.expenseBadgePct, 'neg');
-  }
-
-  /** `whenUp` is the tone for a positive change (an increase); a negative change gets the other one. */
-  private tone(pct: number | null, whenUp: 'pos' | 'neg'): 'pos' | 'neg' | 'neutral' {
-    if (pct === null || pct === 0) return 'neutral';
-    const whenDown = whenUp === 'pos' ? 'neg' : 'pos';
-    return pct > 0 ? whenUp : whenDown;
+    this.expenseTone = this.expenseBadgePct === null ? 'neutral' : changeTone(this.expenseBadgePct, false);
   }
 
   private applyBudgets(budgets: BudgetEntry[]) {
@@ -200,11 +196,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return Math.min(b.percentage / 100, 1);
   }
 
-  /** The arrow reflects only the sign of the change itself, never which tone it renders in. */
   badgeLabel(pct: number | null): string {
     if (pct === null) return '';
-    const arrow = pct > 0 ? '↑ ' : pct < 0 ? '↓ ' : '';
-    return `${arrow}${Math.abs(pct)}%`;
+    return `${changeArrow(pct)}${Math.abs(pct)}%`;
   }
 
   // called from template once loading = false and canvas is in DOM

@@ -1,142 +1,158 @@
-<div class="page-wrap">
-  <!-- Header -->
-  <div class="page-header budget-page-header">
-    <div>
-      <h1>Budget: {{ monthLabel }}</h1>
-      <p>Manage your monthly allocations and track spending.</p>
+<div class="page">
+  <div class="page-title">
+    <div class="bud-title-group">
+      <h1>Budget</h1>
+      <span class="page-title-meta">{{ monthLabel }}</span>
     </div>
-    <button class="fc-btn fc-btn--primary new-budget-btn" (click)="openForm()" [disabled]="showForm">
-      <app-icon name="plus" /> Set New Budget
-    </button>
+    <div class="bud-actions">
+      <a routerLink="/categories" class="btn btn--ghost">Manage categories</a>
+      @if (!showForm) {
+        <button type="button" id="bud-open" class="btn btn--primary" (click)="openForm()">
+          <app-icon name="plus" [size]="16" /> Set budget
+        </button>
+      }
+    </div>
   </div>
 
   @if (showForm) {
-    <div class="budget-form-row card">
-      <select class="fc-input bf-select" [(ngModel)]="formCat">
-        @for (cat of categories; track cat) {
-          <option [value]="cat">{{ cat | titlecase }}</option>
+    <section class="card bud-form" aria-labelledby="bud-form-title">
+      <div class="section-header"><h2 id="bud-form-title">Set budget</h2></div>
+      <form (ngSubmit)="submitBudget()">
+        <div class="bud-form-row">
+          <label class="field bud-form-cat">
+            <span>Category</span>
+            <select id="bud-cat" [(ngModel)]="formCat" name="category">
+              @for (cat of categories; track cat) {
+                <option [value]="cat">{{ cat | titlecase }}</option>
+              }
+            </select>
+          </label>
+          <label class="field bud-form-amount">
+            <span>Monthly limit</span>
+            <input id="bud-amount" class="bud-amount-input" type="number" min="1" step="0.01" inputmode="decimal"
+                   [(ngModel)]="formAmount" name="amount" placeholder="0.00" />
+          </label>
+        </div>
+        @if (formError) {
+          <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ formError }}</p>
         }
-      </select>
-      <input  class="fc-input bf-input" type="number" min="1" [(ngModel)]="formAmount"
-              placeholder="Monthly limit (USD)" />
-      <button class="fc-btn fc-btn--primary" [disabled]="saving || formAmount <= 0" (click)="submitBudget()">
-        <app-icon [name]="saving ? 'hourglass' : 'check'" />
-        {{ saving ? 'Saving…' : 'Set Limit' }}
-      </button>
-      <button class="fc-btn fc-btn--ghost bf-cancel" aria-label="Cancel" (click)="closeForm()">
-        <app-icon name="x" />
-      </button>
-    </div>
+        <div class="bud-form-actions">
+          <button type="button" class="btn btn--ghost" [disabled]="saving" (click)="closeForm()">Cancel</button>
+          <button type="submit" class="btn btn--primary" [disabled]="saving || !formAmount || formAmount <= 0">
+            <app-icon [name]="saving ? 'hourglass' : 'check'" [size]="16" /> {{ saving ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      </form>
+    </section>
   }
 
   @if (loading) {
-    <p class="loading-state">Loading…</p>
+    <div class="tiles bud-tiles" aria-hidden="true">
+      @for (i of [1, 2, 3, 4]; track i) {
+        <div class="tile">
+          <div class="skeleton skel-line" style="--w: 90px"></div>
+          <div class="skeleton skel-figure" style="width: 65%; margin-top: 12px;"></div>
+        </div>
+      }
+    </div>
+    <div class="tiles bud-grid" aria-hidden="true">
+      @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+        <div class="tile bud-card">
+          <div class="skeleton skel-line" style="--w: 55%"></div>
+          <div class="skeleton skel-figure" style="width: 50%; margin-top: 14px;"></div>
+          <div class="skeleton" style="height: 6px; margin-top: 14px;"></div>
+          <div class="skeleton skel-line" style="--w: 40%; margin-top: 10px;"></div>
+        </div>
+      }
+    </div>
+  } @else if (loadError) {
+    <div class="bud-load-error">
+      <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ loadError }}</p>
+      <button type="button" class="btn" (click)="load()">Try again</button>
+    </div>
   } @else if (!budgets.length) {
-    <div class="card"><p class="empty">No budgets set for this month. Add them via the Telegram bot.</p></div>
+    @if (!showForm) {
+      <div class="card">
+        <div class="empty">
+          No budgets for this month yet
+          <button type="button" class="btn btn--primary" (click)="openForm()">
+            <app-icon name="plus" [size]="16" /> Set budget
+          </button>
+        </div>
+      </div>
+    }
   } @else {
+    <!-- Top tiles -->
+    <div class="tiles bud-tiles">
+      <div class="tile">
+        <div class="label">Total budget</div>
+        <div class="figure-md">{{ totalLimit | currency:'USD':'symbol':'1.2-2' }}</div>
+      </div>
 
-    <!-- Hero + Insights row -->
-    <div class="hero-row">
-      <!-- Total budget hero card -->
-      <div class="card hero-card">
-        <div class="hero-bg-chart">
-          <!-- simple decorative lines placeholder -->
-          <div class="bg-lines"></div>
-        </div>
-        <div class="hero-label">Total Monthly Budget</div>
-        <div class="hero-amount">
-          {{ totalSpent | currency:'USD':'symbol':'1.0-0' }}
-          <span class="hero-cents">.00</span>
-        </div>
-        <div class="hero-progress-row">
-          <span>Spent: {{ totalSpent | currency:'USD':'symbol':'1.0-0' }}</span>
-          <span class="hero-remaining">Remaining: {{ totalRemain | currency:'USD':'symbol':'1.0-0' }}</span>
-        </div>
-        <div class="prog-bar hero-bar">
-          <div class="prog-fill" [style.transform]="'scaleX(' + totalPct / 100 + ')'" [style.background]="budgetBarColor(totalPct)"></div>
-        </div>
-        <div class="hero-footer">
-          <span class="hero-pct">{{ totalPct }}% utilized</span>
-          @if (totalPct <= 80) {
-            <span class="on-track"><app-icon name="trending-up" /> On track</span>
-          } @else {
-            <span class="over-track"><app-icon name="alert-triangle" /> Near limit</span>
-          }
+      <div class="tile">
+        <div class="label">Spent</div>
+        <div class="figure-md">{{ totalSpent | currency:'USD':'symbol':'1.2-2' }}</div>
+        <div class="bud-bar-track"><div class="bud-bar-fill" [style.transform]="'scaleX(' + spentScale + ')'"></div></div>
+        <p class="bud-tile-note">{{ totalPct }}% of budget used</p>
+      </div>
+
+      <div class="tile">
+        <div class="label">Remaining</div>
+        <div class="figure-md" [class.pos]="totalRemain >= 0" [class.neg]="totalRemain < 0">
+          {{ totalRemain | currency:'USD':'symbol':'1.2-2' }}
         </div>
       </div>
 
-      <!-- Insights panel -->
-      <div class="card insights-card">
-        <div class="section-header"><h2>Insights</h2></div>
-        <p class="insight-text">
-          You are spending
-          @if (nearLimit.length === 0) {
-            <span class="highlight-green">well within</span> your budget limits.
-          } @else {
-            <span class="highlight-red">{{ nearLimit[0].percentage }}% </span>
-            of your <strong>{{ nearLimit[0].category | titlecase }}</strong> budget.
-          }
-        </p>
-        @for (b of nearLimit; track b.category) {
-          <div class="alert-row">
-            <app-icon class="alert-icon" name="alert-triangle" />
-            <div>
-              <div class="alert-title">{{ b.category | titlecase }}</div>
-              <div class="alert-sub">Nearing limit ({{ b.remaining | currency:'USD':'symbol':'1.0-0' }} left)</div>
-            </div>
-          </div>
-        }
-        @if (!nearLimit.length) {
-          <div class="insight-ok">
-            <app-icon name="circle-check" />
-            All categories within budget
-          </div>
+      <div class="tile">
+        <div class="label">Over budget</div>
+        @if (overBudgets.length > 0) {
+          <div class="figure-md neg">{{ overBudgets.length }}</div>
+          <p class="bud-tile-note neg">{{ worstOver!.category | titlecase }} at {{ worstOver!.percentage }}%</p>
+        } @else {
+          <p class="bud-tile-note">Everything on track</p>
         }
       </div>
     </div>
 
     <!-- Category grid -->
-    <div class="section-header section-header--budget-gap">
-      <h2>Category Breakdown</h2>
-    </div>
-
-    <div class="budget-grid">
+    <div class="tiles bud-grid">
       @for (b of budgets; track b.category) {
-        <div class="cat-budget-card card">
-          <div class="cbc-top">
-            <div class="cbc-icon-wrap" [style.background]="catColor(b.category) + '22'">
-              <app-icon [style.color]="catColor(b.category)" [name]="catIcon(b.category)" />
-            </div>
-            <div class="cbc-budget-label">
-              <span class="cbc-budget-text">Budget</span>
-              <span class="cbc-budget-amount">{{ b.limit | currency:'USD':'symbol':'1.0-0' }}</span>
-            </div>
+        <div class="tile bud-card">
+          <div class="bud-card-top">
+            <span class="swatch" [style.background]="catColor(b.category)"></span>
+            <span class="bud-card-name">{{ b.category | titlecase }}</span>
+            <app-icon class="bud-card-icon" [name]="catIcon(b.category)" [size]="18" />
+            <button type="button" class="btn btn--icon" [attr.aria-label]="'Edit ' + (b.category | titlecase) + ' budget'" (click)="openForm(b.category)">
+              <app-icon name="pencil" [size]="16" />
+            </button>
           </div>
 
-          <div class="cbc-name">{{ b.category | titlecase }}</div>
-          <div class="cbc-spent">{{ b.spent | currency:'USD':'symbol':'1.0-0' }} spent</div>
-
-          <div class="prog-bar cbc-bar">
-            <div class="prog-fill"
-                 [style.transform]="'scaleX(' + b.percentage / 100 + ')'"
-                 [style.background]="catColor(b.category)">
-            </div>
+          <div class="bud-card-spent">
+            <span class="figure-md">{{ b.spent | currency:'USD':'symbol':'1.2-2' }}</span>
+            <span class="bud-card-of">of {{ b.limit | currency:'USD':'symbol':'1.0-0' }}</span>
           </div>
 
-          <div class="cbc-footer">
-            <span class="cbc-pct" [style.color]="budgetBarColor(b.percentage)">
+          <div class="bud-cat-bar-track">
+            <div class="bud-cat-bar-fill" [style.transform]="'scaleX(' + catScale(b) + ')'" [style.background]="catColor(b.category)"></div>
+          </div>
+
+          <div class="bud-card-footer">
+            <span class="bud-pct" [class.tag]="b.percentage >= 75" [class.tag--warn]="b.percentage >= 75 && b.percentage <= 100" [class.tag--neg]="b.percentage > 100">
               {{ b.percentage }}%
             </span>
-            <span class="cbc-left">{{ b.remaining | currency:'USD':'symbol':'1.0-0' }} left</span>
+            <span class="bud-remain" [class.neg]="isOver(b)">
+              {{ remainAmount(b) | currency:'USD':'symbol':'1.0-0' }} {{ isOver(b) ? 'over' : 'left' }}
+            </span>
           </div>
         </div>
       }
 
-      <!-- Categories are made on the Categories page -->
-      <a class="cat-budget-card card create-card" routerLink="/categories">
-        <div class="create-icon"><app-icon name="plus" /></div>
-        <span>Create Category</span>
-      </a>
+      <!-- Always the last cell; budget.component.scss spans it across the rest of its
+           row (nth-child, by breakpoint) so the grid never ends on an empty cell -->
+      <button type="button" class="tile bud-card bud-add-card" (click)="openForm()">
+        <app-icon name="plus" [size]="20" />
+        <span>Set a budget</span>
+      </button>
     </div>
   }
 </div>

@@ -1,82 +1,79 @@
-<div class="an-page">
-
-  <!-- Header -->
-  <div class="an-header">
+<div class="page">
+  <div class="page-title">
     <h1>Analytics</h1>
-    <p class="an-subtitle">Top transactions and spending trends</p>
+    <span class="page-title-meta">Your most frequent transactions, all time</span>
   </div>
 
-  <!-- Loading skeleton -->
   @if (loading) {
-    <div class="skeleton-panel">
-      @for (_ of [1,2,3,4,5]; track $index) {
-        <div class="sk-row"></div>
-      }
-    </div>
-  }
-
-  <!-- Error -->
-  @if (!loading && error) {
-    <div class="empty-state">
-      <app-icon class="empty-icon error-icon" name="alert-circle" />
-      <p>{{ error }}</p>
-    </div>
-  }
-
-  @if (!loading && !error) {
-
-    <!-- Top 10 table -->
-    <div class="an-panel" role="grid">
-      <div class="panel-header">
-        <span class="panel-title">Top 10 Transactions</span>
-        <span class="panel-sub">by frequency · all time</span>
+    <div class="an-grid" aria-hidden="true">
+      <div class="card">
+        <div class="skeleton skel-line" style="--w: 100px; margin-bottom: 16px;"></div>
+        <div class="rows">
+          @for (i of [1, 2, 3, 4, 5]; track i) {
+            <div class="row">
+              <div class="skeleton" style="width: 24px; height: 24px; border-radius: var(--radius-tag); flex-shrink: 0;"></div>
+              <div class="skeleton skel-line" style="--w: 55%;"></div>
+              <div class="skeleton skel-line" style="--w: 40px; margin-left: auto;"></div>
+            </div>
+          }
+        </div>
       </div>
-      <div class="table-head">
-        <span>#</span>
-        <span>Name</span>
-        <span>Count</span>
-        <span class="align-right">Total</span>
+      <div class="card">
+        <div class="skeleton skel-line" style="--w: 140px; margin-bottom: 16px;"></div>
+        <div class="skeleton" style="height: 260px;"></div>
       </div>
-      @for (item of top10; track item.name) {
-        <div class="table-row"
-             [class.active]="selectedName === item.name"
-             (click)="selectTransaction(item.name)"
-             (keydown.enter)="selectTransaction(item.name)"
-             (keydown.space)="$event.preventDefault(); selectTransaction(item.name)"
-             tabindex="0"
-             role="row"
-             [attr.aria-selected]="selectedName === item.name">
-          <span class="rank-badge">{{ item.rank }}</span>
-          <span class="tx-name">{{ item.name | titlecase }}</span>
-          <span class="tx-count">{{ item.count }}×</span>
-          <span class="tx-amount align-right">{{ item.totalAmount | currency:'USD':'symbol':'1.2-2' }}</span>
-        </div>
-      }
-      @if (top10.length === 0) {
-        <div class="empty-state-inline"><p>No transactions yet.</p></div>
-      }
     </div>
+  } @else if (error) {
+    <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+  } @else {
+    <div class="an-grid">
 
-    <!-- Chart panel -->
-    <div class="chart-panel">
-      @if (!selectedName) {
-        <div class="chart-empty">
-          <app-icon class="chart-empty-icon" name="hand-finger" />
-          <p>Select a transaction above to see its history</p>
+      <!-- Top 10 -->
+      <section class="card an-top10" aria-labelledby="an-top10-title">
+        <div class="section-header"><h2 id="an-top10-title">Top 10</h2></div>
+
+        @if (top10.length) {
+          <div class="an-head" aria-hidden="true">
+            <span></span>
+            <span>Name</span>
+            <span>Count</span>
+            <span class="an-head-total">Total</span>
+          </div>
+          <div class="rows">
+            @for (item of top10; track item.name) {
+              <button type="button" class="row an-row"
+                      [class.active]="selectedName === item.name"
+                      [attr.aria-pressed]="selectedName === item.name"
+                      (click)="selectTransaction(item.name)">
+                <span class="an-rank num">{{ item.rank }}</span>
+                <span class="an-name">{{ item.name | titlecase }}</span>
+                <span class="an-count num">{{ item.count }}×</span>
+                <span class="an-total num">{{ item.totalAmount | currency:'USD':'symbol':'1.2-2' }}</span>
+              </button>
+            }
+          </div>
+        } @else {
+          <p class="empty">No transactions yet</p>
+        }
+      </section>
+
+      <!-- Trend -->
+      <section class="card an-trend" aria-labelledby="an-trend-title">
+        <div class="section-header">
+          <h2 id="an-trend-title">{{ selectedName ? (selectedName | titlecase) : 'Trend' }}</h2>
+          @if (selectedName) { <span class="label">Monthly total</span> }
         </div>
-      } @else if (chartLoading) {
-        <div class="chart-skeleton"></div>
-      } @else {
-        <div class="chart-header">
-          <span class="chart-title">{{ selectedName | titlecase }}</span>
-          <span class="chart-subtitle">Monthly total</span>
-        </div>
-        <div class="chart-wrap">
-          <canvas #chartCanvas></canvas>
-        </div>
-      }
+        @if (!selectedName) {
+          <div class="empty">Pick a transaction to see its trend</div>
+        } @else if (chartLoading) {
+          <div class="skeleton" style="height: 260px;"></div>
+        } @else {
+          <div class="an-chart-wrap">
+            <canvas #chartCanvas></canvas>
+          </div>
+        }
+      </section>
+
     </div>
-
   }
-
 </div>

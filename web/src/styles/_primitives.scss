@@ -129,6 +129,7 @@
 
 // ── Touch targets: at phone width, fingers need more than a mouse pointer does ──
 @media (max-width: 760px) {
+  .btn { min-height: 40px; }
   .btn--icon { width: 40px; height: 40px; }
   .chip, .seg-opt { min-height: 40px; }
 }

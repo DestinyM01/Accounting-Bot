@@ -1,106 +1,112 @@
-<div class="page-wrap">
-  <div class="page-header">
+<div class="page">
+  <div class="page-title">
     <h1>Statistics</h1>
-    <p>Analyze your financial performance, spending patterns, and wealth accumulation over time.</p>
+    <span class="page-title-meta">{{ pageMeta }}</span>
   </div>
 
   @if (loading) {
-    <p class="loading-state">Loading…</p>
+    <div class="tiles stat-tiles" aria-hidden="true">
+      @for (i of [1, 2, 3, 4]; track i) {
+        <div class="tile">
+          <div class="skeleton skel-line" style="--w: 130px"></div>
+          <div class="skeleton skel-figure" style="width: 65%; margin-top: 12px;"></div>
+        </div>
+      }
+    </div>
+    <div class="stat-row" aria-hidden="true">
+      <div class="card">
+        <div class="skeleton skel-line" style="--w: 160px; margin-bottom: 16px;"></div>
+        <div class="skeleton" style="height: 260px;"></div>
+      </div>
+      <div class="card">
+        <div class="skeleton skel-line" style="--w: 110px; margin-bottom: 16px;"></div>
+        @for (i of [1, 2, 3, 4]; track i) {
+          <div class="skeleton skel-line" style="--w: 100%; margin-bottom: 14px;"></div>
+        }
+      </div>
+    </div>
+    <div class="card" aria-hidden="true">
+      <div class="skeleton skel-line" style="--w: 120px; margin-bottom: 16px;"></div>
+      <div class="skeleton" style="height: 120px;"></div>
+    </div>
+  } @else if (error) {
+    <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
   } @else {
 
-    <!-- Top row: area chart + distribution -->
-    <div class="top-row">
-      <!-- Area chart -->
-      <div class="card chart-card">
+    <!-- Top tiles -->
+    <div class="tiles stat-tiles">
+      <div class="tile">
+        <div class="label">Income, {{ monthName }}</div>
+        <div class="figure-md pos">{{ summary!.income | currency:'USD':'symbol':'1.2-2' }}</div>
+      </div>
+      <div class="tile">
+        <div class="label">Expenses, {{ monthName }}</div>
+        <div class="figure-md neg">{{ summary!.expense | currency:'USD':'symbol':'1.2-2' }}</div>
+      </div>
+      <div class="tile">
+        <div class="label">Net, {{ monthName }}</div>
+        <div class="figure-md" [class.pos]="summary!.net >= 0" [class.neg]="summary!.net < 0">
+          {{ summary!.net | currency:'USD':'symbol':'1.2-2' }}
+        </div>
+      </div>
+      <div class="tile">
+        <div class="label">Savings rate, {{ monthName }}</div>
+        <div class="figure-md" [class.neg]="savingsRate < 0">{{ savingsRate | number:'1.1-1' }}%</div>
+        @if (savingsRateChange !== 0) {
+          <span class="tag" [class.tag--pos]="savingsRateTone === 'pos'" [class.tag--neg]="savingsRateTone === 'neg'">
+            {{ savingsRateBadgeLabel() }}
+          </span>
+        }
+      </div>
+    </div>
+
+    <!-- Chart + by-category row -->
+    <div class="stat-row">
+      <section class="card stat-io-card" aria-labelledby="stat-chart-title">
         <div class="section-header">
-          <div>
-            <h2>Income vs Expenses</h2>
-            <p class="chart-sub">Last 12 Months trailing</p>
-          </div>
-          <div class="legend">
-            <span class="leg-dot income"></span>Income
-            <span class="leg-dot expense"></span>Expenses
+          <h2 id="stat-chart-title">Income vs expenses</h2>
+          <div class="stat-legend">
+            <span class="swatch stat-swatch-pos"></span> Income
+            <span class="swatch stat-swatch-neg"></span> Expenses
           </div>
         </div>
-
-        <!-- Mini summary pills -->
-        <div class="chart-pills">
-          <div class="pill">
-            <span class="pill-label">Income</span>
-            <span class="pill-val income">{{ $safeNavigationMigration(summary?.income) | currency:'USD':'symbol':'1.0-0' }}</span>
-          </div>
-          <div class="pill">
-            <span class="pill-label">Expenses</span>
-            <span class="pill-val expense">{{ $safeNavigationMigration(summary?.expense) | currency:'USD':'symbol':'1.0-0' }}</span>
-          </div>
-          <div class="pill">
-            <span class="pill-label">Net</span>
-            <span class="pill-val net">{{ $safeNavigationMigration(summary?.net) | currency:'USD':'symbol':'1.0-0' }}</span>
-          </div>
-        </div>
-
-        <div class="chart-area">
+        <div class="stat-chart-area">
           <canvas #areaCanvas></canvas>
         </div>
-      </div>
+      </section>
 
-      <!-- Distribution panel -->
-      <div class="card dist-card">
-        <div class="section-header"><h2>Distribution</h2></div>
-        @for (row of distribution; track row.category) {
-          <div class="dist-row">
-            <div class="dist-icon-wrap" [style.background]="row.color + '22'">
-              <app-icon [style.color]="row.color" [name]="row.icon" />
-            </div>
-            <div class="dist-info">
-              <div class="dist-header">
-                <span class="dist-cat">{{ row.category | titlecase }}</span>
-                <span class="dist-amount">{{ row.total | currency:'USD':'symbol':'1.0-0' }}</span>
+      <section class="card" aria-labelledby="stat-cat-title">
+        <div class="section-header"><h2 id="stat-cat-title">By category, {{ monthName }}</h2></div>
+        <div class="rows">
+          @for (row of distribution; track row.category) {
+            <div class="stat-cat-row">
+              <div class="stat-cat-top">
+                <span class="swatch" [style.background]="row.color"></span>
+                <span class="stat-cat-name">{{ row.category | titlecase }}</span>
+                <span class="stat-cat-pct num">{{ row.pct }}%</span>
+                <span class="stat-cat-amount num">{{ row.total | currency:'USD':'symbol':'1.0-0' }}</span>
               </div>
-              <div class="dist-sub">{{ row.pct }}%</div>
-              <div class="prog-bar dist-bar">
-                <div class="prog-fill" [style.transform]="'scaleX(' + row.pct / 100 + ')'" [style.background]="row.color"></div>
+              <div class="stat-cat-bar">
+                <div class="stat-cat-bar-fill" [style.transform]="'scaleX(' + row.pct / 100 + ')'" [style.background]="row.color"></div>
               </div>
             </div>
-          </div>
-        } @empty {
-          <p class="empty">No expense data this month.</p>
-        }
-      </div>
-    </div>
-
-    <!-- Bottom row: savings rate + budget alerts -->
-    <div class="bottom-row">
-      <!-- Net savings rate -->
-      <div class="card savings-card">
-        <div class="savings-label">
-          <app-icon name="trending-up" /> Net Savings Rate
-        </div>
-        <div class="savings-rate" [class.positive]="savingsRate >= 0" [class.negative]="savingsRate < 0">
-          {{ savingsRate | number:'1.1-1' }}%
-        </div>
-        @if (savingsRateChange !== 0) {
-          <div class="savings-change" [class.up]="savingsRateChange >= 0" [class.down]="savingsRateChange < 0">
-            <app-icon [name]="savingsRateChange >= 0 ? 'trending-up' : 'trending-down'" />
-            {{ savingsRateChange >= 0 ? '+' : '' }}{{ savingsRateChange | number:'1.1-1' }}% vs last month
-          </div>
-        }
-        <div class="savings-chart-area">
-          <canvas #savingsCanvas></canvas>
-        </div>
-      </div>
-
-      <!-- Budget alerts -->
-      <div class="card alerts-card">
-        <div class="section-header">
-          <h2>Budget Alerts</h2>
-          @if (summary && summary.transactionCount > 0) {
-            <span class="near-limit-badge">{{ summary.transactionCount }} transactions</span>
+          } @empty {
+            <p class="empty">No expenses this month</p>
           }
         </div>
-        <p class="empty" style="margin:0;">Connect to Budget page to see alerts.</p>
-      </div>
+      </section>
     </div>
+
+    <!-- Savings rate chart -->
+    <section class="card" aria-labelledby="stat-savings-title">
+      <div class="section-header">
+        <h2 id="stat-savings-title">Savings rate by month</h2>
+        @if (savingsChartRangeLabel) { <span class="label">{{ savingsChartRangeLabel }}</span> }
+      </div>
+      <div class="stat-savings-chart">
+        <canvas #savingsCanvas></canvas>
+      </div>
+    </section>
 
   }
 </div>
