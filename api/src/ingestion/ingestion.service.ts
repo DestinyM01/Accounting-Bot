@@ -10,7 +10,7 @@ import { TransactionRunner } from '../shared/ledger/transaction-runner';
 import { CategoriesService } from '../categories/categories.service';
 import { Recurring } from '../shared/schemas/recurring.schema';
 import { TransactionType } from '../shared/schemas/transaction-type.enum';
-import { NOT_DELETED, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
+import { NOT_DELETED, isNonSpendingTransfer, TransferKind } from '../shared/schemas/transfer-kind';
 import { parseConfiguredInstant } from '../shared/time-zone';
 import { MailClient } from './mail.client';
 import { CategorizerService } from './categorizer.service';
@@ -528,7 +528,7 @@ export class IngestionService implements BeforeApplicationShutdown, OnModuleDest
   private async findCounterLeg(p: ParsedTransaction, amount: number): Promise<{ _id: unknown } | null> {
     const t = p.occurredAt.getTime();
     const magnitude = Math.abs(amount);
-    const leg = p.isReceivedTransfer
+    const leg: { transferKind: TransferKind; amount: number } = p.isReceivedTransfer
       ? { transferKind: 'internal', amount: -magnitude }
       : { transferKind: 'unresolved', amount: magnitude };
     return this.txModel.findOne({

@@ -107,14 +107,14 @@ export class CategoriesService implements OnModuleInit {
       this.model.findOneAndUpdate(
         { userId: this.userId, name, active: false, pending: null },
         { $set: { active: true, emoji: input.emoji, color: input.color } },
-        { sort: { _id: -1 }, new: true },
+        { sort: { _id: -1 }, returnDocument: 'after' },
       ),
       taken,
     );
     if (revived) return { id: String(revived._id) };
 
     const created = await this.claimName(
-      this.model.create({ userId: this.userId, name, emoji: input.emoji, color: input.color, active: true, pending: null }),
+      this.model.create({ userId: this.userId, name, emoji: input.emoji as string, color: input.color as string, active: true, pending: null }),
       taken,
     );
     return { id: String(created._id) };

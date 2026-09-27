@@ -127,7 +127,7 @@ describe('CategoriesService', () => {
       expect(model.findOneAndUpdate).toHaveBeenCalledWith(
         { userId: 1, name: 'gym', active: false, pending: null },
         { $set: { active: true, emoji: '🎯', color: '#ef4444' } },
-        { sort: { _id: -1 }, new: true },
+        { sort: { _id: -1 }, returnDocument: 'after' },
       );
       expect(model.create).not.toHaveBeenCalled();
     });

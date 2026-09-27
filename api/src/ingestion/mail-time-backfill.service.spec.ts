@@ -47,7 +47,7 @@ describe('MailTimeBackfillService', () => {
     expect(migrationModel.findOneAndUpdate).toHaveBeenCalledWith(
       { name: BACKFILL_NAME },
       { $setOnInsert: { name: BACKFILL_NAME, cutoff: START } },
-      { upsert: true, new: true },
+      { upsert: true, returnDocument: 'after' },
     );
     expect(collection.updateMany).toHaveBeenCalledWith(
       {

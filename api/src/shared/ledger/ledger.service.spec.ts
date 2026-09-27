@@ -36,7 +36,7 @@ describe('LedgerService', () => {
     expect(balanceModel.findOneAndUpdate).toHaveBeenCalledWith(
       { userId: 1 },
       { $inc: { balance: -250, seq: 1 }, $set: { lastActivity: expect.any(Date) } },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
     );
     expect(historyModel.create).toHaveBeenCalledWith(expect.objectContaining({
       userId: 1, previousBalance: 1000, newBalance: 750, delta: -250,
@@ -95,7 +95,7 @@ describe('LedgerService', () => {
       expect(balanceModel.findOneAndUpdate).toHaveBeenCalledWith(
         { userId: 1 },
         { $set: { balance: 51170, lastActivity: expect.any(Date) }, $inc: { seq: 1 } },
-        { upsert: true, new: false, setDefaultsOnInsert: true },
+        { upsert: true, returnDocument: 'before', setDefaultsOnInsert: true },
       );
       expect(historyModel.create).toHaveBeenCalledWith({
         userId: 1,
@@ -115,7 +115,7 @@ describe('LedgerService', () => {
       expect(balanceModel.findOneAndUpdate).toHaveBeenCalledWith(
         { userId: 1 },
         { $set: { balance: 900, lastActivity: expect.any(Date) }, $inc: { seq: 1 } },
-        expect.objectContaining({ new: false }),
+        expect.objectContaining({ returnDocument: 'before' }),
       );
       expect(historyModel.create).toHaveBeenCalledWith(expect.objectContaining({ seq: 8 }));
     });

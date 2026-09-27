@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model, Types } from 'mongoose';
+import { QueryFilter, Model, Types } from 'mongoose';
 import { MerchantCategory } from '../shared/schemas/merchant-category.schema';
 import { Transaction } from '../shared/schemas/transaction.schema';
 import { NOT_DELETED, NON_SPENDING_KINDS, isNonSpendingTransfer } from '../shared/schemas/transfer-kind';
@@ -204,7 +204,7 @@ export class MerchantMemoryService {
     const old = entry.category;
     if (old === chosen) return { moved: 0 };
     const stillOld = { $or: [{ category: old }, { categoryNeedsReview: true }] };
-    const ids = (await this.merchantRows(stillOld)).filter((t) => keyOf(t) === entry.key).map((t) => t._id);
+    const ids = (await this.merchantRows(stillOld)).filter((t) => keyOf(t) === entry.key).map((t) => t._id as Types.ObjectId);
     let moved = 0;
     if (ids.length > 0) {
       const res = await this.txModel.updateMany(
@@ -244,7 +244,7 @@ export class MerchantMemoryService {
   }
 
   /** The merchant rows (MERCHANT_ROWS) that also match `extra`, with only their names. */
-  private async merchantRows(extra: FilterQuery<Transaction> = {}): Promise<NamedRow[]> {
+  private async merchantRows(extra: QueryFilter<Transaction> = {}): Promise<NamedRow[]> {
     return await this.txModel
       .find({ userId: this.userId, ...MERCHANT_ROWS, ...extra })
       .select('merchant transactionName')
@@ -255,9 +255,9 @@ export class MerchantMemoryService {
   private async fileWaiting(key: string, category: string, exceptId?: unknown): Promise<number> {
     const waiting = await this.merchantRows({
       categoryNeedsReview: true,
-      ...(exceptId === undefined ? {} : { _id: { $ne: exceptId } }),
+      ...(exceptId === undefined ? {} : { _id: { $ne: exceptId as Types.ObjectId } }),
     });
-    const ids = waiting.filter((t) => keyOf(t) === key).map((t) => t._id);
+    const ids = waiting.filter((t) => keyOf(t) === key).map((t) => t._id as Types.ObjectId);
     if (ids.length === 0) return 0;
     const res = await this.txModel.updateMany(
       { _id: { $in: ids }, categoryNeedsReview: true, ...NOT_DELETED },

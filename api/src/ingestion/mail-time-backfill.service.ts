@@ -62,7 +62,7 @@ export class MailTimeBackfillService implements OnApplicationBootstrap {
   private async claim(now: Date): Promise<{ cutoff: Date; doneAt?: Date } | null> {
     try {
       return await this.migrationModel
-        .findOneAndUpdate({ name: BACKFILL_NAME }, { $setOnInsert: { name: BACKFILL_NAME, cutoff: now } }, { upsert: true, new: true })
+        .findOneAndUpdate({ name: BACKFILL_NAME }, { $setOnInsert: { name: BACKFILL_NAME, cutoff: now } }, { upsert: true, returnDocument: 'after' })
         .lean();
     } catch (err: any) {
       if (err?.code !== 11000) throw err;

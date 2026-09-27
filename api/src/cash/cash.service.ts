@@ -120,7 +120,7 @@ export class CashService {
         },
       },
       { $inc: { allocatedCash: amount } },
-      { new: true },
+      { returnDocument: 'after' },
     );
   }
 

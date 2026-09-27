@@ -55,7 +55,7 @@ export class LedgerService {
     const updated = await this.balanceModel.findOneAndUpdate(
       { userId: this.userId },
       { $inc: { balance: delta, seq: 1 }, $set: { lastActivity: new Date() } },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
     );
     const newBalance = updated.balance;
     const previousBalance = newBalance - delta;
@@ -90,7 +90,7 @@ export class LedgerService {
     const before = await this.balanceModel.findOneAndUpdate(
       { userId: this.userId },
       { $set: { balance: target, lastActivity: new Date() }, $inc: { seq: 1 } },
-      { upsert: true, new: false, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: 'before', setDefaultsOnInsert: true },
     );
     const previousBalance = before?.balance ?? 0;
     const delta = Math.round((target - previousBalance) * 100) / 100;

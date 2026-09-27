@@ -108,7 +108,7 @@ describe('CashService', () => {
           },
         },
         { $inc: { allocatedCash: 300 } },
-        { new: true },
+        { returnDocument: 'after' },
       );
       expect(itemModel.create).toHaveBeenCalledWith({
         _id: expect.any(Types.ObjectId), userId: 1, withdrawalId: W, category: 'food', amount: 300, description: 'groceries',
