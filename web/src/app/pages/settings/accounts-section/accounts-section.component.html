@@ -17,7 +17,7 @@
           <li class="set-chip">
             {{ v }}
             <button [id]="'cash-remove-' + i" type="button" [attr.aria-label]="'Remove ' + v" (click)="remove('cash', i)">
-              <mat-icon>close</mat-icon>
+              <app-icon name="x" />
             </button>
           </li>
         }
@@ -57,7 +57,7 @@
           <li class="set-chip">
             {{ v }}
             <button [id]="'senders-remove-' + i" type="button" [attr.aria-label]="'Remove ' + v" (click)="remove('senders', i)">
-              <mat-icon>close</mat-icon>
+              <app-icon name="x" />
             </button>
           </li>
         }

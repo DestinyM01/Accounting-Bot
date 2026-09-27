@@ -1,7 +1,6 @@
 import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatIconModule } from '@angular/material/icon';
 import { debounceTime, distinctUntilChanged, map, Subject, Subscription } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { Transaction, TransactionPage } from '../../core/services/api.models';
@@ -10,11 +9,12 @@ import { TransactionEventsService } from '../../core/services/transaction-events
 import { TransactionFormService } from '../../core/services/transaction-form.service';
 import { focusFirst } from '../../core/ui/focus';
 import { CashPanelComponent } from './cash-panel/cash-panel.component';
+import { IconComponent } from '../../core/ui/icon/icon.component';
 
 @Component({
     selector: 'app-transactions',
     imports: [CommonModule, CurrencyPipe, DatePipe, TitleCasePipe, FormsModule,
-        MatIconModule, CashPanelComponent],
+        IconComponent, CashPanelComponent],
     templateUrl: './transactions.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./transactions.component.scss']
@@ -124,7 +124,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       error: () => {
         if (gen !== this.generation) return;
         this.loading = this.loadingMore = false;
-        this.error = 'Could not load transactions — reload the page.';
+        this.error = 'Could not load transactions. Reload the page.';
       },
     });
   }
@@ -151,7 +151,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       error: () => {
         if (gen !== this.generation) return;
         this.loading = this.loadingMore = false;
-        this.error = 'Could not refresh the list — reload the page.';
+        this.error = 'Could not refresh the list. Reload the page.';
       },
     });
   }
@@ -345,7 +345,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   }
   private writeErrorMessage(e: { status?: number }, fallback: string): string {
     if (e?.status === 404) return 'That transaction no longer exists.';
-    if (e?.status === 409) return 'It changed elsewhere — the list has been refreshed.';
+    if (e?.status === 409) return 'It changed elsewhere. The list has been refreshed.';
     return fallback;
   }
   isTransfer(tx: Transaction) { return tx.transferKind === 'internal' || tx.transferKind === 'unresolved'; }

@@ -1,20 +1,22 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatIconModule } from '@angular/material/icon';
 import { Subject, Subscription, debounceTime } from 'rxjs';
 import { Chart, registerables } from 'chart.js';
 import { ApiService } from '../../core/services/api.service';
 import { GrowthInput, GrowthResult, MyNumbers } from '../../core/services/api.models';
 import { HOVER_COLUMN, axisStyle, chartTheme, tooltipStyle } from '../../core/ui/chart-theme';
 import { calcMoney } from './calc-money';
+import { IconComponent } from '../../core/ui/icon/icon.component';
+import { ThemeService } from '../../core/ui/theme.service';
 
 Chart.register(...registerables);
 
 /** How savings grow with compound interest; the math runs (and is tested) in the api. */
 @Component({
     selector: 'app-calculator',
-    imports: [FormsModule, MatIconModule],
+    imports: [FormsModule, IconComponent],
     templateUrl: './calculator.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./calculator.component.scss']
@@ -47,11 +49,15 @@ export class CalculatorComponent implements OnInit, OnDestroy {
   private readonly changes$ = new Subject<void>();
   private readonly subs = new Subscription();
 
-  constructor(private readonly api: ApiService) {}
+  private readonly destroyRef = inject(DestroyRef);
+
+  constructor(private readonly api: ApiService, private readonly theme: ThemeService) {}
 
   ngOnInit() {
     this.subs.add(this.changes$.pipe(debounceTime(300)).subscribe(() => this.calculate()));
     this.calculate();
+    // Colours are read from tokens at build time, so the chart just rebuilds on theme change.
+    this.theme.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.draw());
   }
 
   ngOnDestroy() {
@@ -64,12 +70,12 @@ export class CalculatorComponent implements OnInit, OnDestroy {
     this.changes$.next();
   }
 
-  /** "Jul–Sep", for the note under "Use my numbers". */
+  /** "Jul-Sep", for the note under "Use my numbers". */
   get mineSpan(): string {
     const months = this.mine?.months ?? [];
     if (months.length === 0) return '';
     const name = (m: { month: number; year: number }) => new Date(m.year, m.month - 1, 1).toLocaleString('en', { month: 'short' });
-    return `${name(months[0])}–${name(months[months.length - 1])}`;
+    return `${name(months[0])}-${name(months[months.length - 1])}`;
   }
 
   /** The chart's text alternative. */
@@ -77,7 +83,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
     const r = this.result;
     if (!r) return '';
     const years = r.years.length === 1 ? '1 year' : `${r.years.length} years`;
-    return `After ${years}: ${calcMoney(r.finalBalance)} — ${calcMoney(r.putIn)} put in, ${calcMoney(r.interest)} interest`;
+    return `After ${years}: ${calcMoney(r.finalBalance)} (${calcMoney(r.putIn)} put in, ${calcMoney(r.interest)} interest)`;
   }
 
   useMyNumbers() {

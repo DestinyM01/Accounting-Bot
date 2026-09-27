@@ -20,10 +20,7 @@
 }
 
 .header-icon {
-  font-size: 2rem;
-  width: 2rem;
-  height: 2rem;
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 h1 {
@@ -60,8 +57,6 @@ h1 {
     outline: 2px solid var(--color-focus);
     outline-offset: 2px;
   }
-
-  mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -121,11 +116,8 @@ h1 {
   align-items: center;
   justify-content: center;
 
-  mat-icon {
-    color: var(--accent);
-    font-size: 1.25rem;
-    width: 1.25rem;
-    height: 1.25rem;
+  app-icon {
+    color: var(--accent-ink);
   }
 }
 
@@ -169,8 +161,6 @@ h1 {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--income);
-
-  mat-icon { font-size: 1rem; width: 1rem; height: 1rem; }
 }
 
 .tip-category {
@@ -180,12 +170,13 @@ h1 {
   font-size: 0.75rem;
   color: var(--text-muted);
   text-transform: capitalize;
-
-  mat-icon { font-size: 0.85rem; width: 0.85rem; height: 0.85rem; }
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────
-.skeleton {
+// Named .tip-card--loading, not .skeleton: the global .skeleton primitive (see
+// _primitives.scss) has its own shimmer ::after; reusing its name here on the same host
+// element that also wraps .sk-line's own gradient shimmer produced a visible double shimmer.
+.tip-card--loading {
   pointer-events: none;
 }
 
@@ -221,9 +212,6 @@ h1 {
 }
 
 .empty-icon {
-  font-size: 3rem;
-  width: 3rem;
-  height: 3rem;
   opacity: 0.35;
   color: var(--text);
 }

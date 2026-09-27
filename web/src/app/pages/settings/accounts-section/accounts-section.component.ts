@@ -1,10 +1,10 @@
 import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatIconModule } from '@angular/material/icon';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
 import { SettingsView } from '../../../core/services/api.models';
+import { IconComponent } from '../../../core/ui/icon/icon.component';
 
 type AccountsView = SettingsView['accounts'];
 type ListKey = 'cash' | 'senders';
@@ -14,7 +14,7 @@ const MAX_ENTRIES = 20;
 /** Settings › Your accounts: the identifiers that tell your own transfers from real spending. */
 @Component({
     selector: 'app-accounts-section',
-    imports: [FormsModule, MatIconModule],
+    imports: [FormsModule, IconComponent],
     templateUrl: './accounts-section.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['../settings-section.scss']

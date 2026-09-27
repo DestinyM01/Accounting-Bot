@@ -3,16 +3,16 @@
   <div class="tf-panel card" role="dialog" aria-modal="true" [attr.aria-label]="mode === 'edit' ? 'Edit transaction' : 'New transaction'">
     <div class="tf-header">
       <h2>{{ mode === 'edit' ? 'Edit transaction' : 'New transaction' }}</h2>
-      <button class="tf-close" type="button" (click)="dismiss()" aria-label="Close"><mat-icon>close</mat-icon></button>
+      <button class="tf-close" type="button" (click)="dismiss()" aria-label="Close"><app-icon name="x" /></button>
     </div>
 
     @if (mode === 'create') {
       <div class="tf-type" role="radiogroup" aria-label="Type">
         <button type="button" class="tf-type-btn" role="radio" [attr.aria-checked]="type === 'expense'" [class.active]="type === 'expense'" (click)="type = 'expense'">
-          <mat-icon>arrow_downward</mat-icon> Expense
+          <app-icon name="arrow-down" /> Expense
         </button>
         <button type="button" class="tf-type-btn" role="radio" [attr.aria-checked]="type === 'income'" [class.active]="type === 'income'" (click)="type = 'income'">
-          <mat-icon>arrow_upward</mat-icon> Income
+          <app-icon name="arrow-up" /> Income
         </button>
       </div>
     }
@@ -41,7 +41,7 @@
     <div class="tf-actions">
       <button type="button" class="fc-btn fc-btn--ghost" [disabled]="saving" (click)="dismiss()">Cancel</button>
       <button type="button" class="fc-btn fc-btn--primary" [disabled]="!valid || saving" (click)="save()">
-        <mat-icon>{{ saving ? 'hourglass_empty' : 'check' }}</mat-icon>
+        <app-icon [name]="saving ? 'hourglass' : 'check'" />
         {{ saving ? 'Saving…' : (mode === 'edit' ? 'Save changes' : 'Add') }}
       </button>
     </div>

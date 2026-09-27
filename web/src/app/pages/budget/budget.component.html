@@ -2,11 +2,11 @@
   <!-- Header -->
   <div class="page-header budget-page-header">
     <div>
-      <h1>Budget — {{ monthLabel }}</h1>
+      <h1>Budget: {{ monthLabel }}</h1>
       <p>Manage your monthly allocations and track spending.</p>
     </div>
     <button class="fc-btn fc-btn--primary new-budget-btn" (click)="openForm()" [disabled]="showForm">
-      <mat-icon>add</mat-icon> Set New Budget
+      <app-icon name="plus" /> Set New Budget
     </button>
   </div>
 
@@ -20,11 +20,11 @@
       <input  class="fc-input bf-input" type="number" min="1" [(ngModel)]="formAmount"
               placeholder="Monthly limit (USD)" />
       <button class="fc-btn fc-btn--primary" [disabled]="saving || formAmount <= 0" (click)="submitBudget()">
-        <mat-icon>{{ saving ? 'hourglass_empty' : 'check' }}</mat-icon>
+        <app-icon [name]="saving ? 'hourglass' : 'check'" />
         {{ saving ? 'Saving…' : 'Set Limit' }}
       </button>
       <button class="fc-btn fc-btn--ghost bf-cancel" aria-label="Cancel" (click)="closeForm()">
-        <mat-icon>close</mat-icon>
+        <app-icon name="x" />
       </button>
     </div>
   }
@@ -58,9 +58,9 @@
         <div class="hero-footer">
           <span class="hero-pct">{{ totalPct }}% utilized</span>
           @if (totalPct <= 80) {
-            <span class="on-track"><mat-icon>trending_up</mat-icon> On track</span>
+            <span class="on-track"><app-icon name="trending-up" /> On track</span>
           } @else {
-            <span class="over-track"><mat-icon>warning</mat-icon> Near limit</span>
+            <span class="over-track"><app-icon name="alert-triangle" /> Near limit</span>
           }
         </div>
       </div>
@@ -79,7 +79,7 @@
         </p>
         @for (b of nearLimit; track b.category) {
           <div class="alert-row">
-            <mat-icon class="alert-icon">warning_amber</mat-icon>
+            <app-icon class="alert-icon" name="alert-triangle" />
             <div>
               <div class="alert-title">{{ b.category | titlecase }}</div>
               <div class="alert-sub">Nearing limit ({{ b.remaining | currency:'USD':'symbol':'1.0-0' }} left)</div>
@@ -88,7 +88,7 @@
         }
         @if (!nearLimit.length) {
           <div class="insight-ok">
-            <mat-icon>check_circle</mat-icon>
+            <app-icon name="circle-check" />
             All categories within budget
           </div>
         }
@@ -105,7 +105,7 @@
         <div class="cat-budget-card card">
           <div class="cbc-top">
             <div class="cbc-icon-wrap" [style.background]="catColor(b.category) + '22'">
-              <mat-icon [style.color]="catColor(b.category)">{{ catIcon(b.category) }}</mat-icon>
+              <app-icon [style.color]="catColor(b.category)" [name]="catIcon(b.category)" />
             </div>
             <div class="cbc-budget-label">
               <span class="cbc-budget-text">Budget</span>
@@ -134,7 +134,7 @@
 
       <!-- Categories are made on the Categories page -->
       <a class="cat-budget-card card create-card" routerLink="/categories">
-        <div class="create-icon"><mat-icon>add</mat-icon></div>
+        <div class="create-icon"><app-icon name="plus" /></div>
         <span>Create Category</span>
       </a>
     </div>

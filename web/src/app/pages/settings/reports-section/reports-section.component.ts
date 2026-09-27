@@ -2,17 +2,17 @@ import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatIconModule } from '@angular/material/icon';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
 import { SettingsView } from '../../../core/services/api.models';
+import { IconComponent } from '../../../core/ui/icon/icon.component';
 
 type ReportsView = SettingsView['reports'];
 
 /** Settings › Email reports: which reports go out, to whom, and a test send. */
 @Component({
     selector: 'app-reports-section',
-    imports: [DatePipe, FormsModule, MatIconModule],
+    imports: [DatePipe, FormsModule, IconComponent],
     templateUrl: './reports-section.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['../settings-section.scss']
@@ -68,7 +68,7 @@ export class ReportsSectionComponent implements OnInit, OnDestroy {
   get testLabel(): string {
     switch (this.testState) {
       case 'sending': return 'Sending…';
-      case 'sent': return 'Sent — check your inbox';
+      case 'sent': return 'Sent, check your inbox';
       default: return 'Send a test digest';
     }
   }

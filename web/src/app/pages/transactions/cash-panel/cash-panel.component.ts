@@ -2,11 +2,11 @@ import { Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges, ChangeDe
 import { CurrencyPipe, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatIconModule } from '@angular/material/icon';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
 import { CashBreakdown, Transaction } from '../../../core/services/api.models';
 import { CategoryService } from '../../../core/services/category.service';
+import { IconComponent } from '../../../core/ui/icon/icon.component';
 
 /**
  * Itemizes one withdrawal: what its cash went to, and what's left. Each open
@@ -20,7 +20,7 @@ import { CategoryService } from '../../../core/services/category.service';
  */
 @Component({
     selector: 'app-cash-panel',
-    imports: [CurrencyPipe, TitleCasePipe, FormsModule, MatIconModule],
+    imports: [CurrencyPipe, TitleCasePipe, FormsModule, IconComponent],
     templateUrl: './cash-panel.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./cash-panel.component.scss']

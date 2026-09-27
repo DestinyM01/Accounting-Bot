@@ -45,7 +45,7 @@
       </label>
 
       <button type="button" class="fc-btn fc-btn--ghost" [disabled]="mineLoading" (click)="useMyNumbers()">
-        <mat-icon>person</mat-icon>
+        <app-icon name="user" />
         {{ mineLoading ? 'Loading…' : 'Use my numbers' }}
       </button>
       <p class="calc-note" aria-live="polite">

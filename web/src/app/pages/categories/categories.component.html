@@ -11,7 +11,7 @@
       [disabled]="loading || !!loadError || busy || mode.kind !== 'none'"
       (click)="openCreate()"
     >
-      <mat-icon>add</mat-icon> New category
+      <app-icon name="plus" /> New category
     </button>
   </div>
 
@@ -118,7 +118,7 @@
                     [attr.aria-describedby]="receivingMove(c) ? 'lock-' + c.id : null"
                     (click)="openEdit(c)"
                   >
-                    <mat-icon>edit</mat-icon>
+                    <app-icon name="pencil" />
                   </button>
                   <button
                     [id]="'delete-' + c.id"
@@ -129,7 +129,7 @@
                     [attr.aria-describedby]="receivingMove(c) ? 'lock-' + c.id : null"
                     (click)="openDelete(c)"
                   >
-                    <mat-icon>delete_outline</mat-icon>
+                    <app-icon name="trash" />
                   </button>
                 </div>
               }

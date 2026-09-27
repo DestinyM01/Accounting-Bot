@@ -1,8 +1,8 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+import { Component, DestroyRef, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatIconModule } from '@angular/material/icon';
 import { Subscription } from 'rxjs';
 import { Chart, registerables } from 'chart.js';
 import { ApiService } from '../../core/services/api.service';
@@ -14,6 +14,8 @@ import {
   DailyBalance,
 } from '../../core/services/api.models';
 import { HOVER_COLUMN, axisStyle, chartTheme, tooltipStyle } from '../../core/ui/chart-theme';
+import { IconComponent } from '../../core/ui/icon/icon.component';
+import { ThemeService } from '../../core/ui/theme.service';
 
 Chart.register(...registerables);
 
@@ -27,7 +29,7 @@ const MAX_ABS_BALANCE = 1e12;
 
 @Component({
     selector: 'app-balance',
-    imports: [CommonModule, DatePipe, FormsModule, MatIconModule],
+    imports: [CommonModule, DatePipe, FormsModule, IconComponent],
     templateUrl: './balance.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./balance.component.scss']
@@ -79,12 +81,16 @@ export class BalanceComponent implements OnInit, OnDestroy {
   private chartGen = 0;
   private listGen = 0;
 
-  constructor(private api: ApiService, private events: TransactionEventsService) {}
+  private readonly destroyRef = inject(DestroyRef);
+
+  constructor(private api: ApiService, private events: TransactionEventsService, private theme: ThemeService) {}
 
   ngOnInit(): void {
     // Any write anywhere (this page's form, the + button, a row action) reloads the page.
     this.subs.add(this.events.changed$.subscribe(() => this.reloadAll()));
     this.reloadAll();
+    // Colours are read from tokens at build time, so the chart just rebuilds on theme change.
+    this.theme.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.buildChart());
   }
 
   ngOnDestroy(): void {

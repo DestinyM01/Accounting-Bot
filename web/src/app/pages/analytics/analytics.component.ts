@@ -1,16 +1,18 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { Chart, registerables } from 'chart.js';
 import { ApiService } from '../../core/services/api.service';
 import { ChartPoint, TopTransaction } from '../../core/services/api.models';
 import { HOVER_COLUMN, axisStyle, chartTheme, moneyLabel, tooltipStyle, withAlpha } from '../../core/ui/chart-theme';
+import { IconComponent } from '../../core/ui/icon/icon.component';
+import { ThemeService } from '../../core/ui/theme.service';
 
 Chart.register(...registerables);
 
 @Component({
     selector: 'app-analytics',
-    imports: [CommonModule, MatIconModule],
+    imports: [CommonModule, IconComponent],
     templateUrl: './analytics.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./analytics.component.scss']
@@ -24,13 +26,20 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
   loading       = true;
   error         = '';
   private chart: Chart | null = null;
+  /** The chart's own last data, kept so a theme change can rebuild it without a refetch. */
+  private lastPoints: ChartPoint[] = [];
+  private readonly destroyRef = inject(DestroyRef);
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private theme: ThemeService) {}
 
   ngOnInit() {
     this.api.getTop10().subscribe({
       next:  (data) => { this.top10 = data; this.loading = false; },
       error: ()     => { this.error = 'Failed to load analytics.'; this.loading = false; },
+    });
+    // Colours are read from tokens at build time, so the chart just rebuilds on theme change.
+    this.theme.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      if (this.lastPoints.length) this.buildChart(this.lastPoints);
     });
   }
 
@@ -49,6 +58,7 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
   }
 
   private buildChart(points: ChartPoint[]) {
+    this.lastPoints = points;
     if (this.chart) { this.chart.destroy(); this.chart = null; }
     const canvas = this.chartCanvas?.nativeElement;
     if (!canvas) return;

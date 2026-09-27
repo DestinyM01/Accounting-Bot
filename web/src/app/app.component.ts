@@ -1,53 +1,124 @@
 import { Component, HostListener, OnInit, ChangeDetectionStrategy } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationStart } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationStart, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { OAuthService } from 'angular-oauth2-oidc';
-import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from './core/services/api.service';
 import { CategoryService } from './core/services/category.service';
 import { BudgetEntry } from './core/services/api.models';
 import { filter } from 'rxjs/operators';
 import { FabComponent } from './core/ui/fab/fab.component';
 import { TransactionFormComponent } from './core/ui/transaction-form/transaction-form.component';
+import { IconComponent } from './core/ui/icon/icon.component';
+import { ThemeService } from './core/ui/theme.service';
+
+interface NavItem { label: string; icon: string; path: string; }
+interface NavGroup { label: string; items: NavItem[]; }
 
 @Component({
     selector: 'app-root',
-    imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, MatIconModule, FabComponent, TransactionFormComponent],
+    imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, IconComponent, FabComponent, TransactionFormComponent],
     templateUrl: './app.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
-    styleUrls: ['./app.component.scss']
+    styleUrls: ['./app.component.scss'],
+    host: {
+      // Lets a global stylesheet hide the FAB while the phone sheet covers the screen.
+      '[class.shell-sheet-open]': 'sheetOpen',
+    },
 })
 export class AppComponent implements OnInit {
-  navItems = [
-    { label: 'Dashboard',    icon: 'dashboard',              path: '/dashboard' },
-    { label: 'Balance',      icon: 'account_balance',        path: '/balance' },
-    { label: 'Transactions', icon: 'receipt_long',           path: '/transactions' },
-    { label: 'Budget',       icon: 'account_balance_wallet', path: '/budget' },
-    { label: 'Statistics',   icon: 'bar_chart',              path: '/statistics' },
-    { label: 'Compare',      icon: 'compare_arrows',         path: '/compare' },
-    { label: 'Analytics',    icon: 'insights',               path: '/analytics' },
-    { label: 'Recurring',    icon: 'repeat',                 path: '/recurring' },
-    { label: 'Categories',   icon: 'sell',                   path: '/categories' },
-    { label: 'Merchants',    icon: 'storefront',             path: '/merchants' },
-    { label: 'Tips',         icon: 'lightbulb',              path: '/tips' },
-    { label: 'Growth calculator', icon: 'savings',           path: '/calculator' },
-    { label: 'Settings',     icon: 'settings',               path: '/settings' },
+  // ── Nav model ────────────────────────────────────────────────────────
+  primaryNav: NavItem[] = [
+    { label: 'Dashboard',    icon: 'layout-dashboard', path: '/dashboard' },
+    { label: 'Transactions', icon: 'receipt',          path: '/transactions' },
+    { label: 'Balance',      icon: 'building-bank',    path: '/balance' },
+    { label: 'Budget',       icon: 'wallet',           path: '/budget' },
+    { label: 'Recurring',    icon: 'repeat',           path: '/recurring' },
   ];
 
-  // ── Sidebar collapse ──────────────────────────────────────────────────
-  sidebarCollapsed = false;
-  toggleSidebar() { this.sidebarCollapsed = !this.sidebarCollapsed; }
+  navGroups: NavGroup[] = [
+    {
+      label: 'Insights',
+      items: [
+        { label: 'Statistics',        icon: 'chart-bar',    path: '/statistics' },
+        { label: 'Compare',           icon: 'arrows-diff',  path: '/compare' },
+        { label: 'Analytics',         icon: 'chart-dots-3', path: '/analytics' },
+        { label: 'Tips',              icon: 'bulb',         path: '/tips' },
+        { label: 'Growth calculator', icon: 'pig-money',    path: '/calculator' },
+      ],
+    },
+    {
+      label: 'Manage',
+      items: [
+        { label: 'Categories', icon: 'tag',           path: '/categories' },
+        { label: 'Merchants',  icon: 'building-store', path: '/merchants' },
+      ],
+    },
+  ];
+
+  currentUrl = this.router.url;
+
+  isGroupActive(group: NavGroup): boolean {
+    return group.items.some((i) => this.currentUrl === i.path || this.currentUrl.startsWith(i.path + '/'));
+  }
+
+  // ── Dropdown menus (nav groups, notifications, settings) ─────────────────
+  // Only one open at a time, identified by the group label ('Insights' /
+  // 'Manage') or a fixed id ('notifications' / 'settings').
+  openMenu: string | null = null;
+  private openMenuBtn: HTMLElement | null = null;
+
+  toggleMenu(id: string, btn: HTMLElement) {
+    if (this.openMenu === id) { this.closeMenu(); return; }
+    this.openMenu = id;
+    this.openMenuBtn = btn;
+    if (id === 'notifications' && !this.notifLoaded) this.loadNotifications();
+    // Focus the first item once the menu has rendered.
+    setTimeout(() => document.querySelector<HTMLElement>('[role="menu"] [role="menuitem"]')?.focus());
+  }
+
+  closeMenu(returnFocus = false) {
+    const btn = this.openMenuBtn;
+    this.openMenu = null;
+    this.openMenuBtn = null;
+    if (returnFocus) btn?.focus();
+  }
+
+  onMenuKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') { e.preventDefault(); this.closeMenu(true); return; }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const container = e.currentTarget as HTMLElement;
+    const items = Array.from(container.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    if (!items.length) return;
+    e.preventDefault();
+    const idx = items.indexOf(document.activeElement as HTMLElement);
+    const next = e.key === 'ArrowDown' ? (idx + 1 + items.length) % items.length : (idx - 1 + items.length) % items.length;
+    items[next]?.focus();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(e: MouseEvent) {
+    if (!this.openMenu) return;
+    // composedPath() (not e.target.closest()) because the icon glyph inside the clicked
+    // button can be detached and reattached by change detection between the click and this
+    // handler running; closest() on a detached node would never find .shell-menu-wrap and
+    // would close the menu the instant it was clicked open. composedPath() reflects the DOM
+    // as it was when the event was dispatched, so it's unaffected by any later detachment.
+    const inside = e.composedPath().some((n) => n instanceof Element && n.classList.contains('shell-menu-wrap'));
+    if (!inside) this.closeMenu();
+  }
+
+  @HostListener('document:keydown.escape')
+  onDocumentEscape() {
+    // Closes a menu or the sheet even when focus never made it inside them (e.g. the
+    // notifications menu has nothing focusable while it's empty, so focus stays on the bell).
+    if (this.openMenu) { this.closeMenu(true); return; }
+    if (this.sheetOpen) { this.closeSheet(); }
+  }
 
   // ── Notifications ─────────────────────────────────────────────────────
-  notifOpen       = false;
-  notifLoaded     = false;
-  notifLoading    = false;
-  budgetAlerts:   BudgetEntry[] = [];
-
-  toggleNotifications() {
-    this.notifOpen = !this.notifOpen;
-    if (this.notifOpen && !this.notifLoaded) { this.loadNotifications(); }
-  }
+  notifLoaded  = false;
+  notifLoading = false;
+  budgetAlerts: BudgetEntry[] = [];
 
   private loadNotifications() {
     this.notifLoading = true;
@@ -65,23 +136,20 @@ export class AppComponent implements OnInit {
 
   get notifCount(): number { return this.budgetAlerts.length; }
 
-  // ── Settings ──────────────────────────────────────────────────────────
-  settingsOpen = false;
-  toggleSettings() { this.settingsOpen = !this.settingsOpen; }
+  // Compositor-friendly fill: scaleX(0..1) instead of animating width.
+  budgetBarBg(pct: number): string {
+    return pct >= 100 ? 'var(--color-expense)' : 'var(--color-warning)';
+  }
 
+  budgetBarScale(pct: number): number {
+    return (pct > 100 ? 100 : pct) / 100;
+  }
+
+  // ── Settings / auth ───────────────────────────────────────────────────
   get authentikProfileUrl(): string {
     return 'https://auth.andujaronline.uk/if/user/';
   }
 
-  // ── Close panels on outside click ────────────────────────────────────
-  @HostListener('document:click', ['$event'])
-  onDocClick(e: MouseEvent) {
-    const t = e.target as HTMLElement;
-    if (!t.closest('.notif-wrap'))   this.notifOpen    = false;
-    if (!t.closest('.settings-wrap')) this.settingsOpen = false;
-  }
-
-  // ── Auth ──────────────────────────────────────────────────────────────
   get claims()   { return this.oauthService.getIdentityClaims() as any; }
   get userName() { return this.claims?.name || this.claims?.preferred_username || 'User'; }
   get userEmail(){ return this.claims?.email || ''; }
@@ -92,21 +160,43 @@ export class AppComponent implements OnInit {
       : this.userName.slice(0, 2).toUpperCase();
   }
 
-  // ── Mobile drawer ────────────────────────────────────────────────────
-  mobileOpen = false;
+  logout() { this.oauthService.logOut(); }
 
-  toggleMobile() {
-    this.mobileOpen = !this.mobileOpen;
+  // ── Phone sheet ───────────────────────────────────────────────────────
+  sheetOpen = false;
+  private sheetBtn: HTMLElement | null = null;
+
+  toggleSheet(btn: HTMLElement) {
+    this.sheetOpen = !this.sheetOpen;
+    document.body.style.overflow = this.sheetOpen ? 'hidden' : '';
+    if (this.sheetOpen) {
+      this.sheetBtn = btn;
+      setTimeout(() => document.querySelector<HTMLElement>('.shell-sheet-link')?.focus());
+    }
   }
 
-  // ── Budget notification bar color ─────────────────────────────────────
-  budgetBarBg(pct: number): string {
-    return pct >= 100 ? 'var(--color-expense)' : 'var(--color-warning)';
+  closeSheet() {
+    if (!this.sheetOpen) return;
+    this.sheetOpen = false;
+    document.body.style.overflow = '';
+    this.sheetBtn?.focus();
   }
 
-  // Compositor-friendly fill: scaleX(0..1) instead of animating width.
-  budgetBarScale(pct: number): number {
-    return (pct > 100 ? 100 : pct) / 100;
+  // The toggle button lives outside .shell-sheet (it opens the sheet), so it isn't among the
+  // container's own querySelectorAll('a, button') results; it's stitched in as the trap's
+  // first stop so Tab/Shift+Tab cycle through it too instead of leaving it unreachable.
+  onSheetKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') { e.preventDefault(); this.closeSheet(); return; }
+    if (e.key !== 'Tab') return;
+    const sheetEl = document.querySelector<HTMLElement>('.shell-sheet');
+    if (!sheetEl) return;
+    const links = Array.from(sheetEl.querySelectorAll<HTMLElement>('a, button')).filter(el => !el.hasAttribute('disabled'));
+    const focusables = this.sheetBtn ? [this.sheetBtn, ...links] : links;
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   }
 
   constructor(
@@ -114,11 +204,30 @@ export class AppComponent implements OnInit {
     private api: ApiService,
     private router: Router,
     private categoryService: CategoryService,
+    private themeService: ThemeService,
   ) {
-    // Close mobile drawer on any navigation
+    // Close every open menu / the phone sheet as soon as a navigation starts. A click on a
+    // sheet link already does this itself (closeSheet() moves focus to the toggle first), but
+    // a navigation with no click to trigger it — browser Back chief among them — can leave the
+    // sheet open and focus sitting on a link that's about to be hidden; move focus somewhere
+    // visible rather than leaving it stranded.
     this.router.events
       .pipe(filter(e => e instanceof NavigationStart))
-      .subscribe(() => { this.mobileOpen = false; });
+      .subscribe(() => {
+        const wasOpen = this.sheetOpen;
+        this.sheetOpen = false;
+        this.openMenu = null;
+        this.openMenuBtn = null;
+        document.body.style.overflow = '';
+        if (wasOpen && (document.activeElement as HTMLElement | null)?.closest('.shell-sheet')) {
+          (this.sheetBtn ?? document.querySelector<HTMLElement>('.shell-main'))?.focus();
+        }
+      });
+
+    // Track the active url so group buttons can show themselves as active.
+    this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe((e) => { this.currentUrl = e.urlAfterRedirects; });
   }
 
   ngOnInit() {
@@ -126,6 +235,4 @@ export class AppComponent implements OnInit {
       this.categoryService.load();
     }
   }
-
-  logout() { this.oauthService.logOut(); }
 }

@@ -1,14 +1,14 @@
 import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/services/api.service';
 import { CompareResult } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
+import { IconComponent } from '../../core/ui/icon/icon.component';
 
 @Component({
     selector: 'app-compare',
-    imports: [CommonModule, FormsModule, MatIconModule],
+    imports: [CommonModule, FormsModule, IconComponent],
     templateUrl: './compare.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./compare.component.scss']

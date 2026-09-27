@@ -6,7 +6,7 @@
       <h1>Recurring Payments</h1>
       <p class="rp-subtitle">Manage your scheduled income and expenses</p>
     </div>
-    <button class="fc-btn fc-btn--primary" (click)="toggleForm()"><mat-icon>add</mat-icon> New Rule</button>
+    <button class="fc-btn fc-btn--primary" (click)="toggleForm()"><app-icon name="plus" /> New Rule</button>
   </div>
 
   @if (showForm) {
@@ -17,7 +17,7 @@
       <select class="fc-input" aria-label="Category" [(ngModel)]="fCategory">@for (c of categories; track c) { <option [value]="c">{{ c | titlecase }}</option> }</select>
       <input class="fc-input rf-day" type="number" min="1" max="28" [(ngModel)]="fDay" placeholder="Day" aria-label="Day" />
       <button class="fc-btn fc-btn--primary" [disabled]="!formValid || saving" (click)="submitForm()">
-        <mat-icon>{{ saving ? 'hourglass_empty' : 'check' }}</mat-icon> {{ saving ? 'Saving…' : 'Create' }}
+        <app-icon [name]="saving ? 'hourglass' : 'check'" /> {{ saving ? 'Saving…' : 'Create' }}
       </button>
     </div>
     @if (formError) { <p class="fc-error" role="alert">{{ formError }}</p> }
@@ -26,8 +26,8 @@
   <!-- Loading -->
   @if (loading) {
     <div class="summary-row">
-      <div class="summary-card skeleton"><div class="sk-block"></div></div>
-      <div class="summary-card skeleton"><div class="sk-block"></div></div>
+      <div class="summary-card summary-card--loading"><div class="sk-block"></div></div>
+      <div class="summary-card summary-card--loading"><div class="sk-block"></div></div>
     </div>
     <div class="items-panel skeleton-panel">
       @for (_ of [1,2,3]; track $index) {
@@ -39,7 +39,7 @@
   <!-- Error -->
   @if (!loading && error) {
     <div class="empty-state">
-      <mat-icon class="empty-icon error-icon">error_outline</mat-icon>
+      <app-icon class="empty-icon error-icon" name="alert-circle" />
       <p>{{ error }}</p>
       <button class="retry-btn" (click)="load()">Try Again</button>
     </div>
@@ -51,7 +51,7 @@
     <div class="summary-row">
       <div class="summary-card income-card">
         <div class="sc-icon income-icon">
-          <mat-icon>trending_up</mat-icon>
+          <app-icon name="trending-up" />
         </div>
         <div class="sc-body">
           <span class="sc-label">Monthly Scheduled Income</span>
@@ -60,7 +60,7 @@
       </div>
       <div class="summary-card expense-card">
         <div class="sc-icon expense-icon">
-          <mat-icon>account_balance</mat-icon>
+          <app-icon name="building-bank" />
         </div>
         <div class="sc-body">
           <span class="sc-label">Monthly Scheduled Expenses</span>
@@ -84,7 +84,7 @@
     <!-- Scheduled Items table -->
     @if (items.length === 0) {
       <div class="empty-state">
-        <mat-icon class="empty-icon">event_repeat</mat-icon>
+        <app-icon class="empty-icon" name="calendar-repeat" />
         <p>No recurring transactions yet.</p>
         <p class="empty-hint">Use "New Rule" above to add one.</p>
       </div>
@@ -108,7 +108,7 @@
             <!-- Icon + name -->
             <div class="col-tx">
               <div class="row-icon" [style.background]="categoryColor(item.category) + '22'">
-                <mat-icon [style.color]="categoryColor(item.category)">{{ categoryIcon(item.category) }}</mat-icon>
+                <app-icon [style.color]="categoryColor(item.category)" [name]="categoryIcon(item.category)" />
               </div>
               <span class="row-name">{{ item.transactionName | titlecase }}</span>
             </div>
@@ -134,7 +134,7 @@
               <button class="rp-delete-btn"
                       (click)="deleteItem(item)"
                       [attr.aria-label]="'Delete ' + item.transactionName">
-                <mat-icon>delete_outline</mat-icon>
+                <app-icon name="trash" />
               </button>
             </div>
           </div>
@@ -150,7 +150,7 @@
         <div class="upcoming-panel">
           <div class="panel-header">
             <span class="panel-title">Upcoming Next</span>
-            <mat-icon class="panel-header-icon">schedule</mat-icon>
+            <app-icon class="panel-header-icon" name="clock" />
           </div>
           @if (upcomingNext) {
             <div class="upcoming-body">
@@ -181,7 +181,7 @@
           </div>
           @if (billedThisMonth.length === 0) {
             <div class="billed-empty">
-              <mat-icon class="billed-empty-icon">check_circle_outline</mat-icon>
+              <app-icon class="billed-empty-icon" name="circle-check" />
               <p>Nothing billed yet this month</p>
             </div>
           } @else {
@@ -189,7 +189,7 @@
               @for (item of billedThisMonth; track item.id) {
                 <div class="billed-row">
                   <div class="billed-icon" [style.background]="categoryColor(item.category) + '22'">
-                    <mat-icon [style.color]="categoryColor(item.category)">{{ categoryIcon(item.category) }}</mat-icon>
+                    <app-icon [style.color]="categoryColor(item.category)" [name]="categoryIcon(item.category)" />
                   </div>
                   <div class="billed-info">
                     <span class="billed-name">{{ item.transactionName | titlecase }}</span>

@@ -1,0 +1,397 @@
+// Shell styles for app.component: the top bar, its dropdown menus and the
+// phone sheet. Kept as a global partial (not the component stylesheet) so the
+// per-component style budget (10 kB warn / 16 kB error) has room; the shell
+// itself uses several hundred lines, so app.component.scss only carries
+// leftover rules that don't belong to any other page.
+
+// ── Bar ──────────────────────────────────────────────────────────────────
+.shell-bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-bar);
+  height: 64px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(8px);
+
+  @media (prefers-reduced-transparency: reduce) {
+    background: var(--surface);
+    backdrop-filter: none;
+  }
+}
+
+.shell-bar-inner {
+  height: 100%;
+  max-width: 1600px;
+  margin-inline: auto;
+  padding-inline: 24px;
+  display: grid;
+  grid-template-columns: 250px 1fr 250px;
+  align-items: center;
+  gap: 12px;
+}
+
+.shell-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+
+  app-icon { color: var(--accent-ink); }
+
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius-control); }
+}
+
+// ── Center nav ───────────────────────────────────────────────────────────
+.shell-nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.shell-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  color: var(--ink-2);
+  font-size: 14.5px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover { color: var(--ink); background: var(--surface-raised); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+  &.is-active {
+    color: var(--ink);
+    background: var(--surface-raised);
+    // --accent-ink, not --accent: the amber fill is only 2.16:1 against the light-theme
+    // surface, well under the 3:1 UI-boundary minimum. --accent-ink is the same amber in
+    // dark (no visible change there) but a darkened, readable amber in light.
+    box-shadow: inset 0 -2px 0 var(--accent-ink);
+    border-radius: var(--radius-control) var(--radius-control) var(--radius-mark) var(--radius-mark);
+  }
+}
+
+.shell-menu-wrap { position: relative; }
+
+.shell-group-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 230px;
+  z-index: var(--z-menu);
+}
+
+// ── Right cluster ────────────────────────────────────────────────────────
+.shell-right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+
+.shell-iconbtn {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: none;
+  border: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover { background: var(--surface-raised); color: var(--ink); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  &[aria-expanded='true'] { background: var(--surface-raised); color: var(--ink); }
+}
+
+.shell-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: var(--radius-tag);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.shell-phone-toggle { display: none; }
+
+// ── Notifications menu ───────────────────────────────────────────────────
+.shell-notif-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(320px, calc(100vw - 32px));
+  max-height: 440px;
+  overflow-y: auto;
+  z-index: var(--z-menu);
+}
+
+@media (max-width: 480px) {
+  .shell-notif-menu {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    top: 72px;
+    width: auto;
+  }
+}
+
+.shell-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+
+.shell-notif-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.shell-notif-skeleton-row {
+  height: 54px;
+}
+
+// .shell-notif-row is an <a>, so it also matches _primitives.scss's
+// `.menu :where(a, button, [role='menuitem'])` rule; that rule's :where() wrapper carries no
+// specificity, so this rule (declared later, in the same specificity class) wins on every
+// property both declare. It must still override `align-items` explicitly: that rule sets
+// align-items: center, and in a column-direction flex container an item's cross-size (here,
+// the notif row's width) only expands to its width:100% children when align-items resolves to
+// stretch — with align-items: center left in place, the empty, contentless .shell-notif-bar
+// fill measured 0px wide instead of the row's full width.
+.shell-notif-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: var(--radius-control);
+
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+}
+
+.shell-notif-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+
+.shell-notif-row-sub {
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.shell-notif-bar {
+  height: 6px;
+  border-radius: var(--radius-tag);
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.shell-notif-bar-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: var(--radius-tag);
+  transform-origin: left;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+// ── Settings menu ────────────────────────────────────────────────────────
+.shell-settings-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 240px;
+  z-index: var(--z-menu);
+}
+
+.shell-settings-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+
+.shell-settings-avatar {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--radius-tag);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 11px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.shell-settings-user-info { min-width: 0; }
+.shell-settings-name { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.shell-settings-email {
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell-menu-external { margin-left: auto; color: var(--ink-3); }
+
+// ── Main ─────────────────────────────────────────────────────────────────
+// The extra bottom padding keeps the last of a scrolled page clear of the
+// fixed FAB button (see fab.component.scss), which the old sidebar layout's
+// `.content { padding-bottom: 88px }` used to provide.
+.shell-main { min-height: calc(100vh - 64px); padding-bottom: 88px; }
+
+// ── Phone sheet + scrim ──────────────────────────────────────────────────
+.shell-scrim {
+  position: fixed;
+  // Starts below the bar (not inset: 0) so it never covers it: at z-index 59 the scrim would
+  // otherwise sit visually and interactively above the bar's own z-index 20, hiding the X
+  // toggle behind it and making it unclickable while the sheet is open.
+  top: 64px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: calc(var(--z-sheet) - 1);
+  background: var(--scrim);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-base) var(--ease-out);
+
+  &.shell-scrim--open { opacity: 1; pointer-events: auto; }
+}
+
+.shell-sheet {
+  top: 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  overflow-y: auto;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-12px);
+  transition: transform var(--dur-base) var(--ease-out),
+    opacity var(--dur-base) var(--ease-out),
+    visibility 0s linear var(--dur-base);
+
+  &.shell-sheet--open {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    transition: transform var(--dur-base) var(--ease-out),
+      opacity var(--dur-base) var(--ease-out),
+      visibility 0s linear 0s;
+  }
+}
+
+.shell-sheet-nav { display: flex; flex-direction: column; gap: 2px; }
+
+.shell-sheet-group { margin-top: 10px; }
+
+.shell-sheet-group-label {
+  padding: 10px 12px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.shell-sheet-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 48px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  text-decoration: none;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+
+  app-icon { color: var(--ink-2); flex-shrink: 0; }
+
+  &:hover { background: var(--surface-raised); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+  &.is-active {
+    background: var(--accent-wash);
+    color: var(--ink);
+    app-icon { color: var(--accent-ink); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-sheet { transition-delay: 0s; }
+  .shell-sheet.shell-sheet--open { transition-delay: 0s; }
+}
+
+// ── Breakpoints ──────────────────────────────────────────────────────────
+// Nav never wraps: >=1200px full width columns; 900-1200px the side columns
+// shrink to their content and the links get tighter padding (the full nav
+// needs ~580px, so this tighter range is where it still fits on one line);
+// <900px the center nav disappears in favor of the phone bar + sheet below.
+@media (max-width: 1200px) {
+  .shell-bar-inner { grid-template-columns: auto 1fr auto; padding-inline: 14px; gap: 8px; }
+  .shell-nav-link { padding: 0 8px; }
+}
+
+@media (max-width: 900px) {
+  .shell-nav { display: none; }
+  .shell-phone-toggle { display: inline-grid; }
+  // Settings (gear) drops out on phone; Settings/Log out live in the sheet
+  // instead, so the phone bar shows only brand, notifications and the toggle.
+  .shell-settings-wrap { display: none; }
+}
+
+@media (min-width: 901px) {
+  .shell-scrim, .shell-sheet { display: none; }
+}

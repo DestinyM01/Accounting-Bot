@@ -1,13 +1,15 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectionStrategy, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/services/api.service';
 import { RecurringEntry } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
 import { Chart, registerables } from 'chart.js';
 import { SankeyController, Flow } from 'chartjs-chart-sankey';
 import { chartTheme, tooltipStyle } from '../../core/ui/chart-theme';
+import { IconComponent } from '../../core/ui/icon/icon.component';
+import { ThemeService } from '../../core/ui/theme.service';
 
 Chart.register(...registerables, SankeyController, Flow);
 
@@ -21,7 +23,7 @@ function ordinal(n: number): string {
 
 @Component({
     selector: 'app-recurring',
-    imports: [CommonModule, TitleCasePipe, FormsModule, MatIconModule],
+    imports: [CommonModule, TitleCasePipe, FormsModule, IconComponent],
     templateUrl: './recurring.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./recurring.component.scss']
@@ -62,9 +64,15 @@ export class RecurringComponent implements OnInit, OnDestroy {
   private readonly HUB = 'hub';
   private readonly SAV = 'sav';
 
-  constructor(private api: ApiService, private catSvc: CategoryService) {}
+  private readonly destroyRef = inject(DestroyRef);
 
-  ngOnInit() { this.load(); }
+  constructor(private api: ApiService, private catSvc: CategoryService, private theme: ThemeService) {}
+
+  ngOnInit() {
+    this.load();
+    // Colours are read from tokens at build time, so the sankey just rebuilds on theme change.
+    this.theme.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.buildFlowChart());
+  }
 
   load() {
     this.loading = true;

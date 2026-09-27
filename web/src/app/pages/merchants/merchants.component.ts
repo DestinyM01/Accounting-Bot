@@ -2,13 +2,13 @@ import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/
 import { CommonModule, formatDate, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatIconModule } from '@angular/material/icon';
 import { Observable, Subject, Subscription, catchError, debounceTime, forkJoin, map, of, switchMap } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { CategoryService } from '../../core/services/category.service';
 import { TransactionEventsService } from '../../core/services/transaction-events.service';
 import { focusFirst } from '../../core/ui/focus';
 import { MerchantMatch, RememberedMerchant } from '../../core/services/api.models';
+import { IconComponent } from '../../core/ui/icon/icon.component';
 
 /** Same rule as the api: cash is only ATM cash, and other means "don't know". */
 const NEVER_REMEMBERED = ['cash', 'other'];
@@ -30,7 +30,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 
 @Component({
     selector: 'app-merchants',
-    imports: [CommonModule, FormsModule, MatIconModule],
+    imports: [CommonModule, FormsModule, IconComponent],
     templateUrl: './merchants.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./merchants.component.scss']

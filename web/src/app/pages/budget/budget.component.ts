@@ -2,14 +2,14 @@ import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, CurrencyPipe, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/services/api.service';
 import { BudgetEntry } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
+import { IconComponent } from '../../core/ui/icon/icon.component';
 
 @Component({
     selector: 'app-budget',
-    imports: [CommonModule, CurrencyPipe, TitleCasePipe, FormsModule, RouterLink, MatIconModule],
+    imports: [CommonModule, CurrencyPipe, TitleCasePipe, FormsModule, RouterLink, IconComponent],
     templateUrl: './budget.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./budget.component.scss']

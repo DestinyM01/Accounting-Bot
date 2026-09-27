@@ -1,0 +1,288 @@
+// Shared UI primitives for the "Instrument" design language.
+// Global on purpose (see _form-controls.scss for the same reasoning):
+// a per-component @use of these rules would re-emit them into every
+// component stylesheet and blow the component style budget for nothing.
+
+// ── Layout ───────────────────────────────────────────────────────────────
+.page {
+  max-width: 1320px;
+  margin-inline: auto;
+  padding: 28px 24px;
+
+  @media (max-width: 640px) {
+    padding: 16px;
+  }
+}
+
+.page-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+
+  h1 {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  .page-title-meta {
+    color: var(--ink-2);
+    font-size: var(--text-sm);
+  }
+}
+
+// ── Tiles: a 1px line grid instead of a bordered card ───────────────────
+.tiles {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+}
+
+.tile {
+  background: var(--surface);
+  padding: 20px 22px;
+}
+
+// ── Text and numbers ─────────────────────────────────────────────────────
+.label {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.figure-lg { font-size: var(--text-figure-lg); font-weight: 500; }
+.figure-md { font-size: var(--text-2xl); font-weight: 500; }
+.figure-sm { font-size: var(--text-xl); font-weight: 500; }
+
+// ── Buttons ──────────────────────────────────────────────────────────────
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  color: var(--ink);
+  font: 600 14px var(--font-sans);
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--dur-short) var(--ease-out),
+    border-color var(--dur-short) var(--ease-out),
+    opacity var(--dur-short) var(--ease-out),
+    transform var(--dur-short) var(--ease-out);
+
+  &:hover:not([disabled]) { background: var(--accent-wash); }
+  &:active:not([disabled]) { transform: scale(0.98); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  &[disabled] { opacity: 0.5; cursor: not-allowed; }
+}
+
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+
+  &:hover:not([disabled]) { opacity: 0.88; }
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-2);
+
+  &:hover:not([disabled]) { background: var(--accent-wash); color: var(--ink); }
+}
+
+.btn--danger {
+  background: transparent;
+  border-color: var(--neg);
+  color: var(--neg);
+
+  &:hover:not([disabled]) { background: var(--neg-wash); }
+}
+
+.btn--icon {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-2);
+
+  &:hover:not([disabled]) { background: var(--accent-wash); color: var(--ink); }
+}
+
+// ── Fields ───────────────────────────────────────────────────────────────
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  > label,
+  .field-label {
+    font-size: var(--text-sm);
+    color: var(--ink-2);
+  }
+
+  input, select, textarea {
+    background: var(--surface-raised);
+    // --line-control, not --line-strong: --line-strong is only 1.33:1 (dark) / 1.52:1 (light)
+    // against --surface-raised, well under the 3:1 minimum for a UI boundary. --line-control
+    // is picked to clear 3:1 against --surface-raised in both themes.
+    border: 1px solid var(--line-control);
+    border-radius: var(--radius-control);
+    color: var(--ink);
+    font: 400 14px var(--font-sans);
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color var(--dur-short) var(--ease-out);
+
+    &::placeholder { color: var(--ink-3); }
+    &:focus-visible { border-color: var(--focus); outline: 2px solid var(--focus); outline-offset: 1px; }
+  }
+
+  .field-hint { font-size: var(--text-xs); color: var(--ink-3); }
+  .field-error { font-size: var(--text-xs); color: var(--neg); }
+}
+
+// ── Tags and marks ───────────────────────────────────────────────────────
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-tag);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  background: var(--surface-raised);
+  color: var(--ink-2);
+  white-space: nowrap;
+
+  &--pos    { background: var(--pos-wash); color: var(--pos); }
+  &--neg    { background: var(--neg-wash); color: var(--neg); }
+  &--warn   { background: var(--warn-wash); color: var(--warn); }
+  &--accent { background: var(--accent-wash); color: var(--accent-ink); }
+}
+
+.swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-mark);
+  flex-shrink: 0;
+}
+
+// ── Dense rows ───────────────────────────────────────────────────────────
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+
+  &:last-child { border-bottom: none; }
+}
+
+// ── States ───────────────────────────────────────────────────────────────
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-raised);
+  border-radius: var(--radius-control);
+  color: transparent;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--line-strong), transparent);
+    animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::after { animation: none; opacity: 0.6; transform: none; }
+  }
+}
+
+@keyframes skeleton-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 16px;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.error-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--neg);
+  font-size: var(--text-sm);
+}
+
+// ── Overlays ─────────────────────────────────────────────────────────────
+.menu {
+  background: var(--surface-overlay);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-menu);
+  padding: 6px;
+
+  // :where(...) keeps this selector's specificity down at plain ".menu" (it would otherwise
+  // outrank almost anything a consumer of .menu declares, e.g. ".menu a" beat a component's
+  // own ".shell-notif-row" and its own ".empty", forcing every actionable-item style — the
+  // centered, single-line layout, the pointer cursor, the hover fill — onto rows and empty
+  // states that were never meant to look or behave like commands). A real menu command
+  // (an <a>, a <button>, anything actually marked role="menuitem") still gets this styling;
+  // it just no longer wins a specificity fight it has no business winning.
+  :where(a, button, [role='menuitem']) {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 10px;
+    padding: 9px 10px;
+    border: none;
+    border-radius: var(--radius-control);
+    background: none;
+    color: var(--ink);
+    font: 400 14px var(--font-sans);
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+
+    &:hover { background: var(--accent-wash); }
+    &:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+  }
+}
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-sheet);
+  background: var(--surface-overlay);
+  box-shadow: var(--shadow-menu);
+}

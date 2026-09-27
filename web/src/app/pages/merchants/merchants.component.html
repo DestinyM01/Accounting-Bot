@@ -11,7 +11,7 @@
       [disabled]="loading || !!loadError || busy || mode.kind !== 'none'"
       (click)="openAdd()"
     >
-      <mat-icon>add</mat-icon> Add merchant
+      <app-icon name="plus" /> Add merchant
     </button>
   </div>
 
@@ -83,8 +83,7 @@
                 <span class="mer-key">{{ m.key }}</span>
                 @if (m.usable) {
                   <span class="cat-pill"
-                        [style.background]="catColor(m.category) + '22'"
-                        [style.color]="catColor(m.category)">
+                        [style.background]="catColor(m.category) + '22'">
                     <span class="dot" [style.background]="catColor(m.category)"></span>
                     {{ m.category | titlecase }}
                   </span>

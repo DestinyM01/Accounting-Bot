@@ -1,17 +1,17 @@
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatIconModule } from '@angular/material/icon';
 import { Observable, Subscription } from 'rxjs';
 import { ApiService } from '../../services/api.service';
 import { CategoryService } from '../../services/category.service';
 import { TransactionEventsService } from '../../services/transaction-events.service';
 import { TransactionFormService, FormRequest } from '../../services/transaction-form.service';
 import { Transaction } from '../../services/api.models';
+import { IconComponent } from '../icon/icon.component';
 
 @Component({
     selector: 'app-transaction-form',
-    imports: [CommonModule, FormsModule, MatIconModule, TitleCasePipe],
+    imports: [CommonModule, FormsModule, IconComponent, TitleCasePipe],
     templateUrl: './transaction-form.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./transaction-form.component.scss']

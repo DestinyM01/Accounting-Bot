@@ -1,12 +1,24 @@
 /**
  * Chart colours and styles from the design tokens (web/src/tokens.css), read when
- * a chart is built so charts follow the theme. The tokens are oklch() strings;
- * Chart.js's colour helper (used by plugins, e.g. the sankey's flow bands, to add
- * transparency) can't parse those, so colours are converted to rgb() here, by
- * formula, so Chart.js and its plugins can parse and derive from them. Chart.js's
- * own hover-colour derivation has the same limitation, so datasets still set their
- * hover colours explicitly from these values.
+ * a chart is built so charts follow the theme. Tokens are plain hex colours today, but
+ * `toRgb` also accepts oklch() (any other format is returned unchanged) so charts keep
+ * working if a token is ever expressed that way: Chart.js's colour helper (used by
+ * plugins, e.g. the sankey's flow bands, to add transparency) can't parse oklch(), so
+ * colours are converted to rgb() here, by formula, so Chart.js and its plugins can parse
+ * and derive from them. Chart.js's own hover-colour derivation has the same limitation,
+ * so datasets still set their hover colours explicitly from these values.
  */
+import { Chart } from 'chart.js';
+
+// Once per app load (this module is imported by every chart page before it builds a chart):
+// Chart.js defaults to its own bundled font, not the app's. Numbers keep Chart.js's default
+// font — only prose labels/legends/tooltips need to match the page.
+Chart.defaults.font.family = "'Outfit Variable', system-ui, sans-serif";
+
+if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+  Chart.defaults.animation = false;
+}
+
 export interface ChartTheme {
   text: string;
   muted: string;
@@ -54,13 +66,13 @@ export function chartTheme(): ChartTheme {
   const css = getComputedStyle(document.documentElement);
   const token = (name: string) => css.getPropertyValue(name).trim();
   return {
-    text: toRgb(token('--text')),
-    muted: toRgb(token('--text-muted')),
-    grid: toRgb(token('--border')),
-    card: toRgb(token('--bg-card')),
+    text: toRgb(token('--ink')),
+    muted: toRgb(token('--ink-2')),
+    grid: toRgb(token('--line')),
+    card: toRgb(token('--surface')),
     accent: toRgb(token('--accent')),
-    income: toRgb(token('--income')),
-    expense: toRgb(token('--expense')),
+    income: toRgb(token('--pos')),
+    expense: toRgb(token('--neg')),
   };
 }
 

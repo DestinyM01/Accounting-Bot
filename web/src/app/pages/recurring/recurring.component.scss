@@ -56,10 +56,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  mat-icon { font-size: 1.5rem; width: 1.5rem; height: 1.5rem; }
+  app-icon { width: 1.5rem; height: 1.5rem; }
 
-  &.income-icon  { background: var(--color-income-subtle-2); mat-icon { color: var(--income); } }
-  &.expense-icon { background: var(--color-expense-subtle-2); mat-icon { color: var(--expense); } }
+  &.income-icon  { background: var(--color-income-subtle-2); app-icon { color: var(--income); } }
+  &.expense-icon { background: var(--color-expense-subtle-2); app-icon { color: var(--expense); } }
 }
 
 .sc-body {
@@ -155,7 +155,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
+  app-icon { width: 1.1rem; height: 1.1rem; }
 }
 
 .row-name {
@@ -241,6 +241,11 @@
 }
 
 // ── Skeleton ───────────────────────────────────────────────────────────
+// The loading summary cards carry .summary-card--loading rather than the global .skeleton
+// primitive (see _primitives.scss): that primitive draws its own shimmer ::after, which
+// doubled up with .sk-block's own gradient shimmer below when both were on the same element.
+// .summary-card--loading needs no rules of its own — .summary-card already supplies the
+// layout, and .sk-block supplies the shimmer.
 .skeleton-panel {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -428,7 +433,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  mat-icon { font-size: 1rem; width: 1rem; height: 1rem; }
+  app-icon { width: 1rem; height: 1rem; }
 }
 
 .billed-info {
@@ -481,7 +486,7 @@
   color: var(--text-muted);
   cursor: pointer;
   transition: background 0.13s, color 0.13s;
-  mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
+  app-icon { width: 1.1rem; height: 1.1rem; }
 
   &:hover { background: rgba(248,113,113,0.1); color: var(--expense); }
   &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }

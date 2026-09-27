@@ -50,7 +50,7 @@
         @for (row of distribution; track row.category) {
           <div class="dist-row">
             <div class="dist-icon-wrap" [style.background]="row.color + '22'">
-              <mat-icon [style.color]="row.color">{{ row.icon }}</mat-icon>
+              <app-icon [style.color]="row.color" [name]="row.icon" />
             </div>
             <div class="dist-info">
               <div class="dist-header">
@@ -74,14 +74,14 @@
       <!-- Net savings rate -->
       <div class="card savings-card">
         <div class="savings-label">
-          <mat-icon>trending_up</mat-icon> Net Savings Rate
+          <app-icon name="trending-up" /> Net Savings Rate
         </div>
         <div class="savings-rate" [class.positive]="savingsRate >= 0" [class.negative]="savingsRate < 0">
           {{ savingsRate | number:'1.1-1' }}%
         </div>
         @if (savingsRateChange !== 0) {
           <div class="savings-change" [class.up]="savingsRateChange >= 0" [class.down]="savingsRateChange < 0">
-            <mat-icon>{{ savingsRateChange >= 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
+            <app-icon [name]="savingsRateChange >= 0 ? 'trending-up' : 'trending-down'" />
             {{ savingsRateChange >= 0 ? '+' : '' }}{{ savingsRateChange | number:'1.1-1' }}% vs last month
           </div>
         }

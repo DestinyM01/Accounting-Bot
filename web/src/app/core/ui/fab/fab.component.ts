@@ -1,10 +1,10 @@
 import { Component, ChangeDetectionStrategy } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 import { TransactionFormService } from '../../services/transaction-form.service';
+import { IconComponent } from '../icon/icon.component';
 
 @Component({
     selector: 'app-fab',
-    imports: [MatIconModule],
+    imports: [IconComponent],
     templateUrl: './fab.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./fab.component.scss']

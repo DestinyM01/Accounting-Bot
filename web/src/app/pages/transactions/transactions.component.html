@@ -8,7 +8,7 @@
   <div class="card filters-card">
     <div class="filters-row">
       <div class="search-wrap">
-        <mat-icon class="search-icon">search</mat-icon>
+        <app-icon class="search-icon" name="search" />
         <input class="search-input"
                [(ngModel)]="search"
                (input)="onSearch()"
@@ -23,7 +23,7 @@
             <option [value]="cat">{{ cat | titlecase }}</option>
           }
         </select>
-        <mat-icon class="select-chevron">expand_more</mat-icon>
+        <app-icon class="select-chevron" name="chevron-down" />
       </div>
 
       <div class="filter-group">
@@ -33,7 +33,7 @@
           <option value="income">Income</option>
           <option value="expense">Expense</option>
         </select>
-        <mat-icon class="select-chevron">expand_more</mat-icon>
+        <app-icon class="select-chevron" name="chevron-down" />
       </div>
 
       <div class="filter-group">
@@ -49,7 +49,7 @@
       <button class="review-toggle-btn"
               [class.active]="needsReviewOnly"
               (click)="onNeedsReviewToggle()">
-        <mat-icon>rule</mat-icon>
+        <app-icon name="list-check" />
         Needs Review
       </button>
 
@@ -57,12 +57,12 @@
               [class.active]="unitemizedOnly"
               [attr.aria-pressed]="unitemizedOnly"
               (click)="onUnitemizedToggle()">
-        <mat-icon>local_atm</mat-icon>
+        <app-icon name="cash" />
         Unitemized cash
       </button>
 
       <button class="export-btn" (click)="exportCsv()">
-        <mat-icon>download</mat-icon>
+        <app-icon name="download" />
         Export CSV
       </button>
     </div>
@@ -91,7 +91,7 @@
           <div class="tx-cell tx-main">
             <div class="tx-icon"
                  [class]="isTransfer(tx) ? '' : (tx.isExpense ? 'expense-icon' : 'income-icon')">
-              <mat-icon>{{ catIcon(tx.category) }}</mat-icon>
+              <app-icon [name]="catIcon(tx.category)" />
             </div>
             <div class="tx-info">
               <span class="tx-name">{{ tx.transactionName }}</span>
@@ -103,8 +103,7 @@
             @if (tx.categoryNeedsReview) {
               <div class="review-cell">
                 <span [id]="'guess-' + tx._id" class="cat-pill guess-pill"
-                      [style.background]="catColor(tx.category) + '22'"
-                      [style.color]="catColor(tx.category)">
+                      [style.background]="catColor(tx.category) + '22'">
                   <span class="dot" [style.background]="catColor(tx.category)"></span>
                   {{ tx.category | titlecase }}?{{ isDeletedGuess(tx.category) ? ' (deleted)' : '' }}
                 </span>
@@ -113,7 +112,7 @@
                           [disabled]="reviewing.has(tx._id)"
                           [attr.aria-label]="'Confirm ' + (tx.category | titlecase) + ' for ' + tx.transactionName"
                           (click)="assignCategory(tx, tx.category)">
-                    <mat-icon>check</mat-icon>
+                    <app-icon name="check" />
                   </button>
                 }
                 <select [id]="'pick-' + tx._id" class="review-select"
@@ -133,8 +132,7 @@
               </div>
             } @else {
               <span class="cat-pill"
-                    [style.background]="catColor(tx.category) + '22'"
-                    [style.color]="catColor(tx.category)">
+                    [style.background]="catColor(tx.category) + '22'">
                 <span class="dot" [style.background]="catColor(tx.category)"></span>
                 {{ tx.category | titlecase }}
               </span>
@@ -160,7 +158,7 @@
           </div>
 
           <div class="tx-cell align-right">
-            <mat-icon class="status-icon ok">check_circle</mat-icon>
+            <app-icon class="status-icon ok" name="circle-check" />
           </div>
 
           <div class="tx-cell align-right tx-actions">
@@ -177,17 +175,17 @@
               <button class="act-btn" [disabled]="pendingId === tx._id" (click)="resolve(tx, 'external')" title="A real payment or income">Expense</button>
             }
             @if (confirmingDelete !== tx._id) {
-              <button class="icon-act" (click)="edit(tx)" aria-label="Edit"><mat-icon>edit</mat-icon></button>
+              <button class="icon-act" (click)="edit(tx)" aria-label="Edit"><app-icon name="pencil" /></button>
             }
             <button #delBtn class="icon-act" [class.danger]="confirmingDelete === tx._id"
                     [attr.aria-label]="confirmingDelete === tx._id ? 'Confirm delete' : 'Delete'"
                     [disabled]="pendingId === tx._id"
                     (click)="confirmingDelete === tx._id ? confirmDelete(tx) : askDelete(tx)"
                     (keydown.escape)="cancelDelete(delBtn)">
-              <mat-icon>{{ confirmingDelete === tx._id ? 'check' : 'delete_outline' }}</mat-icon>
+              <app-icon [name]="confirmingDelete === tx._id ? 'check' : 'trash'" />
             </button>
             @if (confirmingDelete === tx._id) {
-              <button class="icon-act" aria-label="Cancel delete" [disabled]="pendingId === tx._id" (click)="cancelDelete(delBtn)"><mat-icon>close</mat-icon></button>
+              <button class="icon-act" aria-label="Cancel delete" [disabled]="pendingId === tx._id" (click)="cancelDelete(delBtn)"><app-icon name="x" /></button>
             }
           </div>
         </div>
@@ -203,7 +201,7 @@
       <div class="load-more-wrap">
         <button class="load-more-btn" (click)="loadMore()" [disabled]="loadingMore">
           {{ loadingMore ? 'Loading…' : 'Load More Transactions' }}
-          @if (!loadingMore) { <mat-icon>expand_more</mat-icon> }
+          @if (!loadingMore) { <app-icon name="chevron-down" /> }
         </button>
       </div>
     }

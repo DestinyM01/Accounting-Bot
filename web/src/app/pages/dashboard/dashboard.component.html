@@ -7,7 +7,7 @@
     </div>
   </div>
 
-  <p class="refresh-error" role="status">{{ refreshError ? (loading ? "Couldn't load the overview — trying again every minute." : "Couldn't refresh — showing the last numbers, trying again every minute.") : '' }}</p>
+  <p class="refresh-error" role="status">{{ refreshError ? (loading ? "Couldn't load the overview. Trying again every minute." : "Couldn't refresh. Showing the last numbers, trying again every minute.") : '' }}</p>
 
   @if (loading) {
     @if (!refreshError) {
@@ -40,7 +40,7 @@
       @if (s.sub) {
         <div class="stat-sub">{{ s.sub }}</div>
       }
-      <mat-icon class="ghost-icon">{{ s.icon }}</mat-icon>
+      <app-icon class="ghost-icon" [name]="s.icon" />
     </ng-template>
 
     <!-- Chart + Categories row -->
@@ -96,7 +96,7 @@
       @for (tx of recentTx; track tx._id) {
         <div class="tx-row">
           <div class="tx-icon" [class]="(tx.transferKind === 'internal' || tx.transferKind === 'unresolved') ? '' : (tx.isExpense ? 'expense-icon' : 'income-icon')">
-            <mat-icon>{{ txIcon(tx) }}</mat-icon>
+            <app-icon [name]="txIcon(tx)" />
           </div>
           <div class="tx-info">
             <span class="tx-name">{{ tx.transactionName }}</span>

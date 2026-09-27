@@ -8,8 +8,7 @@
         @for (item of cash.items; track item.id; let i = $index) {
           <li class="cash-item">
             <span class="cat-pill"
-                  [style.background]="catColor(item.category) + '22'"
-                  [style.color]="catColor(item.category)">
+                  [style.background]="catColor(item.category) + '22'">
               <span class="dot" [style.background]="catColor(item.category)"></span>
               {{ item.category | titlecase }}
             </span>
@@ -18,7 +17,7 @@
             <button [id]="'remove-' + item.id" type="button" class="icon-act" [disabled]="busy"
                     [attr.aria-label]="removeLabel(item, item.amount | currency:'USD':'symbol':'1.2-2')"
                     (click)="remove(i)">
-              <mat-icon>close</mat-icon>
+              <app-icon name="x" />
             </button>
           </li>
         }

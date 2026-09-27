@@ -23,15 +23,13 @@
               "src/silent-renew.html"
             ],
             "styles": [
-              "node_modules/@angular/material/prebuilt-themes/purple-green.css",
-              "node_modules/@fontsource/geist/400.css",
-              "node_modules/@fontsource/geist/600.css",
-              "node_modules/@fontsource/geist/700.css",
-              "node_modules/@fontsource/geist-mono/400.css",
+              "node_modules/@fontsource-variable/outfit/index.css",
+              "node_modules/@fontsource-variable/jetbrains-mono/index.css",
               "src/tokens.css",
               "src/styles.scss"
             ],
-            "scripts": []
+            "scripts": [],
+            "loader": { ".svg": "text" }
           },
           "configurations": {
             "production": {
@@ -45,6 +43,14 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "preview": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "fileReplacements": [
+                { "replace": "src/app/app.config.ts", "with": "src/preview/app.config.preview.ts" }
+              ]
             }
           },
           "defaultConfiguration": "production"
@@ -53,7 +59,8 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": { "buildTarget": "web:build:production" },
-            "development": { "buildTarget": "web:build:development" }
+            "development": { "buildTarget": "web:build:development" },
+            "preview": { "buildTarget": "web:build:preview" }
           },
           "defaultConfiguration": "development"
         }

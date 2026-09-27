@@ -1,151 +1,192 @@
-<div class="shell" [class.sidebar-collapsed]="sidebarCollapsed" [class.mobile-open]="mobileOpen">
-  <div class="drawer-backdrop" (click)="toggleMobile()" aria-hidden="true"></div>
-  <!-- Sidebar -->
-  <nav class="sidebar">
-    <div class="sidebar-brand">
-      <div class="brand-icon"><mat-icon>account_balance</mat-icon></div>
-      @if (!sidebarCollapsed) {
-        <div class="brand-text">
-          <span class="brand-name">AccBot</span>
-          <span class="brand-sub">Personal Finance</span>
-        </div>
+<header class="shell-bar">
+  <div class="shell-bar-inner">
+    <a class="shell-brand" routerLink="/dashboard">
+      <app-icon name="chart-candle" [size]="20" />
+      <span>AccBot</span>
+    </a>
+
+    <nav class="shell-nav" aria-label="Primary">
+      @for (item of primaryNav; track item.path) {
+        <a class="shell-nav-link" [routerLink]="item.path" routerLinkActive="is-active">
+          {{ item.label }}
+        </a>
       }
-      <button class="collapse-btn" (click)="toggleSidebar()" [title]="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
-        <mat-icon>{{ sidebarCollapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
-      </button>
-    </div>
 
-    <ul class="nav-list">
-      @for (item of navItems; track item.path) {
-        <li>
-          <a class="nav-item"
-             [routerLink]="item.path"
-             routerLinkActive="active"
-             [title]="sidebarCollapsed ? item.label : ''">
-            <mat-icon>{{ item.icon }}</mat-icon>
-            @if (!sidebarCollapsed) { <span>{{ item.label }}</span> }
-          </a>
-        </li>
-      }
-    </ul>
-
-    <div class="sidebar-footer">
-      <div class="avatar" [title]="userName">{{ initials }}</div>
-      @if (!sidebarCollapsed) {
-        <span class="footer-name">{{ userName }}</span>
-        <button class="logout-btn" (click)="logout()" title="Logout">
-          <mat-icon>logout</mat-icon>
-        </button>
-      }
-    </div>
-  </nav>
-
-  <!-- Main area -->
-  <div class="main">
-    <!-- Top bar -->
-    <header class="topbar">
-      <button class="hamburger-btn"
-              (click)="toggleMobile()"
-              [attr.aria-expanded]="mobileOpen"
-              aria-label="Toggle navigation">
-        <mat-icon>{{ mobileOpen ? 'close' : 'menu' }}</mat-icon>
-      </button>
-      <div class="topbar-right">
-
-        <!-- Notifications -->
-        <div class="notif-wrap">
-          <button class="icon-btn" (click)="toggleNotifications()" title="Notifications">
-            <mat-icon>notifications_none</mat-icon>
-            @if (notifCount > 0) {
-              <span class="notif-badge">{{ notifCount }}</span>
-            }
+      @for (group of navGroups; track group.label) {
+        <div class="shell-menu-wrap">
+          <button #groupBtn
+                  type="button"
+                  class="shell-nav-link shell-nav-group-btn"
+                  [class.is-active]="isGroupActive(group)"
+                  aria-haspopup="menu"
+                  [attr.aria-expanded]="openMenu === group.label"
+                  (click)="toggleMenu(group.label, groupBtn)">
+            {{ group.label }}
+            <app-icon name="chevron-down" [size]="14" />
           </button>
 
-          @if (notifOpen) {
-            <div class="dropdown-panel notif-panel">
-              <div class="dp-header">
-                <span>Notifications</span>
-                @if (notifCount > 0) {
-                  <span class="dp-count">{{ notifCount }} alert{{ notifCount !== 1 ? 's' : '' }}</span>
-                }
-              </div>
-
-              @if (notifLoading) {
-                <p class="dp-empty">Loading…</p>
-              } @else if (!budgetAlerts.length) {
-                <div class="dp-ok">
-                  <mat-icon>check_circle</mat-icon>
-                  All budgets are on track
-                </div>
-              } @else {
-                @for (b of budgetAlerts; track b.category) {
-                  <div class="notif-item" [class.critical]="b.percentage >= 90">
-                    <div class="notif-icon">
-                      <mat-icon>{{ b.percentage >= 100 ? 'error' : 'warning_amber' }}</mat-icon>
-                    </div>
-                    <div class="notif-body">
-                      <div class="notif-title">{{ b.category | titlecase }} budget</div>
-                      <div class="notif-sub">
-                        {{ b.percentage }}% used — {{ b.remaining >= 0 ? (b.remaining | currency:'USD':'symbol':'1.0-0') + ' left' : 'over by ' + ((-b.remaining) | currency:'USD':'symbol':'1.0-0') }}
-                      </div>
-                      <div class="notif-bar">
-                        <div class="notif-bar-fill"
-                             [style.transform]="'scaleX(' + budgetBarScale(b.percentage) + ')'"
-                             [style.background]="budgetBarBg(b.percentage)">
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                }
+          @if (openMenu === group.label) {
+            <div class="menu shell-group-menu" role="menu" [attr.aria-label]="group.label" (keydown)="onMenuKeydown($event)">
+              @for (item of group.items; track item.path) {
+                <a role="menuitem" [routerLink]="item.path" (click)="closeMenu()">
+                  <app-icon [name]="item.icon" [size]="17" />
+                  {{ item.label }}
+                </a>
               }
             </div>
           }
         </div>
+      }
+    </nav>
 
-        <!-- Settings -->
-        <div class="settings-wrap">
-          <button class="icon-btn" (click)="toggleSettings()" title="Settings" [class.active]="settingsOpen">
-            <mat-icon>settings</mat-icon>
-          </button>
+    <div class="shell-right">
+      <div class="shell-menu-wrap">
+        <button #notifBtn
+                type="button"
+                class="shell-iconbtn"
+                aria-haspopup="menu"
+                [attr.aria-expanded]="openMenu === 'notifications'"
+                aria-label="Notifications"
+                (click)="toggleMenu('notifications', notifBtn)">
+          <app-icon name="bell" [size]="19" />
+          @if (notifCount > 0) { <span class="shell-badge">{{ notifCount }}</span> }
+        </button>
 
-          @if (settingsOpen) {
-            <div class="dropdown-panel settings-panel">
-              <div class="dp-header">Account</div>
-
-              <div class="settings-user">
-                <div class="avatar sm">{{ initials }}</div>
-                <div>
-                  <div class="settings-name">{{ userName }}</div>
-                  @if (userEmail) { <div class="settings-email">{{ userEmail }}</div> }
-                </div>
-              </div>
-
-              <div class="settings-divider"></div>
-
-              <a class="settings-item" routerLink="/settings" (click)="settingsOpen = false">
-                <mat-icon>tune</mat-icon>
-                Settings
-              </a>
-              <a class="settings-item" [href]="authentikProfileUrl" target="_blank" rel="noopener">
-                <mat-icon>manage_accounts</mat-icon>
-                Edit Profile
-              </a>
-              <button class="settings-item danger" (click)="logout()">
-                <mat-icon>logout</mat-icon>
-                Sign Out
-              </button>
+        @if (openMenu === 'notifications') {
+          <div class="menu shell-notif-menu" role="menu" aria-label="Notifications" (keydown)="onMenuKeydown($event)">
+            <div class="shell-menu-header">
+              <span>Notifications</span>
+              @if (notifCount > 0) {
+                <span class="tag tag--neg">{{ notifCount }} alert{{ notifCount !== 1 ? 's' : '' }}</span>
+              }
             </div>
-          }
-        </div>
 
+            @if (notifLoading) {
+              <div class="shell-notif-skeleton" role="status" aria-label="Loading notifications">
+                <div class="skeleton shell-notif-skeleton-row"></div>
+                <div class="skeleton shell-notif-skeleton-row"></div>
+              </div>
+            } @else if (!budgetAlerts.length) {
+              <div class="empty">
+                <app-icon name="circle-check" [size]="20" />
+                All budgets are on track
+              </div>
+            } @else {
+              @for (b of budgetAlerts; track b.category) {
+                <a class="shell-notif-row" role="menuitem" routerLink="/budget" (click)="closeMenu()" [class.is-critical]="b.percentage >= 90">
+                  <div class="shell-notif-row-top">
+                    <span>{{ b.category | titlecase }} budget</span>
+                    <span class="tag" [class.tag--neg]="b.percentage >= 100" [class.tag--warn]="b.percentage < 100">
+                      {{ b.percentage }}%
+                    </span>
+                  </div>
+                  <div class="shell-notif-row-sub">
+                    {{ b.remaining >= 0 ? (b.remaining | currency:'USD':'symbol':'1.0-0') + ' left' : 'over by ' + ((-b.remaining) | currency:'USD':'symbol':'1.0-0') }}
+                  </div>
+                  <div class="shell-notif-bar">
+                    <div class="shell-notif-bar-fill"
+                         [style.transform]="'scaleX(' + budgetBarScale(b.percentage) + ')'"
+                         [style.background]="budgetBarBg(b.percentage)">
+                    </div>
+                  </div>
+                </a>
+              }
+            }
+          </div>
+        }
       </div>
-    </header>
 
-    <div class="content">
-      <router-outlet />
+      <div class="shell-menu-wrap shell-settings-wrap">
+        <button #settingsBtn
+                type="button"
+                class="shell-iconbtn"
+                aria-haspopup="menu"
+                [attr.aria-expanded]="openMenu === 'settings'"
+                aria-label="Settings"
+                (click)="toggleMenu('settings', settingsBtn)">
+          <app-icon name="settings" [size]="19" />
+        </button>
+
+        @if (openMenu === 'settings') {
+          <div class="menu shell-settings-menu" role="menu" aria-label="Account" (keydown)="onMenuKeydown($event)">
+            <div class="shell-settings-user" role="presentation">
+              <div class="shell-settings-avatar">{{ initials }}</div>
+              <div class="shell-settings-user-info">
+                <div class="shell-settings-name">{{ userName }}</div>
+                @if (userEmail) { <div class="shell-settings-email">{{ userEmail }}</div> }
+              </div>
+            </div>
+
+            <a role="menuitem" routerLink="/settings" (click)="closeMenu()">
+              <app-icon name="adjustments-horizontal" [size]="17" />
+              Settings
+            </a>
+            <a role="menuitem" [href]="authentikProfileUrl" target="_blank" rel="noopener" (click)="closeMenu()">
+              <app-icon name="user" [size]="17" />
+              Profile
+              <app-icon name="external-link" [size]="14" class="shell-menu-external" />
+            </a>
+            <button type="button" role="menuitem" (click)="logout(); closeMenu()">
+              <app-icon name="logout" [size]="17" />
+              Log out
+            </button>
+          </div>
+        }
+      </div>
+
+      <button #sheetToggleBtn
+              type="button"
+              class="shell-iconbtn shell-phone-toggle"
+              [attr.aria-expanded]="sheetOpen"
+              aria-controls="shell-sheet"
+              aria-label="Toggle navigation menu"
+              (click)="toggleSheet(sheetToggleBtn)"
+              (keydown)="onSheetKeydown($event)">
+        <app-icon [name]="sheetOpen ? 'x' : 'menu-2'" [size]="21" />
+      </button>
     </div>
+  </div>
+</header>
 
-    <app-fab />
-    <app-transaction-form />
+<div class="shell-scrim" [class.shell-scrim--open]="sheetOpen" (click)="closeSheet()" aria-hidden="true"></div>
+
+<div id="shell-sheet" class="sheet shell-sheet" [class.shell-sheet--open]="sheetOpen" role="dialog" aria-modal="true" aria-label="Navigation" (keydown)="onSheetKeydown($event)">
+  <nav class="shell-sheet-nav" aria-label="Primary">
+    @for (item of primaryNav; track item.path) {
+      <a class="shell-sheet-link" [routerLink]="item.path" routerLinkActive="is-active" (click)="closeSheet()">
+        <app-icon [name]="item.icon" [size]="20" />
+        {{ item.label }}
+      </a>
+    }
+  </nav>
+
+  @for (group of navGroups; track group.label) {
+    <div class="shell-sheet-group">
+      <div class="shell-sheet-group-label">{{ group.label }}</div>
+      @for (item of group.items; track item.path) {
+        <a class="shell-sheet-link" [routerLink]="item.path" routerLinkActive="is-active" (click)="closeSheet()">
+          <app-icon [name]="item.icon" [size]="20" />
+          {{ item.label }}
+        </a>
+      }
+    </div>
+  }
+
+  <div class="shell-sheet-group">
+    <a class="shell-sheet-link" routerLink="/settings" routerLinkActive="is-active" (click)="closeSheet()">
+      <app-icon name="settings" [size]="20" />
+      Settings
+    </a>
+    <button type="button" class="shell-sheet-link" (click)="logout()">
+      <app-icon name="logout" [size]="20" />
+      Log out
+    </button>
   </div>
 </div>
+
+<main class="shell-main" tabindex="-1">
+  <router-outlet />
+</main>
+
+<app-fab />
+<app-transaction-form />

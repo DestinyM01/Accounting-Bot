@@ -7,15 +7,15 @@ interface CategoryDef { color: string; icon: string; }
 export class CategoryService {
   /** Built-in definitions — single source of truth for the whole web app. */
   private readonly BUILT_IN: Record<string, CategoryDef> = {
-    food:          { color: '#10e5a0', icon: 'restaurant'       },
-    transport:     { color: '#fb923c', icon: 'directions_car'   },
-    housing:       { color: '#38bdf8', icon: 'home'             },
-    health:        { color: '#a78bfa', icon: 'medical_services' },
-    entertainment: { color: '#f472b6', icon: 'movie'            },
-    salary:        { color: '#10e5a0', icon: 'payments'         },
-    savings:       { color: '#34d399', icon: 'savings'          },
-    other:         { color: '#94a3b8', icon: 'receipt_long'     },
-    cash:          { color: '#84cc16', icon: 'local_atm'        },
+    food:          { color: '#3fb68b', icon: 'tools-kitchen-2' },
+    transport:     { color: '#e08a4a', icon: 'car'             },
+    housing:       { color: '#4aa3d8', icon: 'home'            },
+    health:        { color: '#9b86e0', icon: 'first-aid-kit'   },
+    entertainment: { color: '#d777a8', icon: 'movie'           },
+    salary:        { color: '#3fb68b', icon: 'cash-banknote'   },
+    savings:       { color: '#52b788', icon: 'pig-money'       },
+    other:         { color: '#8b95a3', icon: 'receipt'         },
+    cash:          { color: '#8fb339', icon: 'cash'            },
   };
 
   private customMap: Record<string, CategoryDef> = {};
@@ -36,11 +36,11 @@ export class CategoryService {
       next: (cats) => {
         const custom = cats.filter((c) => !c.isBuiltIn);
         this.customMap = Object.fromEntries(
-          custom.map((c) => [c.name.toLowerCase(), { color: c.color, icon: 'label' }]),
+          custom.map((c) => [c.name.toLowerCase(), { color: c.color, icon: 'tag' }]),
         );
         this._all = [
           ...Object.entries(this.BUILT_IN).map(([name, d]) => ({ name, ...d, isBuiltIn: true })),
-          ...custom.map((c) => ({ name: c.name, color: c.color, icon: 'label', isBuiltIn: false })),
+          ...custom.map((c) => ({ name: c.name, color: c.color, icon: 'tag', isBuiltIn: false })),
         ];
         this.loaded = true;
       },
@@ -54,7 +54,7 @@ export class CategoryService {
 
   icon(name: string): string {
     const n = name.toLowerCase();
-    return this.BUILT_IN[n]?.icon ?? 'label';
+    return this.BUILT_IN[n]?.icon ?? 'tag';
   }
 
   /** All categories — built-ins first, then custom. Use in dropdowns. */

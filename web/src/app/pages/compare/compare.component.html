@@ -35,7 +35,7 @@
       <button class="compare-btn"
               [disabled]="!canCompare || comparing"
               (click)="compare()">
-        <mat-icon [class.spin]="comparing">{{ comparing ? 'autorenew' : 'compare_arrows' }}</mat-icon>
+        <app-icon [class.spin]="comparing" [name]="comparing ? 'refresh' : 'arrows-diff'" />
         {{ comparing ? 'Analyzing…' : 'Compare' }}
       </button>
 
@@ -45,7 +45,7 @@
   <!-- Error -->
   @if (error) {
     <div class="empty-state">
-      <mat-icon class="empty-icon error-icon">error_outline</mat-icon>
+      <app-icon class="empty-icon error-icon" name="alert-circle" />
       <p>{{ error }}</p>
       <button class="retry-btn" (click)="compare()">Try Again</button>
     </div>
@@ -96,7 +96,7 @@
     <!-- AI Analysis -->
     <div class="analysis-panel">
       <div class="analysis-header">
-        <mat-icon class="analysis-icon">psychology</mat-icon>
+        <app-icon class="analysis-icon" name="brain" />
         <span class="analysis-title">AI Analysis</span>
       </div>
       <p class="analysis-text">{{ result.analysis }}</p>

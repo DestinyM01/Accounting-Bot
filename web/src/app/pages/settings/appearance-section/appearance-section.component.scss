@@ -1,0 +1,37 @@
+// The System / Dark / Light segmented control. Everything else this section
+// needs (heading, helper text) comes from settings-section.scss.
+.theme-switch {
+  display: inline-flex;
+  // Sized to its options, even inside a stretching column.
+  width: fit-content;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+}
+
+.theme-switch-opt {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  font: 600 13px var(--font-sans);
+  padding: 7px 16px;
+  border-radius: var(--radius-mark);
+  cursor: pointer;
+  transition: background var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
+
+  &:hover { color: var(--ink); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  &.selected {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+}
+
+@media (max-width: 480px) {
+  .theme-switch { display: flex; }
+  .theme-switch-opt { flex: 1 1 0; text-align: center; }
+}

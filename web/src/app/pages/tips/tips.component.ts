@@ -1,18 +1,21 @@
 import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/services/api.service';
 import { Tip } from '../../core/services/api.models';
+import { IconComponent } from '../../core/ui/icon/icon.component';
+import { tablerIcon } from '../../core/ui/icon/icons';
 
 @Component({
     selector: 'app-tips',
-    imports: [MatIconModule],
+    imports: [IconComponent],
     templateUrl: './tips.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./tips.component.scss']
 })
 export class TipsComponent implements OnInit {
+  readonly tablerIcon = tablerIcon;
+
   tips: Tip[] = [];
   loading = false;
   refreshing = false;

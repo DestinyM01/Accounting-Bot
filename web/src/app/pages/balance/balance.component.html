@@ -15,7 +15,7 @@
     </div>
     @if (!formOpen) {
       <button #setBtn type="button" class="fc-btn fc-btn--primary" [disabled]="headerLoading || !!headerError" (click)="openForm()">
-        <mat-icon>edit</mat-icon> Set balance
+        <app-icon name="pencil" /> Set balance
       </button>
     }
   </div>
@@ -45,7 +45,7 @@
         <div class="bal-actions">
           <button type="button" class="fc-btn fc-btn--ghost" [disabled]="saving" (click)="cancelForm()">Cancel</button>
           <button type="submit" class="fc-btn fc-btn--primary" [disabled]="!canConfirm">
-            <mat-icon>{{ saving ? 'hourglass_empty' : 'check' }}</mat-icon> {{ saving ? 'Saving…' : 'Confirm' }}
+            <app-icon [name]="saving ? 'hourglass' : 'check'" /> {{ saving ? 'Saving…' : 'Confirm' }}
           </button>
         </div>
       </form>

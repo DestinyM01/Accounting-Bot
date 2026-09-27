@@ -18,7 +18,7 @@
   <!-- Error -->
   @if (!loading && error) {
     <div class="empty-state">
-      <mat-icon class="empty-icon error-icon">error_outline</mat-icon>
+      <app-icon class="empty-icon error-icon" name="alert-circle" />
       <p>{{ error }}</p>
     </div>
   }
@@ -61,7 +61,7 @@
     <div class="chart-panel">
       @if (!selectedName) {
         <div class="chart-empty">
-          <mat-icon class="chart-empty-icon">touch_app</mat-icon>
+          <app-icon class="chart-empty-icon" name="hand-finger" />
           <p>Select a transaction above to see its history</p>
         </div>
       } @else if (chartLoading) {

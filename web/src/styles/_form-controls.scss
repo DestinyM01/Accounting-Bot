@@ -5,10 +5,13 @@
   > span { font-size: 0.75rem; color: var(--text-muted); }
 }
 .fc-input {
-  background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 10px;
-  color: var(--text); font-size: 0.875rem; font-family: var(--font-body);
-  padding: 9px 14px; outline: none; transition: border-color 0.15s;
-  &:focus-visible { border-color: var(--color-accent); }
+  // --line-control, not --line-strong: --line-strong falls short of the 3:1 minimum for a UI
+  // boundary against --surface-raised in both themes (see tokens.css); --line-control clears it.
+  background: var(--surface-raised); border: 1px solid var(--line-control); border-radius: var(--radius-control);
+  color: var(--ink); font-size: 0.875rem; font-family: var(--font-sans);
+  padding: 9px 14px; outline: none; transition: border-color var(--dur-short) var(--ease-out);
+  &::placeholder { color: var(--ink-3); }
+  &:focus-visible { border-color: var(--focus); outline: 2px solid var(--focus); outline-offset: 1px; }
 }
 .fc-btn {
   display: inline-flex; align-items: center; gap: 6px;
@@ -16,7 +19,7 @@
   font-family: var(--font-body); font-size: 0.875rem;
   &:disabled { opacity: 0.5; cursor: not-allowed; }
   &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-  mat-icon { font-size: 1rem; width: 1rem; height: 1rem; }
+  app-icon { width: 16px; height: 16px; }
 }
 .fc-btn--primary { background: var(--accent); color: var(--color-accent-ink); border: none; font-weight: 600;
   &:hover:not(:disabled) { opacity: 0.85; }

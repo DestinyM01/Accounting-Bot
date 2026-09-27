@@ -1,53 +1,58 @@
-/* Hallmark · genre: atmospheric · macrostructure: Workbench (app)
- * theme: custom atmospheric · anchor: oklch(70% 0.14 200) cyan-teal
- * display: Geist 700 · body: Inter 400/500
- * design-system: design.md · designed-as-app
+/* Design tokens · direction "Instrument"
+ * Dense, data-first, one amber accent. Dark and light themes.
+ * Outfit (display/body) + JetBrains Mono (figures).
+ * See web/design.md for the full design system this implements.
  */
 :root {
-  /* ── Surfaces ─────────────────────────────────────────────────────── */
-  --color-paper:          oklch(13%   0.03  230);
-  --color-paper-2:        oklch(16%   0.04  230);
-  --color-paper-3:        oklch(18%   0.04  230);
-  --color-paper-sidebar:  oklch(14.5% 0.035 230);
+  /* ── Surfaces (dark, default) ────────────────────────────────────────── */
+  --surface:         #0e1013;
+  --surface-raised:  #151920;
+  --surface-overlay: #1a1f27;
 
-  /* ── Ink ──────────────────────────────────────────────────────────── */
-  --color-ink:            oklch(90%   0.015 230);
-  --color-ink-2:          oklch(60%   0.02  230);   /* ≥ 4.5:1 on paper, card and card-alt */
-  --color-rule:           oklch(100%  0     0 / 7%);
+  /* ── Lines ────────────────────────────────────────────────────────────── */
+  --line:         #1c2026;
+  --line-strong:  #2a303a;
+  --line-control: #64707f; /* input/select/textarea borders — >= 3:1 on surface-raised */
 
-  /* ── Brand accent ─────────────────────────────────────────────────── */
-  --color-accent:         oklch(70%   0.14  200);
-  --color-accent-light:   oklch(72%   0.12  230);
-  --color-accent-subtle:  oklch(70%   0.14  200 / 18%);
-  --color-accent-ink:     oklch(98%   0.01  200);
-  --color-focus:          oklch(70%   0.14  200);
+  /* ── Text ─────────────────────────────────────────────────────────────── */
+  --ink:   #e3e6ea;
+  --ink-2: #8a93a0; /* supporting text, >= 4.5:1 on surface/surface-raised */
+  --ink-3: #808896; /* placeholders and captions — text-weight use, >= 4.5:1 on surface/surface-raised/surface-overlay */
 
-  /* ── Semantic ─────────────────────────────────────────────────────── */
-  --color-income:         oklch(81%   0.18  168);
-  --color-expense:        oklch(72%   0.18   25);
-  --color-net:            oklch(74%   0.15  210);
-  --color-warning:        oklch(77%   0.17   80);
+  /* ── Accent (one amber) ───────────────────────────────────────────────── */
+  --accent:      #f0b34a;
+  --accent-ink:  #f0b34a;
+  --accent-wash: rgb(240 179 74 / 12%);
+  --on-accent:   #1b1407;
 
-  /* ── Subtle tints ─────────────────────────────────────────────────── */
-  --color-expense-subtle: oklch(72%   0.18   25 / 8%);
-  --color-warning-subtle: oklch(77%   0.17   80 / 8%);
-  --color-income-subtle:  oklch(81%   0.18  168 / 6%);
+  /* ── Data colors ──────────────────────────────────────────────────────── */
+  --pos:  #7fd1a8;
+  --neg:  #ef8a80;
+  --warn: #f0b34a;
+  --pos-wash:  rgb(127 209 168 / 12%);
+  --neg-wash:  rgb(239 138 128 / 12%);
+  --warn-wash: rgb(240 179 74 / 12%);
 
-  /* ── Typography ───────────────────────────────────────────────────── */
-  --font-display: 'Geist', sans-serif;
-  --font-body:    'Inter', sans-serif;
-  --font-mono:    'Geist Mono', monospace;
+  /* ── Focus and overlays ───────────────────────────────────────────────── */
+  --focus:       #f0b34a;
+  --shadow-menu: 0 18px 40px -18px rgb(0 0 0 / 60%);
+  --scrim:       rgb(0 0 0 / 55%);
 
-  /* ── Type scale ───────────────────────────────────────────────────── */
-  --text-xs:          0.75rem;
-  --text-sm:          0.875rem;
-  --text-md:          1rem;
-  --text-lg:          1.125rem;
-  --text-xl:          1.375rem;
-  --text-2xl:         1.75rem;
-  --text-page-title:  clamp(1.5rem, 2.5vw, 1.75rem);
+  /* ── Fonts ────────────────────────────────────────────────────────────── */
+  --font-sans: 'Outfit Variable', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
 
-  /* ── Spacing (4-pt scale) ─────────────────────────────────────────── */
+  /* ── Type scale ───────────────────────────────────────────────────────── */
+  --text-xs:  0.75rem;
+  --text-sm:  0.875rem;
+  --text-md:  1rem;
+  --text-lg:  1.125rem;
+  --text-xl:  1.375rem;
+  --text-2xl: 1.75rem;
+  --text-figure-lg: 2.75rem;
+  --text-page-title: clamp(1.5rem, 2.5vw, 1.75rem);
+
+  /* ── Spacing (4-pt scale) ─────────────────────────────────────────────── */
   --space-3xs: 0.25rem;
   --space-2xs: 0.5rem;
   --space-xs:  0.75rem;
@@ -57,34 +62,167 @@
   --space-xl:  3rem;
   --space-2xl: 4.5rem;
 
-  /* ── Motion ───────────────────────────────────────────────────────── */
-  --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-short:  150ms;
-  --dur-base:   220ms;
+  /* ── Radius (shape lock: three radii, plus one hairline mark radius for
+   *  small square marks — swatches, dots, active-tab corners — that would
+   *  look like circles at any of the three radii above) ─────────────────── */
+  --radius-panel:   12px;
+  --radius-control: 8px;
+  --radius-tag:     6px;
+  --radius-mark:    2px;
 
-  /* ── Radius ───────────────────────────────────────────────────────── */
-  --radius:      14px;
-  --radius-sm:   8px;
-  --radius-pill: 20px;
+  /* ── Motion ───────────────────────────────────────────────────────────── */
+  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-short: 150ms;
+  --dur-base:  220ms;
 
-  /* ── Legacy aliases — existing components use these, they still work ─ */
-  --bg:          var(--color-paper);
-  --bg-card:     var(--color-paper-2);
-  --bg-card-alt: var(--color-paper-3);
-  --border:      var(--color-rule);
-  --text:        var(--color-ink);
-  --text-muted:  var(--color-ink-2);
-  --income:      var(--color-income);
-  --expense:     var(--color-expense);
-  --net:         var(--color-net);
-  --accent:      var(--color-accent);
-  /* ── Layout (not color, still legacy) ──────────────────────────────── */
-  --sidebar-w:   240px;   /* consumed by app.component.scss — safe if styles.scss :root removed */
+  /* ── Z-index ──────────────────────────────────────────────────────────── */
+  --z-bar:   20;
+  --z-menu:  40;
+  --z-sheet: 60;
+  --z-toast: 80;
 
-  /* ── Hallmark audit additions 2026-05-27 ──────────────────────────────── */
-  --color-surface-hover:    oklch(100%  0     0 / 6%);   /* white overlay — hover/track surfaces   */
-  --color-income-subtle-2:  oklch(81%   0.18  168 / 12%);/* income tint at 12% — icon backgrounds  */
-  --color-expense-subtle-2: oklch(72%   0.18   25 / 12%);/* expense tint at 12% — icon backgrounds */
-  --color-accent-ink-muted: oklch(98%   0.01  200 / 65%);/* subdued text on accent surface          */
-  --overlay-scrim: oklch(0% 0 0 / 50%);   /* same value the drawer backdrop uses */
+  /* ── Compatibility aliases ────────────────────────────────────────────
+   * Every old token name used anywhere in web/src, kept as an alias of a
+   * new one, so pages not yet restyled keep working in both themes. These
+   * resolve live against whichever theme block below is active, because
+   * they hold an unresolved var() reference, not a copied value.
+   * Stage 4 removes whichever of these nothing uses any more.
+   */
+  --bg:          var(--surface);
+  --bg-card:     var(--surface);
+  --bg-card-alt: var(--surface-raised);
+  --border:      var(--line);
+  --text:        var(--ink);
+  --text-muted:  var(--ink-2);
+  --income:      var(--pos);
+  --expense:     var(--neg);
+  --net:         var(--ink);
+
+  --color-paper:         var(--surface);
+  --color-paper-2:       var(--surface-raised);
+  --color-paper-3:       var(--surface-overlay);
+  --color-ink:   var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-rule:  var(--line);
+
+  --color-accent:           var(--accent);
+  --color-accent-light:     var(--accent-ink);
+  --color-accent-subtle:    var(--accent-wash);
+  --color-accent-ink:       var(--on-accent);
+  --color-accent-ink-muted: color-mix(in srgb, var(--on-accent) 65%, transparent);
+  --color-focus: var(--focus);
+
+  --color-income:           var(--pos);
+  --color-income-subtle:    var(--pos-wash);
+  --color-income-subtle-2:  var(--pos-wash);
+  --color-expense:          var(--neg);
+  --color-expense-subtle:   var(--neg-wash);
+  --color-expense-subtle-2: var(--neg-wash);
+  --color-warning:          var(--warn);
+  --color-warning-subtle:   var(--warn-wash);
+  --color-net: var(--ink);
+
+  --color-surface-hover: var(--accent-wash);
+  --overlay-scrim:       var(--scrim);
+
+  --font-display: var(--font-sans);
+  --font-body:    var(--font-sans);
+
+  --radius:      var(--radius-panel);
+  --radius-sm:   var(--radius-control);
+  --radius-pill: var(--radius-tag);
+}
+
+/* ── Light theme: follows the system when no explicit choice is set ─────── */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --surface:         #f6f7f9;
+    --surface-raised:  #ffffff;
+    --surface-overlay: #ffffff;
+
+    --line:         #e1e4ea;
+    --line-strong:  #cdd2da;
+    --line-control: #7c8490;
+
+    --ink:   #14171c;
+    --ink-2: #525b67;
+    --ink-3: #666f7b;
+
+    --accent:      #e8a33a;
+    --accent-ink:  #9a5b0c;
+    --accent-wash: #fbefd9;
+    --on-accent:   #241703;
+
+    --pos:  #1d7a52;
+    --neg:  #b93a2f;
+    --warn: #9a5b0c;
+    --pos-wash:  rgb(29 122 82 / 10%);
+    --neg-wash:  rgb(185 58 47 / 10%);
+    --warn-wash: rgb(154 91 12 / 10%);
+
+    --focus:       #9a5b0c;
+    --shadow-menu: 0 18px 40px -18px rgb(20 23 28 / 25%);
+    --scrim:       rgb(20 23 28 / 40%);
+  }
+}
+
+/* ── Explicit choice: Settings -> Appearance ─────────────────────────────── */
+:root[data-theme='light'] {
+  --surface:         #f6f7f9;
+  --surface-raised:  #ffffff;
+  --surface-overlay: #ffffff;
+
+  --line:         #e1e4ea;
+  --line-strong:  #cdd2da;
+  --line-control: #7c8490;
+
+  --ink:   #14171c;
+  --ink-2: #525b67;
+  --ink-3: #666f7b;
+
+  --accent:      #e8a33a;
+  --accent-ink:  #9a5b0c;
+  --accent-wash: #fbefd9;
+  --on-accent:   #241703;
+
+  --pos:  #1d7a52;
+  --neg:  #b93a2f;
+  --warn: #9a5b0c;
+  --pos-wash:  rgb(29 122 82 / 10%);
+  --neg-wash:  rgb(185 58 47 / 10%);
+  --warn-wash: rgb(154 91 12 / 10%);
+
+  --focus:       #9a5b0c;
+  --shadow-menu: 0 18px 40px -18px rgb(20 23 28 / 25%);
+  --scrim:       rgb(20 23 28 / 40%);
+}
+
+:root[data-theme='dark'] {
+  --surface:         #0e1013;
+  --surface-raised:  #151920;
+  --surface-overlay: #1a1f27;
+
+  --line:         #1c2026;
+  --line-strong:  #2a303a;
+  --line-control: #64707f;
+
+  --ink:   #e3e6ea;
+  --ink-2: #8a93a0;
+  --ink-3: #808896;
+
+  --accent:      #f0b34a;
+  --accent-ink:  #f0b34a;
+  --accent-wash: rgb(240 179 74 / 12%);
+  --on-accent:   #1b1407;
+
+  --pos:  #7fd1a8;
+  --neg:  #ef8a80;
+  --warn: #f0b34a;
+  --pos-wash:  rgb(127 209 168 / 12%);
+  --neg-wash:  rgb(239 138 128 / 12%);
+  --warn-wash: rgb(240 179 74 / 12%);
+
+  --focus:       #f0b34a;
+  --shadow-menu: 0 18px 40px -18px rgb(0 0 0 / 60%);
+  --scrim:       rgb(0 0 0 / 55%);
 }

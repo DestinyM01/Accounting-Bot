@@ -1,0 +1,22 @@
+<section class="card set-section" aria-labelledby="appearance-title">
+  <h2 id="appearance-title">Appearance</h2>
+  <p class="set-muted">Follows your system unless you pick one.</p>
+
+  <div class="theme-switch" role="radiogroup" aria-labelledby="appearance-title">
+    @for (option of options; track option.value; let i = $index) {
+      <button
+        type="button"
+        role="radio"
+        [id]="optionId(option)"
+        class="theme-switch-opt"
+        [class.selected]="option.value === mode"
+        [attr.aria-checked]="option.value === mode"
+        [tabindex]="tabIndexFor(option)"
+        (click)="select(option.value)"
+        (keydown)="onKeydown($event, i)"
+      >
+        {{ option.label }}
+      </button>
+    }
+  </div>
+</section>

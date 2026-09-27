@@ -1,7 +1,7 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectionStrategy, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { MatIconModule } from '@angular/material/icon';
 import { forkJoin, timer, merge, Subscription, EMPTY } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
 import { Chart, registerables } from 'chart.js';
@@ -12,6 +12,8 @@ import {
 import { TransactionEventsService } from '../../core/services/transaction-events.service';
 import { CategoryService } from '../../core/services/category.service';
 import { HOVER_COLUMN, axisStyle, chartTheme, moneyLabel, tooltipStyle, withAlpha } from '../../core/ui/chart-theme';
+import { IconComponent } from '../../core/ui/icon/icon.component';
+import { ThemeService } from '../../core/ui/theme.service';
 
 Chart.register(...registerables);
 
@@ -28,7 +30,7 @@ interface StatCard {
 
 @Component({
     selector: 'app-dashboard',
-    imports: [CommonModule, CurrencyPipe, DatePipe, RouterLink, MatIconModule],
+    imports: [CommonModule, CurrencyPipe, DatePipe, RouterLink, IconComponent],
     templateUrl: './dashboard.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./dashboard.component.scss']
@@ -49,9 +51,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private sub: Subscription | null = null;
   private destroyed = false;
 
-  constructor(private api: ApiService, private events: TransactionEventsService, private catSvc: CategoryService) {}
+  private readonly destroyRef = inject(DestroyRef);
+
+  constructor(
+    private api: ApiService,
+    private events: TransactionEventsService,
+    private catSvc: CategoryService,
+    private theme: ThemeService,
+  ) {}
 
   ngOnInit() {
+    // Colours are read from tokens at build time, so the chart just rebuilds on theme change.
+    this.theme.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.buildChart());
     this.sub = merge(timer(0, 60_000), this.events.changed$)
       .pipe(switchMap(() => forkJoin({
         balance:      this.api.getBalance(),
@@ -97,7 +108,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       {
         label: 'Total Balance',
         amount: this.balance?.balance ?? 0,
-        icon: 'account_balance',
+        icon: 'building-bank',
         cls: '',
         badgeDir: 'neutral',
         badgePct: null,
@@ -107,7 +118,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       {
         label: 'Monthly Income',
         amount: curr?.income ?? 0,
-        icon: 'trending_up',
+        icon: 'trending-up',
         cls: 'income',
         badgeDir: prev && curr && curr.income >= prev.income ? 'up' : 'down',
         badgePct: prev ? pct(curr?.income ?? 0, prev.income) : null,
@@ -116,7 +127,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       {
         label: 'Monthly Expenses',
         amount: curr?.expense ?? 0,
-        icon: 'trending_down',
+        icon: 'trending-down',
         cls: 'expense',
         badgeDir: prev && curr && curr.expense <= prev.expense ? 'up' : 'down',
         badgePct: prev ? pct(curr?.expense ?? 0, prev.expense) : null,
@@ -125,7 +136,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       {
         label: 'Net Savings',
         amount: (curr?.income ?? 0) - (curr?.expense ?? 0),
-        icon: 'savings',
+        icon: 'pig-money',
         cls: 'net',
         badgeDir: 'neutral',
         badgePct: null,
@@ -213,11 +224,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   categoryIcon(category: string): string {
     const map: Record<string, string> = {
-      housing: 'home', food: 'restaurant', transport: 'directions_car',
-      health: 'medical_services', entertainment: 'movie', salary: 'payments',
-      savings: 'savings', other: 'receipt_long',
+      housing: 'home', food: 'tools-kitchen-2', transport: 'car',
+      health: 'first-aid-kit', entertainment: 'movie', salary: 'cash-banknote',
+      savings: 'pig-money', other: 'receipt',
     };
-    return map[category.toLowerCase()] ?? 'category';
+    return map[category.toLowerCase()] ?? 'tag';
   }
 
   txIcon(tx: Transaction): string { return this.categoryIcon(tx.category); }

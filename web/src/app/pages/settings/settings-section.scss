@@ -53,7 +53,7 @@ h3 {
 // redeclared here for this section's cat-pill).
 .transfer-pill { background: var(--color-surface-hover); color: var(--text-muted); }
 
-.set-link { color: var(--accent); font-size: 0.875rem; }
+.set-link { color: var(--accent-ink); font-size: 0.875rem; }
 
 .set-field { max-width: 24rem; }
 
@@ -87,7 +87,6 @@ h3 {
     cursor: pointer;
     &:hover { background: var(--color-surface-hover); color: var(--text); }
     &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
-    mat-icon { font-size: 1rem; width: 1rem; height: 1rem; }
   }
 }
 

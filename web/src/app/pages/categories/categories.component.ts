@@ -2,12 +2,12 @@ import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectionStr
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatIconModule } from '@angular/material/icon';
 import { Observable, Subscription } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { CategoryService } from '../../core/services/category.service';
 import { TransactionEventsService } from '../../core/services/transaction-events.service';
 import { focusFirst } from '../../core/ui/focus';
+import { IconComponent } from '../../core/ui/icon/icon.component';
 import {
   CategoryInput,
   CategoryOverview,
@@ -26,7 +26,7 @@ type Mode =
 
 @Component({
     selector: 'app-categories',
-    imports: [CommonModule, FormsModule, MatIconModule],
+    imports: [CommonModule, FormsModule, IconComponent],
     templateUrl: './categories.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./categories.component.scss']
@@ -90,7 +90,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
   get nameCheck(): string {
     const n = this.normalizedName;
     if (!n || n === this.editing?.name) return '';
-    if (!NAME_RULE.test(n)) return 'Use 1–20 lowercase letters, digits or hyphens.';
+    if (!NAME_RULE.test(n)) return 'Use 1-20 lowercase letters, digits or hyphens.';
     if (this.builtIns.some((c) => c.name === n)) return `${n} is a built-in category.`;
     return '';
   }

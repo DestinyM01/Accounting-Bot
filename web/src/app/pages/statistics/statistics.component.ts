@@ -1,12 +1,14 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectionStrategy, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, CurrencyPipe, DecimalPipe } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { Chart, registerables } from 'chart.js';
 import { forkJoin, Subscription } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { CategoryPoint, MonthlyPoint, MonthlySummary } from '../../core/services/api.models';
 import { CategoryService } from '../../core/services/category.service';
 import { HOVER_COLUMN, axisStyle, chartTheme, moneyLabel, tooltipStyle, withAlpha } from '../../core/ui/chart-theme';
+import { IconComponent } from '../../core/ui/icon/icon.component';
+import { ThemeService } from '../../core/ui/theme.service';
 
 Chart.register(...registerables);
 
@@ -20,7 +22,7 @@ interface DistRow {
 
 @Component({
     selector: 'app-statistics',
-    imports: [CommonModule, CurrencyPipe, DecimalPipe, MatIconModule],
+    imports: [CommonModule, CurrencyPipe, DecimalPipe, IconComponent],
     templateUrl: './statistics.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./statistics.component.scss']
@@ -38,9 +40,16 @@ export class StatisticsComponent implements OnInit, OnDestroy {
   private sub: Subscription | null = null;
   private destroyed = false;
 
-  constructor(private api: ApiService, private catSvc: CategoryService) {}
+  private readonly destroyRef = inject(DestroyRef);
+
+  constructor(private api: ApiService, private catSvc: CategoryService, private theme: ThemeService) {}
 
   ngOnInit() {
+    // Colours are read from tokens at build time, so the charts just rebuild on theme change.
+    this.theme.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.buildAreaChart();
+      this.buildSavingsChart();
+    });
     this.sub = forkJoin({
       summary:    this.api.getStatisticsSummary(),
       monthly:    this.api.getMonthlyStats(),

@@ -95,7 +95,7 @@
               </span>
               <span class="set-amount">{{ t.amount | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
             } @else {
-              <span class="cat-pill" [style.background]="catColor(t.category) + '22'" [style.color]="catColor(t.category)">
+              <span class="cat-pill" [style.background]="catColor(t.category) + '22'">
                 <span class="dot" [style.background]="catColor(t.category)"></span>
                 {{ t.category | titlecase }}
               </span>

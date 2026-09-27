@@ -47,7 +47,7 @@
       <div class="set-actions">
         <button type="submit" class="fc-btn fc-btn--primary" [disabled]="!dirty || saving">{{ saving ? 'Saving…' : 'Save' }}</button>
         <button id="reports-test" type="button" class="fc-btn fc-btn--ghost" [disabled]="testState === 'sending' || dirty" (click)="sendTest()">
-          <mat-icon>{{ testState === 'sent' ? 'mark_email_read' : 'mail' }}</mat-icon>
+          <app-icon [name]="testState === 'sent' ? 'mail-check' : 'mail'" />
           {{ testLabel }}
         </button>
         @if (dirty) {
