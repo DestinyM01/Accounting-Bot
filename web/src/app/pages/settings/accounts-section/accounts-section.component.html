@@ -1,10 +1,19 @@
 <section class="card set-section" aria-labelledby="accounts-title">
   <h2 id="accounts-title">Your accounts</h2>
+  <p class="set-muted">Accounts and senders that tell your own transfers from real spending.</p>
 
   @if (loading) {
-    <p class="set-muted">Loading…</p>
+    <div aria-hidden="true">
+      <div class="skeleton skel-line" style="--w: 50%; margin-bottom: 10px;"></div>
+      <div class="skeleton skel-line" style="--w: 65%; margin-bottom: 16px;"></div>
+      <div class="skeleton skel-line" style="--w: 40%; height: 32px; margin-bottom: 20px;"></div>
+      <div class="skeleton skel-line" style="--w: 75%; margin-bottom: 10px;"></div>
+      <div class="skeleton skel-line" style="--w: 55%; margin-bottom: 16px;"></div>
+      <div class="skeleton skel-line" style="--w: 40%; height: 32px;"></div>
+    </div>
   } @else if (loadError) {
-    <p class="fc-error" role="alert">{{ loadError }}</p>
+    <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ loadError }}</p>
+    <button type="button" class="btn" (click)="load()">Try again</button>
   } @else if (view) {
     <h3 id="cash-title">Cash accounts (last 4 digits)</h3>
     <p class="set-muted">A transfer into one of these is money moving between your own accounts, not spending.</p>
@@ -16,8 +25,8 @@
         @for (v of cash; track v; let i = $index) {
           <li class="set-chip">
             {{ v }}
-            <button [id]="'cash-remove-' + i" type="button" [attr.aria-label]="'Remove ' + v" (click)="remove('cash', i)">
-              <app-icon name="x" />
+            <button [id]="'cash-remove-' + i" type="button" class="btn btn--icon" [attr.aria-label]="'Remove ' + v" (click)="remove('cash', i)">
+              <app-icon name="x" [size]="14" />
             </button>
           </li>
         }
@@ -26,11 +35,10 @@
       <p class="set-muted">None yet.</p>
     }
     <div class="set-add">
-      <label class="fc-field">
+      <label class="field">
         <span>Add a cash account</span>
         <input
           id="cash-input"
-          class="fc-input"
           inputmode="numeric"
           maxlength="4"
           autocomplete="off"
@@ -40,10 +48,10 @@
           (keydown.enter)="$event.preventDefault(); add('cash')"
         />
       </label>
-      <button type="button" class="fc-btn fc-btn--ghost" (click)="add('cash')">Add</button>
+      <button type="button" class="btn btn--ghost" (click)="add('cash')">Add</button>
     </div>
     @if (draftError.cash) {
-      <p id="cash-error" class="fc-error" role="alert">{{ draftError.cash }}</p>
+      <p id="cash-error" class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ draftError.cash }}</p>
     }
 
     <h3 id="senders-title">How you appear as a sender (last 4 digits or a whole word of your name)</h3>
@@ -56,8 +64,8 @@
         @for (v of senders; track v; let i = $index) {
           <li class="set-chip">
             {{ v }}
-            <button [id]="'senders-remove-' + i" type="button" [attr.aria-label]="'Remove ' + v" (click)="remove('senders', i)">
-              <app-icon name="x" />
+            <button [id]="'senders-remove-' + i" type="button" class="btn btn--icon" [attr.aria-label]="'Remove ' + v" (click)="remove('senders', i)">
+              <app-icon name="x" [size]="14" />
             </button>
           </li>
         }
@@ -66,11 +74,10 @@
       <p class="set-muted">None yet.</p>
     }
     <div class="set-add">
-      <label class="fc-field">
+      <label class="field">
         <span>Add a sender identifier</span>
         <input
           id="senders-input"
-          class="fc-input"
           maxlength="40"
           autocomplete="off"
           [(ngModel)]="draft.senders"
@@ -79,35 +86,35 @@
           (keydown.enter)="$event.preventDefault(); add('senders')"
         />
       </label>
-      <button type="button" class="fc-btn fc-btn--ghost" (click)="add('senders')">Add</button>
+      <button type="button" class="btn btn--ghost" (click)="add('senders')">Add</button>
     </div>
     @if (draftError.senders) {
-      <p id="senders-error" class="fc-error" role="alert">{{ draftError.senders }}</p>
+      <p id="senders-error" class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ draftError.senders }}</p>
     }
 
     <p class="set-muted">Applies to mail read from now on. Transactions already booked keep their classification.</p>
     @if (confirmEmpty) {
       <div class="set-confirm">
         <span role="alert">With no cash accounts, every transfer is booked as spending. Save anyway?</span>
-        <button id="accounts-confirm-yes" type="button" class="fc-btn fc-btn--primary" (click)="save()">Save anyway</button>
-        <button type="button" class="fc-btn fc-btn--ghost" (click)="cancelEmpty()">Cancel</button>
+        <button id="accounts-confirm-yes" type="button" class="btn btn--primary" (click)="save()">Save anyway</button>
+        <button type="button" class="btn btn--ghost" (click)="cancelEmpty()">Cancel</button>
       </div>
     }
     @if (saveError) {
-      <p class="fc-error" role="alert">{{ saveError }}</p>
+      <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ saveError }}</p>
     }
     <p class="set-muted" aria-live="polite">{{ saved }}</p>
     <div class="set-actions">
-      <button id="accounts-save" type="button" class="fc-btn fc-btn--primary" [disabled]="!dirty || saving || confirmEmpty" (click)="save()">
+      <button id="accounts-save" type="button" class="btn btn--primary" [disabled]="!dirty || saving || confirmEmpty" (click)="save()">
         {{ saving ? 'Saving…' : 'Save' }}
       </button>
       @if (savedHere) {
         @if (confirmReset) {
           <span role="alert">Forget what's saved here and follow the server's config?</span>
-          <button id="accounts-reset-yes" type="button" class="fc-btn fc-btn--primary" (click)="resetToConfig()">Use the server's config</button>
-          <button type="button" class="fc-btn fc-btn--ghost" (click)="confirmReset = false">Cancel</button>
+          <button id="accounts-reset-yes" type="button" class="btn btn--primary" (click)="resetToConfig()">Use the server's config</button>
+          <button type="button" class="btn btn--ghost" (click)="confirmReset = false">Cancel</button>
         } @else {
-          <button type="button" class="fc-btn fc-btn--ghost" [disabled]="saving" (click)="resetToConfig()">Use the server's config</button>
+          <button type="button" class="btn btn--ghost" [disabled]="saving" (click)="resetToConfig()">Use the server's config</button>
         }
       }
     </div>

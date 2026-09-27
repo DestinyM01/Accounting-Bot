@@ -13,7 +13,7 @@ export const fakeOAuth = {
     return true;
   },
   getIdentityClaims(): Record<string, unknown> {
-    return { name: 'Sample Owner', email: 'owner@example.com' };
+    return { name: 'Sample Owner', email: 'owner@example.com', sub: '00000000-sample-owner-id' };
   },
   getAccessToken(): string {
     return 'preview';

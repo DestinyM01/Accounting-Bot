@@ -44,12 +44,17 @@ export class CategoryService {
         ];
         this.loaded = true;
       },
+      // Non-critical and non-blocking (see above): swallow it rather than let it surface as an
+      // unhandled console error. `loaded` stays false, its documented "still unknown" state — hit
+      // on every first paint for a non-owner account, whose very first request 403s before the
+      // interceptor's redirect to /not-allowed lands.
+      error: () => {},
     });
   }
 
   color(name: string): string {
     const n = name.toLowerCase();
-    return this.BUILT_IN[n]?.color ?? this.customMap[n]?.color ?? '#64748b';
+    return this.BUILT_IN[n]?.color ?? this.customMap[n]?.color ?? '#8b95a3';
   }
 
   icon(name: string): string {

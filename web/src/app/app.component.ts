@@ -1,6 +1,6 @@
-import { Component, HostListener, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, HostListener, OnInit, ChangeDetectionStrategy, inject } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationStart, NavigationEnd } from '@angular/router';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { OAuthService } from 'angular-oauth2-oidc';
 import { ApiService } from './core/services/api.service';
 import { CategoryService } from './core/services/category.service';
@@ -55,7 +55,21 @@ export class AppComponent implements OnInit {
     },
   ];
 
-  currentUrl = this.router.url;
+  // Declared before currentUrl so it's already injected when currentUrl's initialiser runs.
+  private readonly location = inject(Location);
+
+  // Seeded from the browser's real path, not router.url: router.url is still '/' until the
+  // first NavigationEnd, so a direct load of /not-allowed would otherwise miss isNotAllowed in
+  // ngOnInit (firing the category load) and render the full shell until that navigation ends.
+  // NavigationEnd keeps it current from then on.
+  currentUrl = this.location.path() || '/';
+
+  // While true, the shell renders only the brand and Log out (see app.component.html) —
+  // no nav, no notifications, no FAB — because a 403 landed the user here and every other
+  // control just points at pages the api will refuse just the same.
+  get isNotAllowed(): boolean {
+    return this.currentUrl === '/not-allowed';
+  }
 
   isGroupActive(group: NavGroup): boolean {
     return group.items.some((i) => this.currentUrl === i.path || this.currentUrl.startsWith(i.path + '/'));
@@ -138,7 +152,7 @@ export class AppComponent implements OnInit {
 
   // Compositor-friendly fill: scaleX(0..1) instead of animating width.
   budgetBarBg(pct: number): string {
-    return pct >= 100 ? 'var(--color-expense)' : 'var(--color-warning)';
+    return pct >= 100 ? 'var(--neg)' : 'var(--warn)';
   }
 
   budgetBarScale(pct: number): number {
@@ -239,7 +253,10 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit() {
-    if (this.oauthService.hasValidAccessToken()) {
+    // Skipped when the app boots straight into /not-allowed (e.g. a refresh there): the
+    // request would just 403 like any other and add nothing, since this page never renders
+    // anything that needs a category name or color.
+    if (this.oauthService.hasValidAccessToken() && !this.isNotAllowed) {
       this.categoryService.load();
     }
   }

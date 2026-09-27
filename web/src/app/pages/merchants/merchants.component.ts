@@ -278,7 +278,7 @@ export class MerchantsComponent implements OnInit, OnDestroy {
     return typeof e.error?.message === 'string' ? e.error.message : fallback;
   }
 
-  private load(): void {
+  load(): void {
     const gen = ++this.gen;
     this.subs.add(
       forkJoin([this.api.getMerchants(), this.api.getCategories()]).subscribe({

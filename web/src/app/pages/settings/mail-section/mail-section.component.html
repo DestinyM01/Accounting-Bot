@@ -1,20 +1,38 @@
 <section class="card set-section" aria-labelledby="mail-title">
   <h2 id="mail-title">Bank mail</h2>
+  <p class="set-muted">Reads your bank's mail for new transactions.</p>
 
   @if (loading) {
-    <p class="set-muted">Loading…</p>
+    <div aria-hidden="true">
+      <div class="skeleton skel-line" style="--w: 60%; margin-bottom: 10px;"></div>
+      <div class="skeleton skel-line" style="--w: 45%; margin-bottom: 16px;"></div>
+      <div class="skeleton skel-line" style="--w: 140px; height: 36px; margin-bottom: 20px;"></div>
+      <div class="skeleton skel-line" style="--w: 90px; margin-bottom: 10px;"></div>
+      <div class="rows">
+        @for (i of [1, 2]; track i) {
+          <div class="row">
+            <div class="skeleton skel-line" style="--w: 40%"></div>
+            <div class="skeleton skel-line" style="--w: 96px; margin-left: auto;"></div>
+          </div>
+        }
+      </div>
+    </div>
   } @else if (loadError) {
-    <p class="fc-error" role="alert">{{ loadError }}</p>
+    <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ loadError }}</p>
+    <button type="button" class="btn" (click)="load()">Try again</button>
   } @else if (status) {
     <p class="set-line">
       @if (status.lastRun; as run) {
-        Last checked {{ run.at | date: 'MMM d, h:mm a' }} · {{ countsText(run) }}
+        Last checked {{ run.at | date: 'MMM d, h:mm a' }}
+        @for (p of countsParts(run); track p.label) {
+          · <span class="num">{{ p.n }}</span> {{ p.label }}
+        }
       } @else {
         Not checked yet
       }
     </p>
     @if (status.lastError; as err) {
-      <p class="fc-error" role="alert">The last check failed at {{ err.at | date: 'MMM d, h:mm a' }}: {{ err.message }}</p>
+      <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />The last check failed at {{ err.at | date: 'MMM d, h:mm a' }}: {{ err.message }}</p>
     }
     <p class="set-muted">
       @if (readingSince; as from) {
@@ -25,25 +43,25 @@
     </p>
 
     <div class="set-actions">
-      <button id="check-mail" type="button" class="fc-btn fc-btn--primary" [disabled]="checking || status.running" (click)="checkNow()">
+      <button id="check-mail" type="button" class="btn btn--primary" [disabled]="checking || status.running" (click)="checkNow()">
         {{ checking || status.running ? 'Checking…' : 'Check mail now' }}
       </button>
     </div>
     <p class="set-muted" aria-live="polite">{{ checkResult }}</p>
     @if (checkError) {
-      <p class="fc-error" role="alert">{{ checkError }}</p>
+      <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ checkError }}</p>
     }
     @if (reloadError) {
-      <p class="fc-error" role="alert">{{ reloadError }}</p>
+      <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ reloadError }}</p>
     }
 
     <h3 id="unreadable-heading" tabindex="-1">Couldn't read</h3>
     @if (status.unreadable.length === 0) {
       <p class="set-muted">Every mail since {{ readingSince ? (readingSince | date: 'MMM d') : 'yesterday' }} was read.</p>
     } @else {
-      <ul class="set-list">
+      <div class="rows">
         @for (m of status.unreadable; track m.id) {
-          <li class="set-row">
+          <div class="row set-row">
             <div class="set-row-main">
               <span class="set-row-title">{{ m.subject || '(no subject)' }}</span>
               <span class="set-muted">
@@ -53,16 +71,16 @@
             @if (confirming === m.id) {
               <div class="set-confirm">
                 <span>Stop retrying this mail?</span>
-                <button [id]="'dismiss-yes-' + m.id" type="button" class="fc-btn fc-btn--primary" [disabled]="dismissing" (click)="confirmDismiss(m.id)">
+                <button [id]="'dismiss-yes-' + m.id" type="button" class="btn btn--primary" [disabled]="dismissing" (click)="confirmDismiss(m.id)">
                   {{ dismissing ? 'Dismissing…' : 'Yes' }}
                 </button>
-                <button type="button" class="fc-btn fc-btn--ghost" [disabled]="dismissing" (click)="cancelDismiss(m.id)">Cancel</button>
+                <button type="button" class="btn btn--ghost" [disabled]="dismissing" (click)="cancelDismiss(m.id)">Cancel</button>
               </div>
             } @else {
               <button
                 [id]="'dismiss-' + m.id"
                 type="button"
-                class="fc-btn fc-btn--ghost"
+                class="btn"
                 [disabled]="confirming !== null"
                 [attr.aria-label]="'Not a transaction: ' + (m.subject || 'no subject')"
                 (click)="askDismiss(m.id)"
@@ -70,42 +88,40 @@
                 Not a transaction
               </button>
             }
-          </li>
+          </div>
         }
-      </ul>
+      </div>
     }
     @if (dismissError) {
-      <p class="fc-error" role="alert">{{ dismissError }}</p>
+      <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ dismissError }}</p>
     }
 
     <h3>Recently booked from mail</h3>
     @if (status.recent.length === 0) {
       <p class="set-muted">Nothing booked from mail yet.</p>
     } @else {
-      <ul class="set-list">
+      <div class="rows">
         @for (t of status.recent; track t.id) {
-          <li class="set-row">
+          <div class="row set-row">
             <div class="set-row-main">
               <span class="set-row-title">{{ t.name }}</span>
               <span class="set-muted">{{ t.timestamp | date: 'MMM d, h:mm a' }}</span>
             </div>
             @if (t.transferKind === 'internal' || t.transferKind === 'unresolved') {
-              <span class="cat-pill transfer-pill">
-                {{ t.transferKind === 'internal' ? 'Internal' : 'Unresolved' }}
-              </span>
-              <span class="set-amount">{{ t.amount | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
+              <span class="tag">{{ t.transferKind === 'internal' ? 'Internal' : 'Unresolved' }}</span>
+              <span class="num">{{ t.amount | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
             } @else {
-              <span class="cat-pill" [style.background]="catColor(t.category) + '22'">
-                <span class="dot" [style.background]="catColor(t.category)"></span>
+              <span class="set-row-cat">
+                <span class="swatch" [style.background]="catColor(t.category)"></span>
                 {{ t.category | titlecase }}
               </span>
-              <span class="set-amount" [class.expense]="t.isExpense" [class.income]="!t.isExpense">
-                {{ t.isExpense ? '−' : '+' }}{{ t.amount | currency: 'USD' : 'symbol' : '1.2-2' }}
+              <span class="num" [class.pos]="!t.isExpense" [class.neg]="t.isExpense">
+                {{ t.isExpense ? '-' : '+' }}{{ t.amount | currency: 'USD' : 'symbol' : '1.2-2' }}
               </span>
             }
-          </li>
+          </div>
         }
-      </ul>
+      </div>
       <a routerLink="/transactions" class="set-link">See all transactions</a>
     }
   }

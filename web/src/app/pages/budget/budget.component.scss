@@ -19,9 +19,6 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-
-  // "Manage categories" is a link acting as a button; it shouldn't look like a link.
-  a.btn { text-decoration: none; }
 }
 
 // ── Set-budget form ──────────────────────────────────────────────────────

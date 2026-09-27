@@ -1,142 +1,153 @@
-.mer-header {
+.mer-title-group {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-md);
-  margin-bottom: var(--space-sm);
-
-  h1 {
-    margin: 0;
-    font-size: var(--text-page-title);
-  }
+  flex-direction: column;
+  gap: 4px;
 }
 
-.mer-muted,
-.mer-hint {
-  margin: var(--space-2xs) 0 0;
+.mer-sub {
+  margin: 0;
   font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-
-.mer-hint:empty {
-  display: none;
-}
-
-.mer-status {
-  margin: 0 0 var(--space-sm);
-  min-height: 1em;
-  font-size: var(--text-sm);
-  color: var(--text-muted);
+  color: var(--ink-2);
 }
 
 .mer-section {
-  margin-bottom: var(--space-lg);
-
-  h2 {
-    margin: 0 0 var(--space-sm);
-    font-size: var(--text-lg);
-  }
+  margin-bottom: 16px;
 }
 
-.mer-form .fc-field + .fc-field,
-.mer-hint + .fc-field {
-  margin-top: var(--space-sm);
+.mer-status {
+  margin: 0 0 12px;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
 }
 
+.mer-form .field + .field,
+.mer-hint + .field {
+  margin-top: 14px;
+}
+
+.mer-hint {
+  margin: 4px 0 0;
+  min-height: 1em;
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+
+  &:empty { display: none; }
+}
+
+.mer-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+// ── Filter ───────────────────────────────────────────────────────────────
 .mer-filter {
-  max-width: 20rem;
-  margin-bottom: var(--space-sm);
+  max-width: 22rem;
+  margin-bottom: 14px;
 }
 
-.mer-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+// A <span> (a <label> may only hold phrasing content), so it's scoped under .mer-filter to
+// outrank the global `.field > span:not(.sr-only)` caption rule, which would otherwise
+// recolour the search icon and resize the box's text.
+.mer-filter .mer-filter-box {
+  position: relative;
+  font-size: inherit;
+  display: flex;
+  align-items: center;
+  color: var(--ink-3);
+
+  app-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+}
+
+.mer-filter-input {
+  width: 100%;
+  padding-left: 34px;
+}
+
+// ── Rows ─────────────────────────────────────────────────────────────────
+// Same reasoning as Categories: the divider is border-top/:first-child, not
+// .row's own border-bottom/:last-child, since a nested .row is always its
+// .mer-item's only .row child.
+.mer-item {
+  border-top: 1px solid var(--line);
+
+  &:first-child { border-top: none; }
 }
 
 .mer-row {
-  display: flex;
-  align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-sm);
-  padding: var(--space-xs) 0;
-  border-top: 1px solid var(--border);
-
-  &:first-child {
-    border-top: none;
-  }
-
-  // A phone stacks each merchant: its name and pill, then its counts, then its actions.
-  @media (max-width: 640px) {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+  gap: 8px 16px;
 }
 
 .mer-main {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-xs);
-  flex: 1 1 16rem;
+  gap: 10px;
   min-width: 0;
-
-  @media (max-width: 640px) {
-    flex-basis: auto;
-  }
+  flex: 1 1 16rem;
 }
 
 .mer-key {
-  color: var(--text);
+  color: var(--ink);
   overflow-wrap: anywhere;
+}
+
+.mer-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
 }
 
 .mer-usage {
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  color: var(--ink-2);
 }
 
-.mer-warning {
-  font-size: var(--text-sm);
-  color: var(--color-warning);
-}
-
-.mer-row-actions,
-.mer-actions {
+.mer-row-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-xs);
+  gap: 6px;
 }
 
-.mer-actions {
-  justify-content: flex-end;
-  margin-top: var(--space-sm);
-}
-
-.mer-inline {
+.mer-row--form .mer-inline-form {
   flex: 1 1 100%;
-  align-self: stretch;
-
-  p:not(.fc-error) {
-    margin: 0 0 var(--space-xs);
-    color: var(--text);
-  }
 }
 
-// The one announced copy of the status; the visible copies sit next to what changed.
-.mer-live {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+.mer-inline-field {
+  max-width: 22rem;
+  margin-bottom: 10px;
+}
+
+.mer-confirm-text {
+  margin: 0 0 10px;
+  color: var(--ink);
 }
 
 .mer-row-status {
   flex: 1 1 100%;
-  margin: 0;
+  margin: 6px 0 0;
   font-size: var(--text-sm);
-  color: var(--text-muted);
+  color: var(--ink-2);
+}
+
+@media (max-width: 640px) {
+  .mer-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .mer-main {
+    flex-basis: auto;
+  }
+
+  .mer-row-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }

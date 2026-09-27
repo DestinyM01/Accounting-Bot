@@ -168,6 +168,12 @@
   &:hover { text-decoration: underline; }
 }
 
+@media (max-width: 760px) {
+  // 40px touch target (same threshold as _primitives.scss's .btn); the negative block margin
+  // gives the extra height back so the card header keeps its size.
+  .dash-all-link { min-height: 40px; margin-block: -11px; }
+}
+
 .dash-row-icon {
   width: 32px;
   height: 32px;

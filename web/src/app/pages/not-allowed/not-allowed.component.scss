@@ -1,0 +1,53 @@
+// Full-page state: vertically centered, left-aligned text (see the not-found
+// component for the same pattern).
+.na-wrap {
+  min-height: calc(100vh - 64px);
+  display: flex;
+  align-items: center;
+}
+
+.na-block {
+  max-width: 440px;
+
+  h1 {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+  }
+}
+
+.na-lead {
+  margin: 0 0 20px;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+
+.na-id-field {
+  margin-bottom: 16px;
+}
+
+.na-id-row {
+  display: flex;
+  gap: 8px;
+}
+
+.na-id-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.na-copied {
+  display: block;
+  min-height: 1.1em;
+  font-size: var(--text-xs);
+  color: var(--pos);
+}
+
+.na-hint {
+  margin: 0 0 24px;
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+}

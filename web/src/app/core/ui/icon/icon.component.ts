@@ -32,7 +32,7 @@ const SVG_CACHE = new Map<string, SafeHtml>();
         justify-content: center;
         flex-shrink: 0;
         color: inherit;
-        /* A plain CSS rule from an ancestor (e.g. ".fc-btn app-icon { width: 16px }")
+        /* A plain CSS rule from an ancestor (e.g. ".txl-icon app-icon { width: 16px }")
            can still override this: it targets the width/height properties directly,
            which beats this :host rule's var() on equal-or-higher specificity. The
            [size] input only sets the variable used by the fallback below. */

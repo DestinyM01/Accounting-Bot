@@ -1,74 +1,55 @@
-.cat-header {
+.cat-title-group {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-md);
-  margin-bottom: var(--space-lg);
-
-  h1 {
-    margin: 0;
-    font-size: var(--text-page-title);
-  }
+  flex-direction: column;
+  gap: 4px;
 }
 
-.cat-muted,
-.cat-hint {
-  margin: var(--space-2xs) 0 0;
+.cat-sub,
+.cat-note {
+  margin: 0;
   font-size: var(--text-sm);
-  color: var(--text-muted);
+  color: var(--ink-2);
 }
 
-.cat-hint:empty {
-  display: none;
+.cat-note {
+  margin-bottom: 12px;
 }
 
 .cat-section {
-  margin-bottom: var(--space-lg);
-
-  h2 {
-    margin: 0 0 var(--space-sm);
-    font-size: var(--text-lg);
-  }
+  margin-bottom: 16px;
 }
 
-.cat-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+// One .cat-item per category; the divider is border-top/:first-child (not
+// .row's own border-bottom/:last-child) because a .row wrapped in this item
+// is always the item's only .row child, which would otherwise always match
+// :last-child and never draw a line between categories.
+.cat-item {
+  border-top: 1px solid var(--line);
+
+  &:first-child { border-top: none; }
 }
 
 .cat-row {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: var(--space-sm);
-  padding: var(--space-xs) 0;
-  border-top: 1px solid var(--border);
-
-  &:first-child {
-    border-top: none;
-  }
+  gap: 12px;
 }
 
 .cat-main {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 10px;
   min-width: 0;
 }
 
 .cat-swatch {
-  width: 14px;
-  height: 14px;
-  flex: none;
-  border-radius: var(--radius-pill);
-  background: var(--border);
+  width: 10px;
+  height: 10px;
 }
 
 .cat-emoji {
-  font-size: var(--text-lg);
+  font-size: 20px;
+  flex-shrink: 0;
 }
 
 .cat-text {
@@ -78,88 +59,136 @@
 }
 
 .cat-name {
-  color: var(--text);
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
 
 .cat-usage {
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  color: var(--ink-2);
 }
 
-.cat-row-actions,
-.cat-actions {
+.cat-row-actions {
   display: flex;
+  gap: 4px;
+}
+
+.cat-pending {
+  display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-xs);
+  gap: 10px;
+  flex: 1 1 100%;
+  margin-top: 4px;
 }
 
-.cat-actions {
+.cat-row-note {
+  flex: 1 1 100%;
+  margin: 4px 0 0;
+}
+
+.cat-confirm {
+  flex: 1 1 100%;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.cat-confirm-field {
+  max-width: 22rem;
+}
+
+.cat-confirm-text {
+  margin: 0 0 10px;
+  color: var(--ink);
+}
+
+.cat-confirm-actions,
+.cat-form-actions {
+  display: flex;
   justify-content: flex-end;
-  margin-top: var(--space-sm);
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }
 
-.cat-pending,
-.cat-delete,
 .cat-form {
   flex: 1 1 100%;
 }
 
-.cat-pending p:not(.fc-error),
-.cat-delete p:not(.fc-error) {
-  margin: 0 0 var(--space-xs);
-  color: var(--text);
+.cat-name-hint {
+  margin: 4px 0 0;
+  min-height: 1em;
+  font-size: var(--text-xs);
+  color: var(--neg);
+
+  &:empty { display: none; }
+}
+
+.cat-picker-label {
+  display: block;
+  margin-top: 14px;
+  margin-bottom: 6px;
+  font-size: var(--text-xs);
+  color: var(--ink-2);
 }
 
 .cat-picker {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2xs);
-  margin-top: var(--space-sm);
-}
-
-.cat-pick {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: none;
-  font-size: var(--text-lg);
-  padding: var(--space-3xs) var(--space-2xs);
-  cursor: pointer;
-
-  &:hover:not(.active) {
-    background: var(--color-surface-hover);
-  }
-
-  &.active {
-    border-color: var(--accent);
-    background: var(--color-surface-hover);
-  }
-}
-
-.cat-swatch-btn {
-  width: 28px;
-  height: 28px;
-  border: 2px solid transparent;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-
-  &.active {
-    border-color: var(--text);
-  }
+  gap: 8px;
 }
 
 .cat-pick,
 .cat-swatch-btn {
-  &:focus-visible {
-    outline: 2px solid var(--color-focus);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: transform var(--dur-short) var(--ease-out);
+
+  &:hover { transform: scale(1.05); }
+  &:active { transform: scale(0.96); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  &.active {
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
+}
+
+.cat-pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
+  font-size: 20px;
+
+  &:hover { background: var(--accent-wash); }
+}
+
+.cat-swatch-btn {
+  border: 1px solid var(--line);
 }
 
 .cat-preview {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
-  margin: var(--space-sm) 0 0;
-  color: var(--text);
+  gap: 8px;
+  margin: 14px 0 0;
+  color: var(--ink);
+}
+
+.cat-preview-label {
+  display: inline;
+  margin: 0;
+}
+
+.cat-preview-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-mark);
+  background: var(--line);
 }

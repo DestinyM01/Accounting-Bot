@@ -81,4 +81,17 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/merchants/merchants.component').then((m) => m.MerchantsComponent),
   },
+  {
+    path: 'not-allowed',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/not-allowed/not-allowed.component').then((m) => m.NotAllowedComponent),
+  },
+  // Matches any URL no route above claims — must stay last.
+  {
+    path: '**',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/not-found/not-found.component').then((m) => m.NotFoundComponent),
+  },
 ];

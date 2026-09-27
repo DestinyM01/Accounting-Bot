@@ -1,219 +1,86 @@
-/* Hallmark · genre: atmospheric · macrostructure: Workbench · design-system: design.md · designed-as-app */
-.tips-page {
-  padding: 28px;
-  max-width: 1100px;
-  margin-inline: auto;
-}
-
-// ── Header ────────────────────────────────────────────────────────────
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 28px;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.header-icon {
-  color: var(--accent-ink);
-}
-
-h1 {
-  font-size: var(--text-page-title);
-  font-weight: 700;
-  color: var(--text);
-  margin: 0;
-}
-
-.subtitle {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  margin: 2px 0 0;
-}
-
-.refresh-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 18px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.18s;
-
-  &:disabled { opacity: 0.5; cursor: default; }
-  &:not(:disabled):hover { opacity: 0.85; }
-  &:not(:disabled):focus-visible {
-    opacity: 0.85;
-    outline: 2px solid var(--color-focus);
-    outline-offset: 2px;
-  }
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-.spinning { animation: spin 0.8s linear infinite; }
-
-// ── Grid ──────────────────────────────────────────────────────────────
-.tips-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 18px;
-}
-
-// Priority-high cards span 2 columns — breaks equal-column lock (finding #7)
-.tip-card.priority-high {
-  grid-column: span 2;
-}
-@media (max-width: 640px) {
-  .tip-card.priority-high {
-    grid-column: span 1;
-  }
-}
-
-// ── Card ──────────────────────────────────────────────────────────────
-.tip-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
+.tips-title-group {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  transition: background 0.15s;
+  gap: 4px;
 
-  &:hover,
-  &:focus-visible {
-    background: var(--color-paper-3);
-    outline: none;
-  }
-
-  &.priority-high   { background: var(--color-expense-subtle); }
-  &.priority-medium { background: var(--color-warning-subtle); }
-  &.priority-low    { background: var(--color-income-subtle); }
+  // A <p> here (under the h1, like Categories' and Merchants' subs), so drop its default margins.
+  .page-title-meta { margin: 0; }
 }
 
-.tip-header {
+@keyframes tips-spin { to { transform: rotate(360deg); } }
+.tips-spin { animation: tips-spin 0.8s linear infinite; }
+
+.tips-load-error {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-}
-
-.tip-icon-wrap {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: var(--color-accent-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  app-icon {
-    color: var(--accent-ink);
-  }
-}
-
-.priority-badge {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 3px 9px;
-  border-radius: 20px;
-
-  .priority-high   & { background: rgba(248,113,113,0.15); color: var(--expense); }
-  .priority-medium & { background: rgba(245,158,11,0.15);  color: var(--color-warning); }
-  .priority-low    & { background: rgba(16,229,160,0.15);  color: var(--income); }
-}
-
-.tip-body {
-  h3 {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text);
-    margin: 0 0 6px;
-    line-height: 1.35;
-  }
-  p {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    line-height: 1.6;
-    margin: 0;
-  }
-}
-
-.saving-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: rgba(16,229,160,0.1);
-  border-radius: 8px;
-  width: fit-content;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--income);
-}
-
-.tip-category {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-transform: capitalize;
-}
-
-// ── Skeleton ──────────────────────────────────────────────────────────
-// Named .tip-card--loading, not .skeleton: the global .skeleton primitive (see
-// _primitives.scss) has its own shimmer ::after; reusing its name here on the same host
-// element that also wraps .sk-line's own gradient shimmer produced a visible double shimmer.
-.tip-card--loading {
-  pointer-events: none;
-}
-
-.sk-line {
-  height: 14px;
-  border-radius: 6px;
-  background: linear-gradient(90deg, var(--bg-card-alt) 25%, rgba(255,255,255,0.04) 50%, var(--bg-card-alt) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s infinite;
-
-  &.sk-title  { width: 60%; height: 18px; margin-bottom: 8px; }
-  &.sk-body   { width: 90%; }
-  &.short     { width: 70%; }
-}
-
-@keyframes shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-// ── Empty / Error ─────────────────────────────────────────────────────
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 20px;
   gap: 16px;
-  color: var(--text-muted);
-  text-align: center;
-
-  p { font-size: 0.92rem; margin: 0; }
+  flex-wrap: wrap;
 }
 
-.empty-icon {
-  opacity: 0.35;
-  color: var(--text);
+// ── Tile grid ────────────────────────────────────────────────────────────
+.tips-tiles {
+  grid-template-columns: repeat(2, 1fr);
+
+  @media (max-width: 760px) { grid-template-columns: 1fr; }
 }
 
-.error-icon { color: var(--expense); opacity: 0.7; }
+.tips-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  // The tag is an inline-flex flex item; a column flex container's default
+  // align-items: stretch would otherwise pull it to the tile's full width.
+  > .tag { align-self: flex-start; }
+}
+
+.tips-tile--wide {
+  grid-column: span 2;
+
+  @media (max-width: 760px) { grid-column: span 1; }
+}
+
+.tips-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-control);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-raised);
+  color: var(--ink-2);
+}
+
+.tips-tile-title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.tips-tile-text {
+  margin: 0;
+  max-width: 65ch;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.tips-saving {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  font-size: var(--text-sm);
+  color: var(--pos);
+}
+
+.tips-cat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 4px;
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+}

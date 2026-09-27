@@ -56,6 +56,7 @@ import toolsKitchen2 from '@tabler/icons/outline/tools-kitchen-2.svg';
 import shoppingCart from '@tabler/icons/outline/shopping-cart.svg';
 import chartCandle from '@tabler/icons/outline/chart-candle.svg';
 import externalLink from '@tabler/icons/outline/external-link.svg';
+import copy from '@tabler/icons/outline/copy.svg';
 
 /** Every Tabler outline icon bundled for this app, keyed by its Tabler name. */
 export const ICONS: Record<string, string> = {
@@ -115,6 +116,7 @@ export const ICONS: Record<string, string> = {
   'shopping-cart': shoppingCart,
   'chart-candle': chartCandle,
   'external-link': externalLink,
+  copy,
 };
 
 /** Material icon names the api (and legacy code) may still send, mapped to their Tabler name. */

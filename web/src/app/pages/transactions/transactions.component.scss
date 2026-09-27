@@ -190,6 +190,7 @@
 
 // Touch target: a finger needs more than this button's 30px desktop height.
 @media (max-width: 760px) {
+  .tx-review-select { min-height: 40px; }
   .tx-mini-btn { min-height: 40px; }
 }
 

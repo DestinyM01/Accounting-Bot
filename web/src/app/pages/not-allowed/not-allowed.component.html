@@ -1,0 +1,24 @@
+<div class="page na-wrap">
+  <div class="na-block">
+    <h1>This account can't use AccBot</h1>
+    <p class="na-lead">You're signed in as {{ displayName }}. Only the owner's account has access.</p>
+
+    <div class="field na-id-field">
+      <span>Your account id</span>
+      <div class="na-id-row">
+        <input #idInput type="text" class="na-id-input" [value]="sub" readonly aria-label="Your account id" />
+        <button type="button" class="btn btn--icon" aria-label="Copy account id" (click)="copySub(idInput)">
+          <app-icon [name]="copied ? 'check' : 'copy'" [size]="16" />
+        </button>
+      </div>
+      <span class="na-copied" role="status">{{ copied ? 'Copied' : '' }}</span>
+    </div>
+
+    <p class="na-hint">If this is your account, set it as the owner on the server.</p>
+
+    <button type="button" class="btn btn--primary" (click)="logOut()">
+      <app-icon name="logout" [size]="16" />
+      Log out
+    </button>
+  </div>
+</div>

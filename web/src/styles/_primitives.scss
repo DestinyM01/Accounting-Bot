@@ -1,7 +1,7 @@
 // Shared UI primitives for the "Instrument" design language.
-// Global on purpose (see _form-controls.scss for the same reasoning):
-// a per-component @use of these rules would re-emit them into every
-// component stylesheet and blow the component style budget for nothing.
+// Global on purpose: a per-component @use of these rules would re-emit
+// them into every component stylesheet and blow the component style
+// budget for nothing.
 
 // ── Layout ───────────────────────────────────────────────────────────────
 .page {
@@ -32,6 +32,10 @@
     color: var(--ink-2);
     font-size: 13px;
   }
+
+  // A title action keeps its label on one line ("New category", not "New / category" on a
+  // phone); the heading side shrinks instead.
+  .btn { white-space: nowrap; }
 }
 
 // ── Tiles: a 1px line grid instead of a bordered card ───────────────────
@@ -90,6 +94,14 @@
   &[disabled] { opacity: 0.5; cursor: not-allowed; }
 }
 
+// .btn is written for <button>; an <a class="btn"> (routerLink, acting as a button) needs its
+// own underline reset, since a link's own text-decoration would otherwise show through.
+a.btn {
+  text-decoration: none;
+
+  &:hover { text-decoration: none; }
+}
+
 .btn--primary {
   background: var(--accent);
   border-color: var(--accent);
@@ -132,6 +144,7 @@
   .btn { min-height: 40px; }
   .btn--icon { width: 40px; height: 40px; }
   .chip, .seg-opt { min-height: 40px; }
+  .field input, .field select, .field textarea { min-height: 40px; }
 }
 
 // ── Segmented control ────────────────────────────────────────────────────

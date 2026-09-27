@@ -22,6 +22,8 @@ if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motio
 export interface ChartTheme {
   text: string;
   muted: string;
+  /** --ink-3, for series that read as "neutral" rather than muted-label text (e.g. a "put in" bar). */
+  ink3: string;
   grid: string;
   card: string;
   accent: string;
@@ -68,6 +70,7 @@ export function chartTheme(): ChartTheme {
   return {
     text: toRgb(token('--ink')),
     muted: toRgb(token('--ink-2')),
+    ink3: toRgb(token('--ink-3')),
     grid: toRgb(token('--line')),
     card: toRgb(token('--surface')),
     accent: toRgb(token('--accent')),

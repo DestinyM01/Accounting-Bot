@@ -150,8 +150,11 @@ export class CalculatorComponent implements OnInit, OnDestroy {
     const canvas = this.chartCanvas?.nativeElement;
     const r = this.result;
     if (this.destroyed || !canvas || !r) return;
-    // Theme colours, read at runtime so the chart follows the design tokens.
+    // Theme colours, read at runtime so the chart follows the design tokens. Chart.js's own
+    // legend is replaced by a swatch legend in the template (see .calc-legend), so the "Put
+    // in" colour comes straight from --ink-3 (ChartTheme.ink3).
     const t = chartTheme();
+    const putInColor = t.ink3;
     const first = !this.chart;
     this.chart?.destroy();
     this.chart = new Chart(canvas, {
@@ -159,7 +162,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
       data: {
         labels: r.years.map((y) => `Year ${y.year}`),
         datasets: [
-          { label: 'Put in', data: r.years.map((y) => y.putIn), backgroundColor: t.muted, stack: 'total' },
+          { label: 'Put in', data: r.years.map((y) => y.putIn), backgroundColor: putInColor, stack: 'total' },
           { label: 'Interest', data: r.years.map((y) => y.interest), backgroundColor: t.accent, stack: 'total' },
         ],
       },
@@ -169,7 +172,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
         animation: first ? undefined : false,
         interaction: HOVER_COLUMN,
         plugins: {
-          legend: { labels: { color: t.muted } },
+          legend: { display: false },
           tooltip: { ...tooltipStyle(t), callbacks: { label: (c) => `${c.dataset.label}: ${calcMoney(c.parsed.y ?? 0)}` } },
         },
         scales: {

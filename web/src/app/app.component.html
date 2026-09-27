@@ -1,4 +1,16 @@
 <header class="shell-bar">
+  @if (isNotAllowed) {
+    <div class="shell-bar-inner shell-bar-inner--minimal">
+      <span class="shell-brand">
+        <app-icon name="chart-candle" [size]="20" />
+        <span>AccBot</span>
+      </span>
+      <button type="button" class="btn" (click)="logout()">
+        <app-icon name="logout" [size]="16" />
+        Log out
+      </button>
+    </div>
+  } @else {
   <div class="shell-bar-inner">
     <a class="shell-brand" routerLink="/dashboard">
       <app-icon name="chart-candle" [size]="20" />
@@ -146,8 +158,10 @@
       </button>
     </div>
   </div>
+  }
 </header>
 
+@if (!isNotAllowed) {
 <div class="shell-scrim" [class.shell-scrim--open]="sheetOpen" (click)="closeSheet()" aria-hidden="true"></div>
 
 <div id="shell-sheet" class="sheet shell-sheet" [class.shell-sheet--open]="sheetOpen" role="dialog" aria-modal="true" aria-label="Navigation" (keydown)="onSheetKeydown($event)">
@@ -183,10 +197,13 @@
     </button>
   </div>
 </div>
+}
 
 <main class="shell-main" tabindex="-1">
   <router-outlet />
 </main>
 
-<app-fab />
-<app-transaction-form />
+@if (!isNotAllowed) {
+  <app-fab />
+  <app-transaction-form />
+}

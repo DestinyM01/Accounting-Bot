@@ -1,68 +1,126 @@
-// Styles shared by the Settings page's three section components.
+// Styles shared by the Settings page's four section components.
 :host { display: block; }
 
 .set-section {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  padding: var(--space-md);
 }
 
-h2 { margin: 0; font-size: 1.1rem; color: var(--text); }
+h2 { margin: 0; font-size: 1.1rem; color: var(--ink); }
 
 h3 {
   margin: var(--space-sm) 0 0;
   font-size: 0.95rem;
-  color: var(--text);
-  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  color: var(--ink);
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 }
 
-.set-line { margin: 0; color: var(--text); }
-.set-muted { margin: 0; font-size: 0.85rem; color: var(--text-muted); }
-.set-source { font-size: 0.75rem; font-style: italic; color: var(--text-muted); }
+.set-line { margin: 0; color: var(--ink); }
+.set-muted { margin: 0; font-size: 0.85rem; color: var(--ink-2); }
+.set-source { font-size: 0.75rem; font-style: italic; color: var(--ink-2); }
 
 .set-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
 
-.set-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-
+// ── Dense rows (an .row modifier, same reasoning as Merchants/Categories:
+// wraps on narrow widths and puts the row's action(s) on the right) ────────
 .set-row {
-  display: flex;
+  justify-content: space-between;
   flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.set-row-main { flex: 1 1 16rem; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.set-row-title { color: var(--ink); overflow-wrap: anywhere; }
+
+.set-row-cat {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) 0;
-  border-bottom: 1px solid var(--border);
-  &:last-child { border-bottom: none; }
+  gap: 6px;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
 }
 
-.set-row-main { flex: 1 1 14rem; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.set-row-title { color: var(--text); overflow-wrap: anywhere; }
-
-.set-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); color: var(--text); }
-
-.set-amount {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  &.expense { color: var(--expense); }
-  &.income { color: var(--income); }
+@media (max-width: 640px) {
+  .set-row { flex-direction: column; align-items: flex-start; }
+  // flex-basis is a height basis once .set-row switches to a column's main
+  // axis; reset it or .set-row-main inflates to 16rem tall (same fix as
+  // Merchants' .mer-main at this same breakpoint).
+  .set-row-main { flex-basis: auto; }
 }
 
-// An internal/unresolved transfer is not spending — tag it instead of
-// rendering the expense sign/colour. Matches the Transactions page's own
-// .cat-pill.transfer-pill (component styles are encapsulated, so it's
-// redeclared here for this section's cat-pill).
-.transfer-pill { background: var(--color-surface-hover); color: var(--text-muted); }
+.set-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); color: var(--ink); }
 
 .set-link { color: var(--accent-ink); font-size: 0.875rem; }
 
+@media (max-width: 760px) {
+  // 40px touch target, same threshold as _primitives.scss's .btn.
+  .set-link { display: inline-flex; align-items: center; min-height: 40px; }
+}
+
 .set-field { max-width: 24rem; }
 
-.set-check {
+// ── Accessible switch (role="switch"): a boxy track + thumb, on the shape
+// lock's control radius rather than a retired pill shape. ─────────────────
+.set-switch-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-xs);
-  color: var(--text);
-  input { margin-top: 3px; }
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.set-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 40px; // hit area
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+}
+
+.set-switch-track {
+  position: relative;
+  display: block;
+  width: 40px;
+  height: 22px;
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  // --line-control, not --line-strong: the border is the off track's only boundary, and
+  // --line-strong is well under the 3:1 a UI component needs (WCAG 1.4.11).
+  border: 1px solid var(--line-control);
+  transition: background var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+
+.set-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-mark);
+  background: var(--ink-2);
+  transition: transform var(--dur-short) var(--ease-out), background var(--dur-short) var(--ease-out);
+}
+
+.set-switch[aria-checked='true'] {
+  // Border --accent-ink: the --accent fill alone is only about 2:1 on the light card.
+  .set-switch-track { background: var(--accent); border-color: var(--accent-ink); }
+  .set-switch-thumb { background: var(--on-accent); transform: translateX(18px); }
+}
+
+.set-switch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--ink);
 }
 
 .set-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
@@ -70,24 +128,21 @@ h3 {
 .set-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 4px 2px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  gap: 2px;
+  padding: 4px 4px 4px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-tag);
+  background: var(--surface-raised);
+  font-family: var(--font-mono);
   font-size: 0.85rem;
-  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
 
-  button {
-    display: inline-flex;
-    padding: 2px;
-    border: none;
-    border-radius: 999px;
-    background: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    &:hover { background: var(--color-surface-hover); color: var(--text); }
-    &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
-  }
+  .btn--icon { width: 22px; height: 22px; }
+}
+
+@media (max-width: 760px) {
+  .set-chip .btn--icon { width: 40px; height: 40px; }
 }
 
 .set-add {
@@ -95,14 +150,14 @@ h3 {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--space-xs);
-  .fc-field { flex: 1 1 12rem; min-width: 0; max-width: 20rem; }
+  .field { flex: 1 1 12rem; min-width: 0; max-width: 20rem; }
 }
 
 @media (max-width: 640px) {
   .set-add {
     flex-direction: column;
     align-items: stretch;
-    .fc-field { flex: 0 0 auto; max-width: none; }
+    .field { flex: 0 0 auto; max-width: none; }
   }
 }
 

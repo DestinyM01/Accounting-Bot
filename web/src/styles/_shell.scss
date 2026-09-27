@@ -87,6 +87,17 @@
   }
 }
 
+// The not-allowed page's minimal bar (see app.component.html): brand left, Log out right,
+// nothing in between. Overrides .shell-bar-inner's 3-column grid with a plain flex row —
+// grid auto-placement would otherwise drop the second (and only other) child into the
+// middle 1fr track and stretch it, since there's no third child left to claim the trailing
+// auto track.
+.shell-bar-inner--minimal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .shell-menu-wrap { position: relative; }
 
 .shell-group-menu {
@@ -394,4 +405,11 @@
 
 @media (min-width: 901px) {
   .shell-scrim, .shell-sheet { display: none; }
+}
+
+// Touch targets: same 40px minimum as _primitives.scss's .btn/.btn--icon/.chip/.seg-opt, for the
+// shell's own controls (a finger needs more than a mouse pointer does, same threshold: 760px).
+@media (max-width: 760px) {
+  .shell-brand { min-height: 40px; }
+  .shell-iconbtn { width: 40px; height: 40px; }
 }

@@ -1,32 +1,42 @@
 <section class="card set-section" aria-labelledby="reports-title">
   <h2 id="reports-title">Email reports</h2>
+  <p class="set-muted">Weekly and monthly summaries sent by email.</p>
 
   @if (loading) {
-    <p class="set-muted">Loading…</p>
+    <div aria-hidden="true">
+      <div class="skeleton skel-line" style="--w: 55%; margin-bottom: 14px;"></div>
+      <div class="skeleton skel-line" style="--w: 60%; margin-bottom: 14px;"></div>
+      <div class="skeleton skel-line" style="--w: 70%; height: 38px; margin-bottom: 14px;"></div>
+      <div class="skeleton skel-line" style="--w: 96px;"></div>
+    </div>
   } @else if (loadError) {
-    <p class="fc-error" role="alert">{{ loadError }}</p>
+    <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ loadError }}</p>
+    <button type="button" class="btn" (click)="load()">Try again</button>
   } @else if (view) {
     <form class="set-section-form" (ngSubmit)="save()">
-      <label class="set-check">
-        <input id="reports-weekly" type="checkbox" [(ngModel)]="weekly" name="weekly" />
-        <span>
-          Weekly digest <span class="set-muted">(Mondays, 7:00 AM)</span><br />
+      <div class="set-switch-row" (click)="toggleWeekly()">
+        <button id="reports-weekly" type="button" role="switch" [attr.aria-checked]="weekly" aria-labelledby="reports-weekly-label" class="set-switch">
+          <span class="set-switch-track"><span class="set-switch-thumb"></span></span>
+        </button>
+        <span class="set-switch-text">
+          <span id="reports-weekly-label">Weekly digest <span class="set-muted">(Mondays, 7:00 AM)</span></span>
           <span class="set-muted">{{ view.lastSent.weekly ? 'Last sent ' + (view.lastSent.weekly.at | date: 'MMM d, y') : 'Not sent yet' }}</span>
         </span>
-      </label>
-      <label class="set-check">
-        <input type="checkbox" [(ngModel)]="monthly" name="monthly" />
-        <span>
-          Monthly summary <span class="set-muted">(the 1st, 7:00 AM)</span><br />
+      </div>
+      <div class="set-switch-row" (click)="toggleMonthly()">
+        <button type="button" role="switch" [attr.aria-checked]="monthly" aria-labelledby="reports-monthly-label" class="set-switch">
+          <span class="set-switch-track"><span class="set-switch-thumb"></span></span>
+        </button>
+        <span class="set-switch-text">
+          <span id="reports-monthly-label">Monthly summary <span class="set-muted">(the 1st, 7:00 AM)</span></span>
           <span class="set-muted">{{ view.lastSent.monthly ? 'Last sent ' + (view.lastSent.monthly.at | date: 'MMM d, y') : 'Not sent yet' }}</span>
         </span>
-      </label>
+      </div>
 
-      <label class="fc-field set-field">
+      <label class="field set-field">
         <span>Send to</span>
         <input
           id="reports-recipient"
-          class="fc-input"
           type="email"
           autocomplete="email"
           maxlength="254"
@@ -40,13 +50,13 @@
       }
 
       @if (saveError) {
-        <p class="fc-error" role="alert">{{ saveError }}</p>
+        <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ saveError }}</p>
       }
       <p class="set-muted" aria-live="polite">{{ saved }}</p>
 
       <div class="set-actions">
-        <button type="submit" class="fc-btn fc-btn--primary" [disabled]="!dirty || saving">{{ saving ? 'Saving…' : 'Save' }}</button>
-        <button id="reports-test" type="button" class="fc-btn fc-btn--ghost" [disabled]="testState === 'sending' || dirty" (click)="sendTest()">
+        <button type="submit" class="btn btn--primary" [disabled]="!dirty || saving">{{ saving ? 'Saving…' : 'Save' }}</button>
+        <button id="reports-test" type="button" class="btn btn--ghost" [disabled]="testState === 'sending' || dirty" (click)="sendTest()">
           <app-icon [name]="testState === 'sent' ? 'mail-check' : 'mail'" />
           {{ testLabel }}
         </button>
@@ -56,15 +66,15 @@
         @if (savedHere) {
           @if (confirmReset) {
             <span role="alert">Forget what's saved here and follow the server's config?</span>
-            <button id="reports-reset-yes" type="button" class="fc-btn fc-btn--primary" (click)="resetToConfig()">Use the server's config</button>
-            <button type="button" class="fc-btn fc-btn--ghost" (click)="confirmReset = false">Cancel</button>
+            <button id="reports-reset-yes" type="button" class="btn btn--primary" (click)="resetToConfig()">Use the server's config</button>
+            <button type="button" class="btn btn--ghost" (click)="confirmReset = false">Cancel</button>
           } @else {
-            <button type="button" class="fc-btn fc-btn--ghost" [disabled]="saving" (click)="resetToConfig()">Use the server's config</button>
+            <button type="button" class="btn btn--ghost" [disabled]="saving" (click)="resetToConfig()">Use the server's config</button>
           }
         }
       </div>
       @if (testState === 'error') {
-        <p class="fc-error" role="alert">{{ testError }}</p>
+        <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ testError }}</p>
       }
     </form>
   }

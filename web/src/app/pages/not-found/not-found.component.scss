@@ -1,0 +1,24 @@
+// Full-page state: vertically centered, left-aligned text (see the not-allowed
+// component for the same pattern).
+.nf-wrap {
+  min-height: calc(100vh - 64px);
+  display: flex;
+  align-items: center;
+}
+
+.nf-block {
+  max-width: 440px;
+
+  h1 {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+  }
+
+  p {
+    margin: 0 0 20px;
+    color: var(--ink-2);
+    font-size: var(--text-sm);
+  }
+}

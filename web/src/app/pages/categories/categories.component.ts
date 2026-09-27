@@ -87,6 +87,11 @@ export class CategoriesComponent implements OnInit, OnDestroy {
     return this.name.trim().toLowerCase();
   }
 
+  /** The Tabler icon for a built-in category (shown instead of an emoji). */
+  catIcon(name: string): string {
+    return this.categorySvc.icon(name);
+  }
+
   get nameCheck(): string {
     const n = this.normalizedName;
     if (!n || n === this.editing?.name) return '';
@@ -290,7 +295,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
     return typeof e.error?.message === 'string' ? e.error.message : 'Something went wrong. Please try again.';
   }
 
-  private load(): void {
+  load(): void {
     const gen = ++this.gen;
     this.subs.add(
       this.api.getCategoryOverview().subscribe({

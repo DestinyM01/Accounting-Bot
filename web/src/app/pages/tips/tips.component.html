@@ -1,76 +1,57 @@
-<div class="tips-page">
-  <!-- Header -->
-  <div class="page-header">
-    <div class="header-left">
-      <app-icon class="header-icon" name="bulb" [size]="32" />
-      <div>
-        <h1>Financial Tips</h1>
-        <p class="subtitle">Personalized advice based on your spending habits</p>
-      </div>
+<div class="page">
+  <div class="page-title">
+    <div class="tips-title-group">
+      <h1>Tips</h1>
+      <p class="page-title-meta">Suggestions from your recent spending</p>
     </div>
-    <button class="refresh-btn" (click)="refresh()" [disabled]="loading || refreshing">
-      <app-icon [class.spinning]="refreshing" name="refresh" />
-      <span>{{ refreshing ? 'Analyzing...' : 'Refresh' }}</span>
+    <button type="button" class="btn" [disabled]="loading || refreshing" (click)="refresh()">
+      <app-icon name="refresh" [size]="16" [class.tips-spin]="refreshing" />
+      {{ refreshing ? 'Refreshing…' : 'Refresh' }}
     </button>
   </div>
 
-  <!-- Loading skeleton -->
   @if (loading) {
-    <div class="tips-grid">
-      @for (_ of [1,2,3]; track $index) {
-        <div class="tip-card tip-card--loading">
-          <div class="sk-line sk-title"></div>
-          <div class="sk-line sk-body"></div>
-          <div class="sk-line sk-body short"></div>
+    <div class="tiles tips-tiles" aria-hidden="true">
+      @for (i of [1, 2, 3, 4]; track i) {
+        <div class="tile tips-tile">
+          <div class="skeleton" style="width: 32px; height: 32px; border-radius: var(--radius-control);"></div>
+          <div class="skeleton skel-line" style="--w: 90px; height: 18px; margin-top: 14px;"></div>
+          <div class="skeleton skel-line" style="--w: 70%; height: 16px; margin-top: 10px;"></div>
+          <div class="skeleton skel-line" style="--w: 100%; margin-top: 10px;"></div>
+          <div class="skeleton skel-line" style="--w: 85%; margin-top: 6px;"></div>
         </div>
       }
     </div>
-  }
-
-  <!-- Error -->
-  @if (!loading && error) {
-    <div class="empty-state">
-      <app-icon class="empty-icon error-icon" name="alert-circle" [size]="48" />
-      <p>{{ error }}</p>
-      <button class="refresh-btn" (click)="load()">Try Again</button>
+  } @else if (serviceUnavailable) {
+    <div class="empty">{{ error }}</div>
+  } @else if (error) {
+    <div class="tips-load-error">
+      <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+      <button type="button" class="btn" (click)="load()">Try again</button>
     </div>
-  }
-
-  <!-- Tips grid -->
-  @if (!loading && !error && tips.length > 0) {
-    <div class="tips-grid">
-      @for (tip of tips; track trackByTitle($index, tip)) {
-        <div class="tip-card" [class]="'priority-' + tip.priority">
-          <div class="tip-header">
-            <div class="tip-icon-wrap">
-              <app-icon [name]="tablerIcon(tip.icon)" [size]="20" />
-            </div>
-            <span class="priority-badge">{{ priorityLabel(tip.priority) }}</span>
-          </div>
-          <div class="tip-body">
-            <h3>{{ tip.title }}</h3>
-            <p>{{ tip.description }}</p>
-          </div>
+  } @else if (tips.length === 0) {
+    <div class="empty">
+      No tips yet
+      <span>Add some transactions and click Refresh!</span>
+      <button type="button" class="btn btn--primary" (click)="refresh()">Refresh</button>
+    </div>
+  } @else {
+    <div class="tiles tips-tiles">
+      @for (tip of tips; track trackByTitle($index, tip); let last = $last; let count = $count) {
+        <div class="tile tips-tile" [class.tips-tile--wide]="last && count % 2 === 1">
+          <div class="tips-icon"><app-icon [name]="tablerIcon(tip.icon)" [size]="18" /></div>
+          <span class="tag" [class.tag--accent]="tip.priority === 'high'">{{ priorityLabel(tip.priority) }}</span>
+          <h3 class="tips-tile-title">{{ tip.title }}</h3>
+          <p class="tips-tile-text">{{ tip.description }}</p>
           @if (tip.potentialSaving) {
-            <div class="saving-chip">
-              <app-icon name="pig-money" [size]="16" />
-              <span>{{ tip.potentialSaving }}</span>
-            </div>
+            <p class="tips-saving">{{ tip.potentialSaving }}</p>
           }
-          <div class="tip-category">
-            <app-icon name="tag" [size]="14" />
-            <span>{{ tip.category }}</span>
+          <div class="tips-cat">
+            <span class="swatch" [style.background]="catColor(tip.category)"></span>
+            {{ tip.category | titlecase }}
           </div>
         </div>
       }
-    </div>
-  }
-
-  <!-- Empty -->
-  @if (!loading && !error && tips.length === 0) {
-    <div class="empty-state">
-      <app-icon class="empty-icon" name="bulb" [size]="48" />
-      <p>No tips yet. Add some transactions and click Refresh!</p>
     </div>
   }
 </div>

@@ -101,6 +101,15 @@ const RE_BALANCE = /^\/api\/balance$/;
 export const previewApiInterceptor: HttpInterceptorFn = (req, next) => {
   if (!req.url.startsWith('/api')) return next(req);
 
+  // Dev-only escape hatch so the Not-allowed screen (the real api's 403 for a login that
+  // isn't the configured owner) can be clicked through and screenshotted with no Authentik
+  // in the loop. Never reachable in production: this file only builds under the `preview`
+  // build configuration (see angular.json's fileReplacements), which swaps out app.config.ts
+  // entirely.
+  if (localStorage.getItem('accbot.preview.forbid') === '1') {
+    return fail(403);
+  }
+
   const { method, url, params } = req;
   let m: RegExpExecArray | null;
 

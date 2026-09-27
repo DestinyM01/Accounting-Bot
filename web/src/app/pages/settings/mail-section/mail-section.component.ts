@@ -7,6 +7,7 @@ import { ApiService } from '../../../core/services/api.service';
 import { IngestionStatusView, RunCounts } from '../../../core/services/api.models';
 import { CategoryService } from '../../../core/services/category.service';
 import { TransactionEventsService } from '../../../core/services/transaction-events.service';
+import { IconComponent } from '../../../core/ui/icon/icon.component';
 
 /** "1 new · 140 already booked · 12 not transactions": "new" always, the rest only when above zero. */
 function countsText(c: RunCounts): string {
@@ -19,16 +20,32 @@ function countsText(c: RunCounts): string {
   return parts.join(' · ');
 }
 
+interface CountPart {
+  n: number;
+  label: string;
+}
+
+/** Same counts as countsText, split so the status line can render each count as a mono figure. */
+function countsParts(c: RunCounts): CountPart[] {
+  const parts: CountPart[] = [{ n: c.created, label: 'new' }];
+  if (c.alreadyBooked > 0) parts.push({ n: c.alreadyBooked, label: 'already booked' });
+  if (c.notTransactions > 0) parts.push({ n: c.notTransactions, label: c.notTransactions === 1 ? 'not a transaction' : 'not transactions' });
+  if (c.unreadable > 0) parts.push({ n: c.unreadable, label: "couldn't read" });
+  if (c.bookingFailed > 0) parts.push({ n: c.bookingFailed, label: "couldn't book" });
+  if ((c.unverified ?? 0) > 0) parts.push({ n: c.unverified ?? 0, label: 'unverified' });
+  return parts;
+}
+
 /** Settings › Bank mail: how ingestion is doing, a check on demand, and the mails it couldn't read. */
 @Component({
     selector: 'app-mail-section',
-    imports: [CurrencyPipe, DatePipe, TitleCasePipe, RouterLink],
+    imports: [CurrencyPipe, DatePipe, TitleCasePipe, RouterLink, IconComponent],
     templateUrl: './mail-section.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['../settings-section.scss']
 })
 export class MailSectionComponent implements OnInit, OnDestroy {
-  readonly countsText = countsText;
+  readonly countsParts = countsParts;
   status: IngestionStatusView | null = null;
   loading = true;
   loadError = '';
@@ -129,7 +146,7 @@ export class MailSectionComponent implements OnInit, OnDestroy {
   }
 
   /** Reads the status; a reply older than the newest request is dropped. */
-  private load(then?: () => void) {
+  protected load(then?: () => void) {
     if (this.pollTimer) {
       clearTimeout(this.pollTimer);
       this.pollTimer = null;

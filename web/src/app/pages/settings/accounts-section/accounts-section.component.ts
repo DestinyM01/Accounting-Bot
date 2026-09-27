@@ -159,7 +159,7 @@ export class AccountsSectionComponent implements OnInit, OnDestroy {
     this.senders = [...v.senders.value];
   }
 
-  private load() {
+  protected load() {
     const gen = ++this.gen;
     this.subs.add(
       this.api.getSettings().subscribe({

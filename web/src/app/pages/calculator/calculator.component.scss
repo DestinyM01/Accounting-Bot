@@ -1,12 +1,6 @@
-.calc-header {
-  margin-bottom: var(--space-md);
-  h1 { margin: 0; }
-  p { margin: 4px 0 0; font-size: 0.9rem; color: var(--text-muted); }
-}
-
 .calc-layout {
   display: grid;
-  grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+  grid-template-columns: minmax(280px, 1fr) 2.2fr;
   gap: var(--space-md);
   align-items: start;
 
@@ -17,48 +11,92 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  padding: var(--space-md);
 }
 
-h2 { margin: 0; font-size: 1.1rem; color: var(--text); }
-h3 { margin: 0; font-size: 0.95rem; color: var(--text); }
-
-.calc-note { margin: 0; font-size: 0.85rem; color: var(--text-muted); }
-
-.calc-figures {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-xs);
-
-  @media (max-width: 480px) { grid-template-columns: minmax(0, 1fr); }
+.calc-panel h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--ink);
 }
 
-.calc-figure {
+.calc-num-input {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.calc-mine-btn {
+  align-self: flex-start;
+  margin-top: var(--space-3xs);
+}
+
+.calc-hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+
+// The "Use my numbers" result is a live region, so it stays in the DOM while it's empty. An
+// empty flex child still costs the panel one gap; the negative margin hands that gap back, so
+// the panel lays out exactly as it did before the paragraph was always rendered.
+.calc-mine-hint:empty { margin-top: calc(-1 * var(--space-xs)); }
+
+// ── Right column ─────────────────────────────────────────────────────────
+.calc-right {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  span { font-size: 0.8rem; color: var(--text-muted); }
-  strong { font-size: 1.2rem; color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-  strong.calc-interest { color: var(--accent-ink); }
+  gap: var(--space-sm);
+
+  > h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--ink);
+  }
 }
+
+.calc-tiles {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  @media (max-width: 480px) { grid-template-columns: 1fr; }
+}
+
+.calc-interest { color: var(--accent-ink); }
+
+.calc-chart-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.calc-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.calc-swatch-putin { background: var(--ink-3); }
+.calc-swatch-interest { background: var(--accent); }
 
 .calc-chart { position: relative; height: 260px; }
 
 .calc-table-wrap {
   max-height: 320px;
   overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
 }
 
 .calc-table {
   width: 100%;
   border-collapse: collapse;
+  font-family: var(--font-mono);
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
 
-  th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--border); color: var(--text); }
-  th { position: sticky; top: 0; background: var(--bg-card); color: var(--text-muted); font-weight: 600; }
+  th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--line); color: var(--ink); }
+  th { position: sticky; top: 0; background: var(--surface); color: var(--ink-2); font-weight: 600; }
   th:first-child, td:first-child { text-align: left; }
 }
 
@@ -66,6 +104,8 @@ h3 { margin: 0; font-size: 0.95rem; color: var(--text); }
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: var(--space-sm);
-  p { margin: 0; font-size: 0.85rem; color: var(--text-muted); }
+  margin-top: var(--space-xs);
+
+  h3 { margin: 0; font-size: 0.95rem; color: var(--ink); }
+  p { margin: 0; max-width: 65ch; font-size: 0.85rem; color: var(--ink-2); }
 }

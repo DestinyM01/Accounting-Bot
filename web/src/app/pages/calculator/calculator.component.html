@@ -1,17 +1,18 @@
-<div class="page-wrap">
-  <div class="calc-header">
+<div class="page">
+  <div class="page-title">
     <h1>Growth calculator</h1>
-    <p>How savings grow with compound interest.</p>
+    <span class="page-title-meta">How savings grow with compound interest</span>
   </div>
 
   <div class="calc-layout">
-    <section class="card calc-panel" aria-labelledby="calc-inputs-title">
-      <h2 id="calc-inputs-title">Your plan</h2>
-      <label class="fc-field">
-        <span>Starting amount ($)</span>
+    <section class="card calc-panel" aria-labelledby="calc-plan-title">
+      <h2 id="calc-plan-title">Your plan</h2>
+      <label class="field">
+        <span>Starting amount</span>
         <input
-          class="fc-input"
+          class="calc-num-input"
           type="number"
+          inputmode="decimal"
           min="0"
           max="1000000000000"
           step="0.01"
@@ -21,11 +22,12 @@
           [disabled]="mineLoading"
         />
       </label>
-      <label class="fc-field">
-        <span>Monthly deposit ($)</span>
+      <label class="field">
+        <span>Monthly deposit</span>
         <input
-          class="fc-input"
+          class="calc-num-input"
           type="number"
+          inputmode="decimal"
           min="0"
           max="1000000000000"
           step="0.01"
@@ -35,20 +37,22 @@
           [disabled]="mineLoading"
         />
       </label>
-      <label class="fc-field">
+      <label class="field">
         <span>Annual rate (%)</span>
-        <input class="fc-input" type="number" min="0" max="100" step="0.1" [(ngModel)]="rate" (ngModelChange)="onChange()" name="rate" />
+        <input class="calc-num-input" type="number" inputmode="decimal" min="0" max="100" step="0.1" [(ngModel)]="rate" (ngModelChange)="onChange()" name="rate" />
       </label>
-      <label class="fc-field">
+      <label class="field">
         <span>Years</span>
-        <input class="fc-input" type="number" min="1" max="60" step="1" [(ngModel)]="years" (ngModelChange)="onChange()" name="years" />
+        <input class="calc-num-input" type="number" inputmode="numeric" min="1" max="60" step="1" [(ngModel)]="years" (ngModelChange)="onChange()" name="years" />
       </label>
 
-      <button type="button" class="fc-btn fc-btn--ghost" [disabled]="mineLoading" (click)="useMyNumbers()">
-        <app-icon name="user" />
+      <button type="button" class="btn calc-mine-btn" [disabled]="mineLoading" (click)="useMyNumbers()">
+        <app-icon name="user" [size]="16" />
         {{ mineLoading ? 'Loading…' : 'Use my numbers' }}
       </button>
-      <p class="calc-note" aria-live="polite">
+      <!-- Always rendered (empty until "Use my numbers" fills it) so screen readers have the
+           live region registered before its text arrives. -->
+      <p class="calc-hint calc-mine-hint" aria-live="polite">
         @if (mine) {
           @if (mine.spentMore) {
             Your balance today · average saved over {{ mineSpan }}: you spent more than you earned, so
@@ -59,41 +63,59 @@
         }
       </p>
       @if (mineError) {
-        <p class="fc-error" role="alert">{{ mineError }}</p>
+        <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ mineError }}</p>
       }
       @if (inputError) {
-        <p class="fc-error" role="alert">{{ inputError }}</p>
+        <p class="error-inline" role="alert"><app-icon name="alert-circle" [size]="16" />{{ inputError }}</p>
       }
     </section>
 
-    <section class="card calc-panel" aria-labelledby="calc-results-title">
-      <h2 id="calc-results-title">What it grows to</h2>
-      @if (result) {
+    <div class="calc-right">
+      <h2>What it grows to</h2>
+      @if (!result && loading) {
+        <div class="tiles calc-tiles" aria-hidden="true">
+          @for (i of [1, 2, 3]; track i) {
+            <div class="tile">
+              <div class="skeleton skel-line" style="--w: 100px"></div>
+              <div class="skeleton skel-figure" style="width: 70%; margin-top: 10px;"></div>
+            </div>
+          }
+        </div>
+        <div class="card calc-chart-card" aria-hidden="true">
+          <div class="skeleton" style="height: 260px;"></div>
+        </div>
+      } @else if (result) {
         @if (stale) {
-          <p class="calc-note">Showing the last valid result</p>
+          <p class="calc-hint">Showing the last valid result</p>
         }
-        <div class="calc-figures" aria-live="polite" aria-atomic="true">
-          <div class="calc-figure">
-            <span>Final balance</span>
-            <strong>{{ money(result.finalBalance) }}</strong>
+        <div class="tiles calc-tiles" aria-live="polite" aria-atomic="true">
+          <div class="tile">
+            <div class="label">Final balance</div>
+            <div class="figure-md">{{ money(result.finalBalance) }}</div>
           </div>
-          <div class="calc-figure">
-            <span>You put in</span>
-            <strong>{{ money(result.putIn) }}</strong>
+          <div class="tile">
+            <div class="label">You put in</div>
+            <div class="figure-md">{{ money(result.putIn) }}</div>
           </div>
-          <div class="calc-figure">
-            <span>Interest earned</span>
-            <strong class="calc-interest">{{ money(result.interest) }}</strong>
+          <div class="tile">
+            <div class="label">Interest earned</div>
+            <div class="figure-md calc-interest">{{ money(result.interest) }}</div>
           </div>
         </div>
 
-        <div class="calc-chart">
-          <canvas #chartCanvas role="img" [attr.aria-label]="chartSummary"></canvas>
+        <div class="card calc-chart-card">
+          <div class="calc-legend">
+            <span class="swatch calc-swatch-putin"></span> Put in
+            <span class="swatch calc-swatch-interest"></span> Interest
+          </div>
+          <div class="calc-chart">
+            <canvas #chartCanvas role="img" [attr.aria-label]="chartSummary"></canvas>
+          </div>
         </div>
 
         <button
           type="button"
-          class="fc-btn fc-btn--ghost"
+          class="btn"
           [attr.aria-expanded]="showTable"
           [attr.aria-controls]="showTable ? 'calc-table' : null"
           (click)="showTable = !showTable"
@@ -124,8 +146,6 @@
             </table>
           </div>
         }
-      } @else if (loading) {
-        <p class="calc-note">Calculating…</p>
       }
 
       <div class="calc-explainer">
@@ -134,6 +154,6 @@
         <p>Deposits are added at the end of each month, so each one starts earning the month after.</p>
         <p>The longer the money stays, the more of the final balance is interest rather than deposits.</p>
       </div>
-    </section>
+    </div>
   </div>
 </div>

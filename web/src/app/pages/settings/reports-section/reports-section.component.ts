@@ -123,6 +123,14 @@ export class ReportsSectionComponent implements OnInit, OnDestroy {
     );
   }
 
+  toggleWeekly() {
+    this.weekly = !this.weekly;
+  }
+
+  toggleMonthly() {
+    this.monthly = !this.monthly;
+  }
+
   sendTest() {
     if (this.testState === 'sending') return;
     if (this.testTimer) {
@@ -161,7 +169,7 @@ export class ReportsSectionComponent implements OnInit, OnDestroy {
     this.recipient = this.savedRecipient;
   }
 
-  private load() {
+  protected load() {
     const gen = ++this.gen;
     this.subs.add(
       this.api.getSettings().subscribe({
