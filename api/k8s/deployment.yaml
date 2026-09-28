@@ -26,6 +26,13 @@ spec:
         - name: accounting-api
           image: ghcr.io/destinym01/accounting-api:latest
           imagePullPolicy: Always
+          # The image already runs as its node user (uid 1000); this enforces it.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - name: http
               containerPort: 4000

@@ -84,6 +84,25 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-
 
+      # The image ships production dependencies only, which the tests never
+      # install: load the app inside the built image before anything is pushed.
+      - name: Build for the smoke test
+        uses: docker/build-push-action@v7
+        with:
+          context: ./api
+          file: ./api/Dockerfile
+          load: true
+          tags: accounting-api:smoke
+          cache-from: type=registry,ref=${{ env.API_IMAGE }}:buildcache
+          provenance: false
+
+      - name: Smoke-test the image
+        run: >-
+          docker run --rm accounting-api:smoke node -e
+          "require('./dist/app.module'); require('@nestjs/platform-express');
+          if (process.getuid() === 0) throw new Error('the image runs as root');
+          console.log('The api image loads its code as uid', process.getuid())"
+
       - name: Build & push
         uses: docker/build-push-action@v7
         with:
