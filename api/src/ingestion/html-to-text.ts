@@ -31,15 +31,42 @@ function inline(html: string): string {
   return decodeEntities(html.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
 }
 
-const NAMED: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+/**
+ * The HTML 4 Latin-1 entities, U+00A0 to U+00FF in order. BHD's transfer
+ * receipts spell every accented label this way ("Tipo de transacci&oacute;n"),
+ * and the parsers compare labels exactly.
+ */
+const LATIN1 = (
+  'nbsp iexcl cent pound curren yen brvbar sect uml copy ordf laquo not shy reg macr ' +
+  'deg plusmn sup2 sup3 acute micro para middot cedil sup1 ordm raquo frac14 frac12 frac34 iquest ' +
+  'Agrave Aacute Acirc Atilde Auml Aring AElig Ccedil Egrave Eacute Ecirc Euml Igrave Iacute Icirc Iuml ' +
+  'ETH Ntilde Ograve Oacute Ocirc Otilde Ouml times Oslash Ugrave Uacute Ucirc Uuml Yacute THORN szlig ' +
+  'agrave aacute acirc atilde auml aring aelig ccedil egrave eacute ecirc euml igrave iacute icirc iuml ' +
+  'eth ntilde ograve oacute ocirc otilde ouml divide oslash ugrave uacute ucirc uuml yacute thorn yuml'
+).split(' ');
+
+/** Named entities, matched by exact case: &Oacute; and &oacute; are different letters. */
+const NAMED: Record<string, string> = {
+  ...Object.fromEntries(LATIN1.map((name, i) => [name, String.fromCharCode(0xa0 + i)])),
+  nbsp: ' ',
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+};
+
+/** The six entities decoded before accents were, still accepted in any case (&AMP;). */
+const CASELESS = new Set(['nbsp', 'amp', 'lt', 'gt', 'quot', 'apos']);
 
 function decodeEntities(s: string): string {
-  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code: string) => {
+  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (whole, code: string) => {
     if (code[0] === '#') {
       const n = code[1].toLowerCase() === 'x' ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
       return Number.isFinite(n) ? codePoint(n) : whole;
     }
-    return NAMED[code.toLowerCase()] ?? whole;
+    const lower = code.toLowerCase();
+    return NAMED[code] ?? (CASELESS.has(lower) ? NAMED[lower] : whole);
   });
 }
 
