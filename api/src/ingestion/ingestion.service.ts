@@ -238,7 +238,7 @@ export class IngestionService implements BeforeApplicationShutdown, OnModuleDest
 
       let parsed: ParsedTransaction | null = null;
       try {
-        parsed = parser.parse({ subject: mail.subject, body: mail.body, ownIdentifiers, ownCashAccounts });
+        parsed = parser.parse({ subject: mail.subject, body: mail.body, ownIdentifiers, ownCashAccounts, arrivedAt: mail.arrivedAt });
       } catch (err) {
         this.logger.error(`Parser ${parser.bank} threw on ${mail.messageId}`, String(err));
       }

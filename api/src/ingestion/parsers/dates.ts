@@ -45,6 +45,26 @@ export function parseDMyHms(s: string): Date | null {
   return santoDomingoInstant(+m[3], +m[2] - 1, +m[1], +m[4], +m[5], +m[6]);
 }
 
+/** How far a bank's clock may run ahead of Gmail's before a reading counts as "after arrival". */
+const CLOCK_SKEW_MS = 10 * 60_000;
+
+/**
+ * Santa Cruz transfers: "2/10/2026 03:51:40", a 12-hour time with no AM or PM
+ * (03:51 for a transfer made at 3:51 PM). The mail's arrival decides: the PM
+ * reading when it is not after the arrival (a few minutes' skew allowed), else
+ * the AM one. An hour above 12 is already 24-hour. Without an arrival time the
+ * time is read as written.
+ */
+export function parseDMyHmsNoMeridiem(s: string, arrivedAt?: Date): Date | null {
+  const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})/);
+  if (!m) return parseDdMmYyyy(s);
+  const at = (hour: number) => santoDomingoInstant(+m[3], +m[2] - 1, +m[1], hour, +m[5], +m[6]);
+  const hour = +m[4];
+  if (!arrivedAt || hour > 12) return at(hour);
+  const pm = at((hour % 12) + 12);
+  return pm.getTime() <= arrivedAt.getTime() + CLOCK_SKEW_MS ? pm : at(hour % 12);
+}
+
 /** Banreservas: "18 de Septiembre 2026 - 11:52 AM" */
 export function parseSpanishLongDate(s: string): Date | null {
   const m = s.match(/(\d{1,2})\s+de\s+([A-Za-zÁÉÍÓÚáéíóú]+)\s+(\d{4})(?:\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM))?/i);

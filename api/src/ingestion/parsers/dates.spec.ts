@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as ts from 'typescript';
-import { parseDdMmYyyy12h, parseDdMmYyyyDash12h } from './dates';
+import { parseDdMmYyyy12h, parseDdMmYyyyDash12h, parseDMyHmsNoMeridiem } from './dates';
 
 describe('parseDdMmYyyyDash12h', () => {
   it('parses "28/08/2026 - 8:33 AM"', () => {
@@ -36,6 +36,46 @@ describe('parseDdMmYyyyDash12h', () => {
 describe('bank times are read in the user zone', () => {
   it('stores a BHD "09:53 pm" as the true instant', () => {
     expect(parseDdMmYyyy12h('24/09/2026 09:53 pm')!.toISOString()).toBe('2026-09-25T01:53:00.000Z');
+  });
+});
+
+// Santa Cruz transfers print a 12-hour time with no AM or PM. The mail's
+// arrival decides: the reading closest to it, and not after it.
+describe('parseDMyHmsNoMeridiem', () => {
+  const at = (iso: string) => new Date(iso);
+
+  it('picks PM for "03:51:40" when the mail arrived at 3:52 PM', () => {
+    expect(parseDMyHmsNoMeridiem('2/10/2026 03:51:40', at('2026-10-02T19:52:56Z'))!.toISOString()).toBe('2026-10-02T19:51:40.000Z');
+  });
+
+  it('keeps AM when the mail arrived at 3:52 AM', () => {
+    expect(parseDMyHmsNoMeridiem('2/10/2026 03:51:40', at('2026-10-02T07:52:56Z'))!.toISOString()).toBe('2026-10-02T07:51:40.000Z');
+  });
+
+  it('allows a few minutes of clock skew between the bank and Gmail', () => {
+    // Arrived 2 minutes before the PM reading: still that PM transfer.
+    expect(parseDMyHmsNoMeridiem('2/10/2026 03:51:40', at('2026-10-02T19:49:40Z'))!.toISOString()).toBe('2026-10-02T19:51:40.000Z');
+  });
+
+  it('tells noon from midnight', () => {
+    expect(parseDMyHmsNoMeridiem('2/10/2026 12:10:00', at('2026-10-02T16:11:00Z'))!.toISOString()).toBe('2026-10-02T16:10:00.000Z');
+    expect(parseDMyHmsNoMeridiem('2/10/2026 12:10:00', at('2026-10-02T04:11:00Z'))!.toISOString()).toBe('2026-10-02T04:10:00.000Z');
+  });
+
+  it('keeps a late-evening transfer whose mail arrived after midnight on its own day', () => {
+    expect(parseDMyHmsNoMeridiem('2/10/2026 11:50:00', at('2026-10-03T04:05:00Z'))!.toISOString()).toBe('2026-10-03T03:50:00.000Z');
+  });
+
+  it('takes an hour above 12 as already 24-hour', () => {
+    expect(parseDMyHmsNoMeridiem('2/10/2026 15:51:40', at('2026-10-02T19:52:56Z'))!.toISOString()).toBe('2026-10-02T19:51:40.000Z');
+  });
+
+  it('reads the time as written without an arrival time', () => {
+    expect(parseDMyHmsNoMeridiem('2/10/2026 03:51:40')!.toISOString()).toBe('2026-10-02T07:51:40.000Z');
+  });
+
+  it('returns null for unparseable input', () => {
+    expect(parseDMyHmsNoMeridiem('not a date', at('2026-10-02T19:52:56Z'))).toBeNull();
   });
 });
 

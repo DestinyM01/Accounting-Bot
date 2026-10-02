@@ -43,6 +43,11 @@ export interface ParseInput {
    * carries their own name, so a name match must never imply internal.
    */
   ownCashAccounts?: string[];
+  /**
+   * When Gmail received the mail. Lets a parser read a bank's 12-hour time
+   * that carries no AM or PM (Santa Cruz transfers): see parseDMyHmsNoMeridiem.
+   */
+  arrivedAt?: Date;
 }
 
 export interface BankParser {

@@ -103,6 +103,23 @@ describe('verifySender', () => {
     ).toBe(true);
   });
 
+  // A bank sending through a mailing service (SendGrid) has a bounce address
+  // with "=" in it, and DKIM fragments can hold "/": Gmail itself writes such
+  // values as quoted strings. Refusing every quote left those banks unverified.
+  it('passes when Gmail quotes a value it wrote itself: a bounce address with =, a DKIM fragment with /', () => {
+    expect(
+      verifySender(
+        header(
+          'dkim=pass header.i=@bank.example header.s=s1 header.b=AbCd1234',
+          'dkim=pass header.i=@mailer.example header.s=smtpapi header.b="AbC/"',
+          'spf=pass (google.com: domain of bounces+1234-ab12-someone=gmail.com@em1.bank.example designates 192.0.2.31 as permitted sender) smtp.mailfrom="bounces+1234-ab12-someone=gmail.com@em1.bank.example"',
+          'dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=bank.example',
+        ),
+        FROM,
+      ),
+    ).toBe(true);
+  });
+
   describe("text the sender controls inside Gmail's header", () => {
     it.each([
       ['a quoted envelope sender carrying ; and a fake dkim=pass', header('dkim=none', 'spf=softfail (google.com: domain of transitioning "x;dkim=pass header.i=@bank.example"@evil.example does not designate 192.0.2.9 as permitted sender) smtp.mailfrom="x;dkim=pass header.i=@bank.example"@evil.example', 'dmarc=fail (p=REJECT sp=REJECT dis=QUARANTINE) header.from=bank.example')],
@@ -130,6 +147,13 @@ describe('verifySender', () => {
       ['a fake header.i hidden inside a header.s value', header('dkim=pass header.s=x.header.i=@bank.example header.i=@evil.example')],
       ['a first, losing header.i ahead of an aligned one', header('dkim=pass header.i=@evil.example header.i=@bank.example')],
       ['a header.i with two @ signs', header('dkim=pass header.i=x@y@bank.example')],
+      // Gmail echoes the envelope sender inside its comments unescaped, so a
+      // quote there can only be a sender's quoted local part (the F4 shape):
+      // refused even when the rest of the header would pass.
+      ['a quote inside one of Gmail\'s comments, even around a harmless local part', header('dkim=pass header.d=bank.example', 'spf=pass (google.com: domain of "x"@evil.example designates 192.0.2.1 as permitted sender) smtp.mailfrom=x@evil.example')],
+      ['a quoted value holding spaces and a fake pass', header('dkim=none', 'spf=neutral smtp.mailfrom="x dkim=pass header.i=@bank.example"', 'dmarc=fail header.from=bank.example')],
+      ['a quote that opens no value', header('dkim=pass header.d=bank.example "x"')],
+      ['a quoted value that runs on into more text', header('dkim=pass header.d=bank.example header.s="s1"x')],
     ])('refuses %s', (_label, hdr) => {
       expect(verifySender(hdr, FROM)).toBe(false);
     });

@@ -377,6 +377,18 @@ describe('IngestionService', () => {
     expect(callArgs.ownIdentifiers).toEqual(['2222', 'SOME NAME']);
   });
 
+  // A bank that prints a 12-hour time with no AM or PM (Santa Cruz transfers)
+  // needs the arrival time to tell 03:51 from 15:51.
+  it("hands the parsers the mail's arrival time", async () => {
+    const arrivedAt = new Date('2026-10-02T19:52:56Z');
+    mail.fetchSince.mockResolvedValue([makeMail({ arrivedAt })]);
+    parserParseMock.mockReturnValue(makeParsed());
+
+    await service.run();
+
+    expect(parserParseMock.mock.calls[0][0].arrivedAt).toEqual(arrivedAt);
+  });
+
   it('skips a mail the user dismissed, before any parsing', async () => {
     mail.fetchSince.mockResolvedValue([makeMail({ messageId: 'm1' })]);
     status.dismissedAmong.mockResolvedValue(new Set(['m1']));
