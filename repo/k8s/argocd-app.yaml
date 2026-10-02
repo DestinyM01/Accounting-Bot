@@ -6,6 +6,13 @@ kind: Application
 metadata:
   name: accounting-bot
   namespace: argocd
+  annotations:
+    # Compare through the API server (a dry-run server-side apply) instead of
+    # Argo's own client-side diff. The API server fills in defaults the
+    # manifests leave out, such as the apiVersion, kind and status.phase
+    # inside the MongoDB StatefulSet's volumeClaimTemplates, which otherwise
+    # showed it OutOfSync forever. Pairs with ServerSideApply=true below.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
   finalizers:
     # Tells ArgoCD to clean up all managed resources when this Application
     # is deleted (cascade delete). Remove if you prefer manual cleanup.
